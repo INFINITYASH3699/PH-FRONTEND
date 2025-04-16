@@ -1,23 +1,19 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
-import ClientBody from "./ClientBody";
-import { Toaster } from "sonner";
+import './globals.css';
+import type { Metadata } from 'next';
+import { Inter as FontSans } from 'next/font/google';
+import AuthProvider from '@/components/providers/AuthProvider';
+import ToastProvider from '@/components/providers/ToastProvider';
+import ClientBody from './ClientBody';
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+const fontSans = FontSans({
+  subsets: ['latin'],
+  variable: '--font-sans',
 });
 
 export const metadata: Metadata = {
-  title: "PortfolioHub - Create Your Portfolio in Minutes",
-  description: "A modern portfolio generator for professionals and creatives",
-  keywords: ["portfolio", "generator", "resume", "professional", "creative", "web portfolio"],
+  title: 'PortfolioHub - Create Your Professional Portfolio',
+  description: 'Create a stunning portfolio website in minutes with customizable templates',
+  metadataBase: new URL('https://portfoliohub.com'),
 };
 
 export default function RootLayout({
@@ -26,11 +22,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`} suppressHydrationWarning>
-      <ClientBody>
-        <Toaster richColors position="top-right" />
-        {children}
-      </ClientBody>
+    <html lang="en" className={`${fontSans.variable}`} suppressHydrationWarning>
+      <AuthProvider>
+        <ClientBody>
+          <ToastProvider />
+          {children}
+        </ClientBody>
+      </AuthProvider>
     </html>
   );
 }
