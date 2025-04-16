@@ -6,91 +6,7 @@ import { Footer } from '@/components/layout/Footer';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-
-// Sample template data
-const templates = [
-  {
-    id: 'developer-1',
-    name: 'Modern Developer',
-    category: 'developer',
-    description: 'A clean and modern template for developers and programmers.',
-    image: 'https://repository-images.githubusercontent.com/616351992/41fb4d77-8bcc-4f2f-a5af-56c0e41e07c4',
-    layouts: 10,
-    isPremium: false,
-  },
-  {
-    id: 'developer-2',
-    name: 'Code Craft',
-    category: 'developer',
-    description: 'Showcase your coding projects with this sleek template.',
-    image: 'https://marketplace.canva.com/EAGGr0aHXDg/2/0/1600w/canva-pink-bold-modern-creative-portfolio-presentation-te1AiwXONs0.jpg',
-    layouts: 8,
-    isPremium: true,
-  },
-  {
-    id: 'designer-1',
-    name: 'Creative Studio',
-    category: 'designer',
-    description: 'Perfect for graphic designers, illustrators and creative professionals.',
-    image: 'https://weandthecolor.com/wp-content/uploads/2020/09/A-modern-and-fresh-portfolio-template-for-Adobe-InDesign.jpg',
-    layouts: 8,
-    isPremium: false,
-  },
-  {
-    id: 'designer-2',
-    name: 'Design Lab',
-    category: 'designer',
-    description: 'Showcase your design projects with beautiful layouts.',
-    image: 'https://www.unsell.design/wp-content/uploads/2021/07/bd5b5164-cover-flat-lay.jpg',
-    layouts: 12,
-    isPremium: true,
-  },
-  {
-    id: 'photographer-1',
-    name: 'Photo Gallery',
-    category: 'photographer',
-    description: 'A stunning template for photographers to display their work.',
-    image: 'https://marketplace.canva.com/EAFwckKNjDE/2/0/1600w/canva-black-white-grayscale-portfolio-presentation-vzScEqAI__M.jpg',
-    layouts: 12,
-    isPremium: false,
-  },
-  {
-    id: 'photographer-2',
-    name: 'Lens Focus',
-    category: 'photographer',
-    description: 'Highlight your photography with this elegant template.',
-    image: 'https://slidestack-prod.s3.amazonaws.com/templates/6ji6c1kInxBUAhSi2a77f7EigLCRsBTCOeQ8Axls.jpg',
-    layouts: 10,
-    isPremium: true,
-  },
-  {
-    id: 'writer-1',
-    name: 'Story Teller',
-    category: 'writer',
-    description: 'Perfect for writers, bloggers and content creators.',
-    image: 'https://marketplace.canva.com/EAFwckKNjDE/2/0/1600w/canva-black-white-grayscale-portfolio-presentation-vzScEqAI__M.jpg',
-    layouts: 8,
-    isPremium: false,
-  },
-  {
-    id: 'writer-2',
-    name: 'Word Craft',
-    category: 'writer',
-    description: 'Showcase your writing portfolio with this clean template.',
-    image: 'https://marketplace.canva.com/EAFg2mo-uDo/1/0/1131w/canva-black-beige-minimalist-photography-portfolio-cover-page-DiK64bic_mc.jpg',
-    layouts: 6,
-    isPremium: true,
-  },
-  {
-    id: 'architect-1',
-    name: 'Blueprint',
-    category: 'architect',
-    description: 'Showcase architectural projects with this professional template.',
-    image: 'https://www.unsell.design/wp-content/uploads/2021/07/bd5b5164-cover-flat-lay.jpg',
-    layouts: 10,
-    isPremium: false,
-  },
-];
+import { templates } from '@/data/templates';
 
 export default function TemplatesPage() {
   return (
@@ -146,7 +62,7 @@ export default function TemplatesPage() {
               <TabsContent value="all" className="mt-8">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                   {templates.map((template) => (
-                    <TemplateCard key={template.id} template={template} />
+                    <TemplateCard key={template._id} template={template} />
                   ))}
                 </div>
               </TabsContent>
@@ -156,7 +72,7 @@ export default function TemplatesPage() {
                   {templates
                     .filter((template) => template.category === 'developer')
                     .map((template) => (
-                      <TemplateCard key={template.id} template={template} />
+                      <TemplateCard key={template._id} template={template} />
                     ))}
                 </div>
               </TabsContent>
@@ -166,7 +82,7 @@ export default function TemplatesPage() {
                   {templates
                     .filter((template) => template.category === 'designer')
                     .map((template) => (
-                      <TemplateCard key={template.id} template={template} />
+                      <TemplateCard key={template._id} template={template} />
                     ))}
                 </div>
               </TabsContent>
@@ -176,7 +92,7 @@ export default function TemplatesPage() {
                   {templates
                     .filter((template) => template.category === 'photographer')
                     .map((template) => (
-                      <TemplateCard key={template.id} template={template} />
+                      <TemplateCard key={template._id} template={template} />
                     ))}
                 </div>
               </TabsContent>
@@ -186,7 +102,7 @@ export default function TemplatesPage() {
                   {templates
                     .filter((template) => template.category === 'writer')
                     .map((template) => (
-                      <TemplateCard key={template.id} template={template} />
+                      <TemplateCard key={template._id} template={template} />
                     ))}
                 </div>
               </TabsContent>
@@ -196,7 +112,7 @@ export default function TemplatesPage() {
                   {templates
                     .filter((template) => template.category === 'architect')
                     .map((template) => (
-                      <TemplateCard key={template.id} template={template} />
+                      <TemplateCard key={template._id} template={template} />
                     ))}
                 </div>
               </TabsContent>
@@ -210,24 +126,28 @@ export default function TemplatesPage() {
   );
 }
 
-type TemplateCardProps = {
+type TemplateProps = {
   template: {
-    id: string;
+    _id: string;
     name: string;
-    category: string;
     description: string;
-    image: string;
-    layouts: number;
+    previewImage: string;
     isPremium: boolean;
+    category: string;
+    settings?: {
+      layout?: {
+        sections?: string[];
+      };
+    };
   };
 };
 
-function TemplateCard({ template }: TemplateCardProps) {
+function TemplateCard({ template }: TemplateProps) {
   return (
     <Card className="group overflow-hidden rounded-lg border shadow-sm transition-all hover:shadow-md">
       <div className="relative aspect-[16/9] overflow-hidden">
         <Image
-          src={template.image}
+          src={template.previewImage}
           alt={template.name}
           fill
           className="object-cover transition-transform group-hover:scale-105"
@@ -245,12 +165,14 @@ function TemplateCard({ template }: TemplateCardProps) {
         )}
       </div>
       <div className="p-4 flex justify-between items-center">
-        <span className="text-sm font-medium">{template.layouts} layouts</span>
+        <span className="text-sm font-medium">
+          {template.settings?.layout?.sections?.length || 0} sections
+        </span>
         <div className="flex gap-2">
-          <Link href={`/templates/preview/${template.id}`}>
+          <Link href={`/templates/preview/${template._id}`}>
             <Button variant="ghost" size="sm">Preview</Button>
           </Link>
-          <Link href={`/templates/use/${template.id}`}>
+          <Link href={`/templates/use/${template._id}`}>
             <Button size="sm" className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white">
               Use
             </Button>

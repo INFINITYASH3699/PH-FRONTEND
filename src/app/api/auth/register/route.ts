@@ -1,67 +1,83 @@
 import { NextRequest, NextResponse } from 'next/server';
-import bcrypt from 'bcrypt';
+import { hash } from 'bcrypt';
 import dbConnect from '@/lib/db/mongodb';
 import { User } from '@/models/User';
+import { z } from 'zod';
 
-export async function POST(req: NextRequest) {
+// Create a schema for user registration
+const registerSchema = z.object({
+  fullName: z.string().min(2, 'Full name must be at least 2 characters'),
+  username: z
+    .string()
+    .min(3, 'Username must be at least 3 characters')
+    .max(20, 'Username must be at most 20 characters')
+    .regex(/^[a-zA-Z0-9_-]+$/, 'Username can only contain letters, numbers, underscores, and hyphens'),
+  email: z.string().email('Invalid email address'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+});
+
+export async function POST(request: NextRequest) {
   try {
-    const { fullName, username, email, password } = await req.json();
+    const body = await request.json();
 
-    // Basic validation
-    if (!fullName || !username || !email || !password) {
+    // Validate request body
+    const result = registerSchema.safeParse(body);
+
+    if (!result.success) {
       return NextResponse.json(
-        { message: 'All fields are required' },
+        { error: 'Validation failed', details: result.error.format() },
         { status: 400 }
       );
     }
 
-    if (password.length < 6) {
-      return NextResponse.json(
-        { message: 'Password must be at least 6 characters long' },
-        { status: 400 }
-      );
-    }
+    const { fullName, username, email, password } = result.data;
 
     // Connect to the database
     await dbConnect();
 
-    // Check if user with email or username already exists
+    // Check if user with email already exists
     const existingUserByEmail = await User.findOne({ email });
+
     if (existingUserByEmail) {
       return NextResponse.json(
-        { message: 'Email is already registered' },
+        { error: 'User with this email already exists' },
         { status: 409 }
       );
     }
 
+    // Check if user with username already exists
     const existingUserByUsername = await User.findOne({ username });
+
     if (existingUserByUsername) {
       return NextResponse.json(
-        { message: 'Username is already taken' },
+        { error: 'Username is already taken' },
         { status: 409 }
       );
     }
 
     // Hash the password
-    const saltRounds = 10;
-    const hashedPassword = await bcrypt.hash(password, saltRounds);
+    const hashedPassword = await hash(password, 10);
 
-    // Create the user
-    await User.create({
+    // Create a new user
+    const newUser = await User.create({
       fullName,
       username,
       email,
       password: hashedPassword,
     });
 
+    // Remove password from the response
+    const user = newUser.toObject();
+    delete user.password;
+
     return NextResponse.json(
-      { message: 'User registered successfully' },
+      { message: 'User registered successfully', user },
       { status: 201 }
     );
   } catch (error) {
     console.error('Registration error:', error);
     return NextResponse.json(
-      { message: 'An error occurred during registration' },
+      { error: 'Registration failed' },
       { status: 500 }
     );
   }

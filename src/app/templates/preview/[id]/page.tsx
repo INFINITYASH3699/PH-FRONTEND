@@ -4,76 +4,65 @@ import { notFound } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { NavBar } from '@/components/layout/NavBar';
 import { Footer } from '@/components/layout/Footer';
+import { templates } from '@/data/templates';
 
-// Sample template data
-const templates = [
-  {
-    id: 'developer-1',
-    name: 'Modern Developer',
-    category: 'developer',
-    description: 'A clean and modern template for developers and programmers.',
-    longDescription: 'This template is perfect for developers who want to showcase their coding projects, skills, and experience. It includes sections for your bio, projects, skills, experience, education, and contact information. The clean and modern design makes it easy to navigate and highlights your work effectively.',
-    image: 'https://repository-images.githubusercontent.com/616351992/41fb4d77-8bcc-4f2f-a5af-56c0e41e07c4',
-    features: [
-      'Projects showcase with GitHub integration',
-      'Skills section with proficiency indicators',
-      'Timeline for work experience and education',
-      'Dark and light mode support',
-      'Responsive design for all devices',
-      'Blog section for technical articles',
-      'Contact form with validation',
-    ],
-    layouts: 10,
-    isPremium: false,
-  },
-  {
-    id: 'designer-1',
-    name: 'Creative Studio',
-    category: 'designer',
-    description: 'Perfect for graphic designers, illustrators and creative professionals.',
-    longDescription: 'Designed with creatives in mind, this template puts your visual work front and center. The sleek gallery layouts and minimal design ensure your portfolio pieces get all the attention they deserve. Ideal for graphic designers, illustrators, photographers, and other visual artists who want to showcase their creative work.',
-    image: 'https://weandthecolor.com/wp-content/uploads/2020/09/A-modern-and-fresh-portfolio-template-for-Adobe-InDesign.jpg',
-    features: [
-      'Fullscreen gallery with various layout options',
-      'Project case study pages',
-      'Client testimonial section',
-      'Animated transitions between pages',
-      'Instagram feed integration',
-      'Contact form with file upload',
-      'Custom cursor options',
-    ],
-    layouts: 8,
-    isPremium: false,
-  },
-  {
-    id: 'photographer-1',
-    name: 'Photo Gallery',
-    category: 'photographer',
-    description: 'A stunning template for photographers to display their work.',
-    longDescription: 'Designed specifically for photographers, this template allows you to showcase your photography portfolio with beautiful high-resolution galleries. The minimal design puts the focus on your images while providing intuitive navigation and a professional presentation that will impress potential clients.',
-    image: 'https://marketplace.canva.com/EAFwckKNjDE/2/0/1600w/canva-black-white-grayscale-portfolio-presentation-vzScEqAI__M.jpg',
-    features: [
-      'Fullscreen photo galleries',
-      'Multiple portfolio categories',
-      'Image lightbox with zoom capability',
-      'Password-protected client galleries',
-      'Photo metadata display',
-      'Print store integration',
-      'Photo shoot booking system',
-    ],
-    layouts: 12,
-    isPremium: false,
-  },
-];
+// Sample features for templates
+const templateFeatures = {
+  developer: [
+    'Projects showcase with GitHub integration',
+    'Skills section with proficiency indicators',
+    'Timeline for work experience and education',
+    'Dark and light mode support',
+    'Responsive design for all devices',
+    'Blog section for technical articles',
+    'Contact form with validation',
+  ],
+  designer: [
+    'Fullscreen gallery with various layout options',
+    'Project case study pages',
+    'Client testimonial section',
+    'Animated transitions between pages',
+    'Instagram feed integration',
+    'Contact form with file upload',
+    'Custom cursor options',
+  ],
+  photographer: [
+    'Fullscreen photo galleries',
+    'Multiple portfolio categories',
+    'Image lightbox with zoom capability',
+    'Password-protected client galleries',
+    'Photo metadata display',
+    'Print store integration',
+    'Photo shoot booking system',
+  ],
+  default: [
+    'Responsive design for all devices',
+    'Customizable sections',
+    'Contact form with validation',
+    'SEO optimized',
+    'Social media integration',
+    'Quick loading speed',
+    'Modern and clean design',
+  ],
+};
 
 export default function TemplatePreviewPage({ params }: { params: { id: string } }) {
   // Find the template by ID
-  const template = templates.find(t => t.id === params.id);
+  const template = templates.find(t => t._id === params.id);
 
   // If template not found, return 404
   if (!template) {
     notFound();
   }
+
+  // Get features based on category or use default
+  const features = templateFeatures[template.category as keyof typeof templateFeatures] || templateFeatures.default;
+
+  // Construct a more detailed description if the template doesn't have one
+  const longDescription = template.longDescription ||
+    `${template.description} This template is designed to help you create a professional portfolio
+    that showcases your work effectively. With a focus on ${template.category} projects, it includes
+    all the sections you need to highlight your skills, experience, and achievements.`;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -92,10 +81,10 @@ export default function TemplatePreviewPage({ params }: { params: { id: string }
                   <h1 className="text-3xl md:text-4xl font-bold">{template.name}</h1>
                 </div>
                 <p className="text-lg text-muted-foreground">
-                  {template.longDescription}
+                  {longDescription}
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4">
-                  <Link href={`/templates/use/${template.id}`}>
+                  <Link href={`/templates/use/${template._id}`}>
                     <Button size="lg" className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white">
                       Use This Template
                     </Button>
@@ -109,7 +98,7 @@ export default function TemplatePreviewPage({ params }: { params: { id: string }
               </div>
               <div className="relative aspect-video rounded-lg overflow-hidden shadow-xl">
                 <Image
-                  src={template.image}
+                  src={template.previewImage}
                   alt={template.name}
                   fill
                   className="object-cover"
@@ -130,7 +119,7 @@ export default function TemplatePreviewPage({ params }: { params: { id: string }
             </div>
 
             <ul className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl mx-auto">
-              {template.features.map((feature) => (
+              {features.map((feature) => (
                 <li key={feature} className="flex items-start gap-3 p-4 rounded-lg border">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -215,7 +204,7 @@ export default function TemplatePreviewPage({ params }: { params: { id: string }
                 Use this template to showcase your work and create a stunning portfolio that stands out.
               </p>
               <div className="flex flex-col sm:flex-row justify-center gap-4">
-                <Link href={`/templates/use/${template.id}`}>
+                <Link href={`/templates/use/${template._id}`}>
                   <Button size="lg" className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white">
                     Use This Template
                   </Button>
