@@ -1,15 +1,59 @@
-import Image from "next/image";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { NavBar } from "@/components/layout/NavBar";
-import { Footer } from "@/components/layout/Footer";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import Image from 'next/image';
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
+import { NavBar } from '@/components/layout/NavBar';
+import { Footer } from '@/components/layout/Footer';
+
+const features = [
+  {
+    id: 'templates',
+    title: 'Professional Templates',
+    description:
+      'Choose from a wide range of professionally designed templates for every creative field. From minimalist to bold, we have styles that suit every profession.',
+    image: 'https://cdn.shortpixel.ai/spai/q_glossy+ret_img+to_auto/peterdraw.studio/wp-content/uploads/2021/12/Luxe-Modern-Personal-Portfolio-Website-Hero-Image.png',
+    alt: 'Portfolio templates showcase',
+  },
+  {
+    id: 'customization',
+    title: 'Easy Customization',
+    description:
+      'Personalize your portfolio with our intuitive editor. Change colors, fonts, and layouts without any coding knowledge. Make your portfolio truly yours.',
+    image: 'https://colorlib.com/wp/wp-content/uploads/sites/2/20_best_portfolio_wordpress_themes.jpg',
+    alt: 'Portfolio customization interface',
+  },
+  {
+    id: 'responsive',
+    title: 'Fully Responsive',
+    description:
+      'Your portfolio will look great on any device - desktop, tablet, or mobile. We ensure your work is presented beautifully no matter how visitors view it.',
+    image: 'https://www.dreamhost.com/blog/wp-content/uploads/2019/10/Portfolio-Websites-Feature.jpg',
+    alt: 'Responsive portfolio design',
+  },
+  {
+    id: 'domains',
+    title: 'Custom Domains',
+    description:
+      'Connect your own domain or use our free subdomain (username.portfoliohub.com). Establish your professional web presence with a memorable address.',
+    image: 'https://www.hostinger.com/tutorials/wp-content/uploads/sites/2/2019/02/choose-domain-name-for-website.png',
+    alt: 'Custom domain setup',
+  },
+  {
+    id: 'analytics',
+    title: 'Portfolio Analytics',
+    description:
+      'Track visitor engagement with built-in analytics. See which projects get the most attention and understand where your visitors are coming from.',
+    image: 'https://cdn.dribbble.com/users/1615584/screenshots/16983366/analytics_dashboard_dribbble_4x.jpg',
+    alt: 'Portfolio analytics dashboard',
+  },
+  {
+    id: 'seo',
+    title: 'SEO Optimization',
+    description:
+      'Get found online with our SEO tools. We help search engines discover your portfolio so potential clients and employers can find your work.',
+    image: 'https://cdn.searchenginejournal.com/wp-content/uploads/2022/08/seo-meme-63040c9c3cc6e-sej-1520x800.jpg',
+    alt: 'SEO optimization tools',
+  },
+];
 
 export default function FeaturesPage() {
   return (
@@ -18,697 +62,198 @@ export default function FeaturesPage() {
 
       <main className="flex-grow">
         {/* Hero Section */}
-        <section className="py-16 bg-gradient-to-r from-violet-500/10 to-indigo-500/10">
+        <section className="py-16 bg-gradient-to-r from-violet-50 to-indigo-50">
           <div className="container px-4 md:px-6">
-            <div className="text-center space-y-6 max-w-4xl mx-auto">
-              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tighter">
-                Powerful Features for Your Portfolio
-              </h1>
-              <p className="text-lg md:text-xl text-muted-foreground max-w-[800px] mx-auto">
-                Everything you need to create a stunning portfolio website,
-                showcase your work, and impress potential clients and employers.
+            <div className="text-center space-y-4 max-w-3xl mx-auto">
+              <h1 className="text-3xl md:text-4xl font-bold">Powerful Features for Your Portfolio</h1>
+              <p className="text-lg text-muted-foreground">
+                Discover all the tools and capabilities that make PortfolioHub the best platform for showcasing your work.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* Features List */}
+        <section className="py-12">
+          <div className="container px-4 md:px-6">
+            <div className="space-y-24">
+              {features.map((feature, index) => (
+                <div key={feature.id} className={`grid grid-cols-1 md:grid-cols-2 gap-12 items-center ${index % 2 === 1 ? 'md:flex-row-reverse' : ''}`}>
+                  <div className={`space-y-4 ${index % 2 === 1 ? 'md:order-2' : ''}`}>
+                    <h2 className="text-2xl md:text-3xl font-bold">{feature.title}</h2>
+                    <p className="text-lg text-muted-foreground">{feature.description}</p>
+                  </div>
+                  <div className={`relative rounded-lg overflow-hidden shadow-xl ${index % 2 === 1 ? 'md:order-1' : ''}`}>
+                    <div className="aspect-[16/9]">
+                      <Image
+                        src={feature.image}
+                        alt={feature.alt}
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Testimonials Section */}
+        <section className="py-16 bg-muted/30">
+          <div className="container px-4 md:px-6">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl font-bold">What Our Users Say</h2>
+              <p className="text-muted-foreground mt-2 max-w-2xl mx-auto">
+                Thousands of professionals trust PortfolioHub to showcase their work online.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              <div className="bg-background p-6 rounded-lg shadow-sm border">
+                <div className="flex items-center mb-4">
+                  <div className="h-10 w-10 rounded-full overflow-hidden mr-3">
+                    <Image
+                      src="https://xsgames.co/randomusers/assets/avatars/female/1.jpg"
+                      alt="Sarah Johnson"
+                      width={40}
+                      height={40}
+                      className="object-cover"
+                    />
+                  </div>
+                  <div>
+                    <p className="font-medium">Sarah Johnson</p>
+                    <p className="text-xs text-muted-foreground">UI/UX Designer</p>
+                  </div>
+                </div>
+                <p className="text-muted-foreground">
+                  "PortfolioHub helped me showcase my design work professionally without any coding. I got three job offers within a month of launching my portfolio!"
+                </p>
+              </div>
+
+              <div className="bg-background p-6 rounded-lg shadow-sm border">
+                <div className="flex items-center mb-4">
+                  <div className="h-10 w-10 rounded-full overflow-hidden mr-3">
+                    <Image
+                      src="https://xsgames.co/randomusers/assets/avatars/male/2.jpg"
+                      alt="Michael Rodriguez"
+                      width={40}
+                      height={40}
+                      className="object-cover"
+                    />
+                  </div>
+                  <div>
+                    <p className="font-medium">Michael Rodriguez</p>
+                    <p className="text-xs text-muted-foreground">Full Stack Developer</p>
+                  </div>
+                </div>
+                <p className="text-muted-foreground">
+                  "The templates are modern and clean, and the customization options are exactly what I needed. My portfolio stands out from others in the tech industry."
+                </p>
+              </div>
+
+              <div className="bg-background p-6 rounded-lg shadow-sm border">
+                <div className="flex items-center mb-4">
+                  <div className="h-10 w-10 rounded-full overflow-hidden mr-3">
+                    <Image
+                      src="https://xsgames.co/randomusers/assets/avatars/female/4.jpg"
+                      alt="Jennifer Lee"
+                      width={40}
+                      height={40}
+                      className="object-cover"
+                    />
+                  </div>
+                  <div>
+                    <p className="font-medium">Jennifer Lee</p>
+                    <p className="text-xs text-muted-foreground">Photographer</p>
+                  </div>
+                </div>
+                <p className="text-muted-foreground">
+                  "As a photographer, image quality is everything. PortfolioHub's gallery layouts showcase my work beautifully, and the responsive design means it looks great on every device."
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Comparison Table */}
+        <section className="py-16">
+          <div className="container px-4 md:px-6">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl font-bold">How We Compare</h2>
+              <p className="text-muted-foreground mt-2 max-w-2xl mx-auto">
+                See why PortfolioHub is the best choice for your professional portfolio.
+              </p>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr>
+                    <th className="text-left p-4 bg-muted">Features</th>
+                    <th className="text-center p-4 bg-muted">PortfolioHub</th>
+                    <th className="text-center p-4 bg-muted">Other Portfolio Builders</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-b">
+                    <td className="p-4">Professional Templates</td>
+                    <td className="text-center p-4 text-green-500">100+ specialized templates</td>
+                    <td className="text-center p-4 text-muted-foreground">Limited options</td>
+                  </tr>
+                  <tr className="border-b">
+                    <td className="p-4">Customization</td>
+                    <td className="text-center p-4 text-green-500">Full visual editor, no coding needed</td>
+                    <td className="text-center p-4 text-muted-foreground">Basic customization or requires coding</td>
+                  </tr>
+                  <tr className="border-b">
+                    <td className="p-4">Industry-Specific Features</td>
+                    <td className="text-center p-4 text-green-500">Tailored for different professions</td>
+                    <td className="text-center p-4 text-muted-foreground">Generic features</td>
+                  </tr>
+                  <tr className="border-b">
+                    <td className="p-4">Portfolio Analytics</td>
+                    <td className="text-center p-4 text-green-500">Built-in, detailed insights</td>
+                    <td className="text-center p-4 text-muted-foreground">Limited or requires third-party tools</td>
+                  </tr>
+                  <tr className="border-b">
+                    <td className="p-4">SEO Tools</td>
+                    <td className="text-center p-4 text-green-500">Comprehensive SEO optimization</td>
+                    <td className="text-center p-4 text-muted-foreground">Basic or manual setup</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        {/* CTA Section */}
+        <section className="py-16 relative">
+          <div className="absolute inset-0 bg-gradient-to-r from-violet-600/10 to-indigo-600/10" />
+          <div className="container px-4 md:px-6 relative">
+            <div className="max-w-3xl mx-auto text-center space-y-6">
+              <h2 className="text-3xl font-bold">Ready to Create Your Portfolio?</h2>
+              <p className="text-lg text-muted-foreground">
+                Join thousands of professionals who trust PortfolioHub to showcase their work.
               </p>
               <div className="flex flex-col sm:flex-row justify-center gap-4">
                 <Link href="/templates">
-                  <Button
-                    size="lg"
-                    className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white"
-                  >
-                    Get Started
+                  <Button size="lg" className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white">
+                    Browse Templates
                   </Button>
                 </Link>
-                <Link href="/examples">
+                <Link href="/auth/signup">
                   <Button size="lg" variant="outline">
-                    View Examples
+                    Sign Up Free
                   </Button>
                 </Link>
               </div>
             </div>
-          </div>
-        </section>
-
-        {/* Feature Categories */}
-        <section className="py-20">
-          <div className="container px-4 md:px-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
-              <FeatureCategory
-                title="Design"
-                description="Beautiful templates and customization options to make your portfolio stand out."
-                icon={
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="h-12 w-12 text-violet-600"
-                  >
-                    <path d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z" />
-                    <path d="M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" />
-                    <path d="M12 2v2" />
-                    <path d="M12 22v-2" />
-                    <path d="m17 20.66-1-1.73" />
-                    <path d="M11 10.27 7 3.34" />
-                    <path d="m20.66 17-1.73-1" />
-                    <path d="m3.34 7 1.73 1" />
-                    <path d="M14 12h8" />
-                    <path d="M2 12h2" />
-                    <path d="m20.66 7-1.73 1" />
-                    <path d="m3.34 17 1.73-1" />
-                    <path d="m17 3.34-1 1.73" />
-                    <path d="m7 20.66 1-1.73" />
-                  </svg>
-                }
-              />
-              <FeatureCategory
-                title="Content"
-                description="Easily showcase your projects, skills, experience, and contact information."
-                icon={
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="h-12 w-12 text-violet-600"
-                  >
-                    <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
-                    <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
-                  </svg>
-                }
-              />
-              <FeatureCategory
-                title="Technical"
-                description="Modern web technologies ensure your portfolio is fast, responsive, and secure."
-                icon={
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="h-12 w-12 text-violet-600"
-                  >
-                    <path d="m8 3 4 8 5-5 5 15H2L8 3z" />
-                  </svg>
-                }
-              />
-            </div>
-
-            {/* Design Features */}
-            <div className="space-y-16">
-              <div>
-                <h2 className="text-2xl md:text-3xl font-bold mb-8 flex items-center gap-3">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="h-8 w-8 text-violet-600"
-                  >
-                    <path d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z" />
-                    <path d="M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" />
-                    <path d="M12 2v2" />
-                    <path d="M12 22v-2" />
-                    <path d="m17 20.66-1-1.73" />
-                    <path d="M11 10.27 7 3.34" />
-                    <path d="m20.66 17-1.73-1" />
-                    <path d="m3.34 7 1.73 1" />
-                    <path d="M14 12h8" />
-                    <path d="M2 12h2" />
-                    <path d="m20.66 7-1.73 1" />
-                    <path d="m3.34 17 1.73-1" />
-                    <path d="m17 3.34-1 1.73" />
-                    <path d="m7 20.66 1-1.73" />
-                  </svg>
-                  Design Features
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  <FeatureCard
-                    title="Beautiful Templates"
-                    description="Choose from our library of professionally designed templates for different creative fields."
-                    icon={
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="24"
-                        height="24"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="h-6 w-6"
-                      >
-                        <rect width="18" height="18" x="3" y="3" rx="2" />
-                        <path d="M7 7h10" />
-                        <path d="M7 12h10" />
-                        <path d="M7 17h10" />
-                      </svg>
-                    }
-                  />
-                  <FeatureCard
-                    title="Custom Colors"
-                    description="Personalize your portfolio with custom color schemes that match your brand or style."
-                    icon={
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="24"
-                        height="24"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="h-6 w-6"
-                      >
-                        <circle cx="13.5" cy="6.5" r="2.5" />
-                        <circle cx="19" cy="13" r="2.5" />
-                        <circle cx="6" cy="12" r="2.5" />
-                        <circle cx="10" cy="20" r="2.5" />
-                      </svg>
-                    }
-                  />
-                  <FeatureCard
-                    title="Typography Options"
-                    description="Choose from a range of fonts to perfectly express your personal style."
-                    icon={
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="24"
-                        height="24"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="h-6 w-6"
-                      >
-                        <path d="M4 7V4h16v3" />
-                        <path d="M9 20h6" />
-                        <path d="M12 4v16" />
-                      </svg>
-                    }
-                  />
-                  <FeatureCard
-                    title="Responsive Design"
-                    description="All templates are fully responsive and look great on any device or screen size."
-                    icon={
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="24"
-                        height="24"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="h-6 w-6"
-                      >
-                        <rect width="7" height="12" x="3" y="6" rx="1" />
-                        <rect width="10" height="16" x="14" y="4" rx="1" />
-                      </svg>
-                    }
-                  />
-                  <FeatureCard
-                    title="Section Customization"
-                    description="Add, remove, or rearrange sections to create the perfect layout for your content."
-                    icon={
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="24"
-                        height="24"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="h-6 w-6"
-                      >
-                        <rect
-                          width="18"
-                          height="18"
-                          x="3"
-                          y="3"
-                          rx="2"
-                          ry="2"
-                        />
-                        <line x1="12" x2="12" y1="3" y2="21" />
-                      </svg>
-                    }
-                  />
-                  <FeatureCard
-                    title="Animations & Effects"
-                    description="Subtle animations and hover effects make your portfolio feel modern and interactive."
-                    icon={
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="24"
-                        height="24"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="h-6 w-6"
-                      >
-                        <path d="M21.14 9.894a12 12 0 0 0-9.232-8.49" />
-                        <path d="M3.34 7.83a12 12 0 0 0 7.496 13.135" />
-                        <path d="M12 2v2" />
-                        <path d="M2 12H4" />
-                        <path d="M20 12h2" />
-                        <path d="M12 20v2" />
-                        <circle cx="12" cy="12" r="4" />
-                      </svg>
-                    }
-                  />
-                </div>
-              </div>
-
-              {/* Content Features */}
-              <div>
-                <h2 className="text-2xl md:text-3xl font-bold mb-8 flex items-center gap-3">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="h-8 w-8 text-violet-600"
-                  >
-                    <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
-                    <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
-                  </svg>
-                  Content Features
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  <FeatureCard
-                    title="Project Showcase"
-                    description="Highlight your best work with images, descriptions, links, and technologies used."
-                    icon={
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="24"
-                        height="24"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="h-6 w-6"
-                      >
-                        <path d="M5 3a2 2 0 0 0-2 2" />
-                        <path d="M19 3a2 2 0 0 1 2 2" />
-                        <path d="M21 19a2 2 0 0 1-2 2" />
-                        <path d="M5 21a2 2 0 0 1-2-2" />
-                        <path d="M9 3h1" />
-                        <path d="M9 21h1" />
-                        <path d="M14 3h1" />
-                        <path d="M14 21h1" />
-                        <path d="M3 9v1" />
-                        <path d="M21 9v1" />
-                        <path d="M3 14v1" />
-                        <path d="M21 14v1" />
-                      </svg>
-                    }
-                  />
-                  <FeatureCard
-                    title="Skills & Technologies"
-                    description="Display your expertise with visual skill bars or technology icons."
-                    icon={
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="24"
-                        height="24"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="h-6 w-6"
-                      >
-                        <path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z" />
-                        <path d="M7 7h.01" />
-                      </svg>
-                    }
-                  />
-                  <FeatureCard
-                    title="Work Experience"
-                    description="Detail your professional journey with a timeline of your work experience."
-                    icon={
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="24"
-                        height="24"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="h-6 w-6"
-                      >
-                        <rect
-                          width="20"
-                          height="14"
-                          x="2"
-                          y="7"
-                          rx="2"
-                          ry="2"
-                        />
-                        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
-                      </svg>
-                    }
-                  />
-                  <FeatureCard
-                    title="Education History"
-                    description="Showcase your educational background, degrees, and certifications."
-                    icon={
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="24"
-                        height="24"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="h-6 w-6"
-                      >
-                        <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
-                        <path d="M6 12v5c3 3 9 3 12 0v-5" />
-                      </svg>
-                    }
-                  />
-                  <FeatureCard
-                    title="Contact Form"
-                    description="Allow visitors to reach out directly through a customizable contact form."
-                    icon={
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="24"
-                        height="24"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="h-6 w-6"
-                      >
-                        <rect width="20" height="16" x="2" y="4" rx="2" />
-                        <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
-                      </svg>
-                    }
-                  />
-                  <FeatureCard
-                    title="Social Media Integration"
-                    description="Link to all your social profiles to help visitors connect with you across platforms."
-                    icon={
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="24"
-                        height="24"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="h-6 w-6"
-                      >
-                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                        <path d="M15 3h6v6" />
-                        <path d="m10 14 11-11" />
-                      </svg>
-                    }
-                  />
-                </div>
-              </div>
-
-              {/* Technical Features */}
-              <div>
-                <h2 className="text-2xl md:text-3xl font-bold mb-8 flex items-center gap-3">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="h-8 w-8 text-violet-600"
-                  >
-                    <path d="m8 3 4 8 5-5 5 15H2L8 3z" />
-                  </svg>
-                  Technical Features
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  <FeatureCard
-                    title="Custom Domain"
-                    description="Connect your own domain or use our free subdomain (username.portfoliohub.com)."
-                    icon={
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="24"
-                        height="24"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="h-6 w-6"
-                      >
-                        <circle cx="12" cy="12" r="10" />
-                        <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
-                        <path d="M2 12h20" />
-                      </svg>
-                    }
-                  />
-                  <FeatureCard
-                    title="SEO Optimization"
-                    description="Built-in SEO tools to help your portfolio rank higher in search engines."
-                    icon={
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="24"
-                        height="24"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="h-6 w-6"
-                      >
-                        <circle cx="11" cy="11" r="8" />
-                        <path d="m21 21-4.3-4.3" />
-                      </svg>
-                    }
-                  />
-                  <FeatureCard
-                    title="Fast Loading"
-                    description="Optimized code and assets for lightning-fast loading times."
-                    icon={
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="24"
-                        height="24"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="h-6 w-6"
-                      >
-                        <path d="m13 2-2 2h-2v2l-2 2v2l-2 2v6l2 2h4l2-2h4l2-2V8l-2-2V4l-2-2h-2Z" />
-                        <path d="m13 14-2-2" />
-                        <path d="m13 10-2 2" />
-                        <path d="m13 6-2 2" />
-                        <path d="M9 8h0" />
-                        <path d="M9 12h0" />
-                      </svg>
-                    }
-                  />
-                  <FeatureCard
-                    title="Secure HTTPS"
-                    description="SSL security included on all portfolios for data protection and trust."
-                    icon={
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="24"
-                        height="24"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="h-6 w-6"
-                      >
-                        <rect
-                          width="18"
-                          height="11"
-                          x="3"
-                          y="11"
-                          rx="2"
-                          ry="2"
-                        />
-                        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                      </svg>
-                    }
-                  />
-                  <FeatureCard
-                    title="Analytics Dashboard"
-                    description="Track visitors, page views, and other metrics to measure your portfolio's performance."
-                    icon={
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="24"
-                        height="24"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="h-6 w-6"
-                      >
-                        <line x1="18" x2="18" y1="20" y2="10" />
-                        <line x1="12" x2="12" y1="20" y2="4" />
-                        <line x1="6" x2="6" y1="20" y2="14" />
-                      </svg>
-                    }
-                  />
-                  <FeatureCard
-                    title="Regular Updates"
-                    description="Continuous platform improvements and new templates added regularly."
-                    icon={
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="24"
-                        height="24"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="h-6 w-6"
-                      >
-                        <path d="M21 2v6h-6" />
-                        <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
-                        <path d="M3 22v-6h6" />
-                        <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
-                      </svg>
-                    }
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Pricing Section Link */}
-        <section className="py-16 bg-gradient-to-r from-violet-500/10 to-indigo-500/10">
-          <div className="container px-4 md:px-6 text-center space-y-6">
-            <h2 className="text-3xl md:text-4xl font-bold">
-              Ready to Build Your Portfolio?
-            </h2>
-            <p className="text-lg md:text-xl text-muted-foreground max-w-[800px] mx-auto">
-              Choose a plan that fits your needs and create your professional
-              portfolio today.
-            </p>
-            <Link href="/pricing">
-              <Button
-                size="lg"
-                className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white"
-              >
-                View Pricing
-              </Button>
-            </Link>
           </div>
         </section>
       </main>
 
       <Footer />
     </div>
-  );
-}
-
-function FeatureCategory({
-  title,
-  description,
-  icon,
-}: {
-  title: string;
-  description: string;
-  icon: React.ReactNode;
-}) {
-  return (
-    <div className="text-center space-y-4">
-      <div className="bg-gradient-to-br from-violet-50 to-indigo-50 w-24 h-24 rounded-full flex items-center justify-center mx-auto">
-        {icon}
-      </div>
-      <h3 className="text-xl md:text-2xl font-bold">{title}</h3>
-      <p className="text-muted-foreground">{description}</p>
-    </div>
-  );
-}
-
-function FeatureCard({
-  title,
-  description,
-  icon,
-}: {
-  title: string;
-  description: string;
-  icon: React.ReactNode;
-}) {
-  return (
-    <Card className="transition-all duration-200 hover:shadow-md hover:border-violet-200">
-      <CardHeader>
-        <div className="flex items-center gap-3">
-          <div className="bg-violet-50 p-2 rounded-full">{icon}</div>
-          <CardTitle>{title}</CardTitle>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <CardDescription className="text-base">{description}</CardDescription>
-      </CardContent>
-    </Card>
   );
 }

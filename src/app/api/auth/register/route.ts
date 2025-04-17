@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { User } from '@/models/User';
+import { Token } from '@/models/Token'; // Added Token import
 import dbConnect from '@/lib/db/mongodb';
 import { hash } from 'bcrypt';
 import { sendVerificationEmail } from '@/lib/email';

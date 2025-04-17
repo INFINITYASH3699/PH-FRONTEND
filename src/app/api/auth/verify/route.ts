@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db/mongodb';
 import { User } from '@/models/User';
+import { Token } from '@/models/Token'; // Added Token import
 import crypto from 'crypto';
 
 /**
@@ -22,19 +23,14 @@ export async function GET(request: NextRequest) {
     // Connect to database
     await dbConnect();
 
-    // Hash the token to compare with stored token
-    const hashedToken = crypto
-      .createHash('sha256')
-      .update(token)
-      .digest('hex');
-
-    // Find user with matching verification token
-    const user = await User.findOne({
-      verificationToken: hashedToken,
-      verificationTokenExpires: { $gt: Date.now() }
+    // Find the token in the database
+    const tokenRecord = await Token.findOne({
+      token: token,
+      type: 'email_verification',
+      expiresAt: { $gt: new Date() }
     });
 
-    if (!user) {
+    if (!tokenRecord) {
       return new Response(`
         <html>
           <head>
@@ -59,12 +55,41 @@ export async function GET(request: NextRequest) {
       `, { status: 400, headers: { 'Content-Type': 'text/html' } });
     }
 
+    // Find and update the user
+    const user = await User.findById(tokenRecord.userId);
+
+    if (!user) {
+      return new Response(`
+        <html>
+          <head>
+            <title>Verification Failed</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+              body { font-family: system-ui, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; background-color: #f9fafb; }
+              .container { max-width: 500px; padding: 2rem; background: white; border-radius: 0.5rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); text-align: center; }
+              h1 { color: #ef4444; margin-bottom: 1rem; }
+              p { color: #4b5563; margin-bottom: 1.5rem; }
+              .button { display: inline-block; background: #6366f1; color: white; padding: 0.75rem 1.5rem; border-radius: 0.375rem; text-decoration: none; font-weight: 500; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <h1>Verification Failed</h1>
+              <p>The user account associated with this verification link could not be found.</p>
+              <a href="${process.env.NEXTAUTH_URL}/auth/signin" class="button">Go to Sign In</a>
+            </div>
+          </body>
+        </html>
+      `, { status: 400, headers: { 'Content-Type': 'text/html' } });
+    }
+
     // Update user to verified status
     user.emailVerified = new Date();
     user.status = 'active';
-    user.verificationToken = undefined;
-    user.verificationTokenExpires = undefined;
     await user.save();
+
+    // Delete the used token
+    await Token.deleteOne({ _id: tokenRecord._id });
 
     // Return success page
     return new Response(`
