@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { useToast } from 'sonner';
+import { toast } from 'sonner';
 import { Plus, Trash2, X, Edit2 } from 'lucide-react';
 
 // Define skill item interface

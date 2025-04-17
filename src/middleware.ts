@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { auth } from 'next-auth'; // Updated to use next-auth for Edge compatibility
+import { getToken } from 'next-auth/jwt'; // Updated to use getToken for authentication
 
 // List of paths that require authentication
 const PROTECTED_PATHS = [
@@ -18,9 +18,9 @@ const AUTH_ONLY_PATHS = [
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Get session to check if user is authenticated
-  const session = await auth();
-  const isAuthenticated = !!session?.user;
+  // Get token to check if user is authenticated
+  const token = await getToken({ req: request });
+  const isAuthenticated = !!token;
 
   // Check if the path requires authentication
   const isProtectedPath = PROTECTED_PATHS.some(path =>

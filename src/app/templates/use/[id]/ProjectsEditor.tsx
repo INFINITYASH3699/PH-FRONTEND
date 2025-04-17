@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { useToast } from 'sonner';
+import { toast } from 'sonner';
 import { X, Plus, Trash2, Upload, Link2, Github } from 'lucide-react';
 
 // Define project item interface
