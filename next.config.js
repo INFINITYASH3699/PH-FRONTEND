@@ -1,49 +1,75 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: true,
+  // Configure image domains
   images: {
-    unoptimized: true,
-    domains: [
-      'ui-avatars.com',
-      'repository-images.githubusercontent.com',
-      'marketplace.canva.com',
-      'weandthecolor.com',
-      'www.unsell.design',
-      'slidestack-prod.s3.amazonaws.com',
-      'placehold.co',
-      "source.unsplash.com",
-      "images.unsplash.com",
-      "ext.same-assets.com",
-      "ugc.same-assets.com",
-    ],
     remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: '**',
-      },
+      { protocol: 'https', hostname: 'ui-avatars.com' },
+      { protocol: 'https', hostname: 'placehold.co' },
+      { protocol: 'https', hostname: 'repository-images.githubusercontent.com' },
+      { protocol: 'https', hostname: 'marketplace.canva.com' },
+      { protocol: 'https', hostname: 'weandthecolor.com' },
+      { protocol: 'https', hostname: 'www.unsell.design' },
+      { protocol: 'https', hostname: 'slidestack-prod.s3.amazonaws.com' },
+      { protocol: 'https', hostname: 'res.cloudinary.com' },
+      { protocol: 'https', hostname: 'cdn.shortpixel.ai' },
     ],
   },
-  typescript: {
-    ignoreBuildErrors: true,
+
+  // Disable X-Powered-By header
+  poweredByHeader: false,
+
+  // Configure redirects
+  async redirects() {
+    return [
+      {
+        source: '/home',
+        destination: '/',
+        permanent: true,
+      },
+    ];
   },
-  eslint: {
-    ignoreDuringBuilds: true,
+
+  // Configure headers
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+          {
+            key: 'X-Frame-Options',
+            value: 'DENY',
+          },
+          {
+            key: 'X-XSS-Protection',
+            value: '1; mode=block',
+          },
+        ],
+      },
+    ];
   },
-  webpack: (config, { isServer }) => {
-    // Only include the bcrypt module on the server side
+
+  // Configure webpack
+  webpack(config, { isServer }) {
+    // Don't bundle bcrypt on the client side
     if (!isServer) {
       config.resolve.fallback = {
         ...config.resolve.fallback,
         bcrypt: false,
-        fs: false,
-        path: false,
-        os: false,
         crypto: false,
+        net: false,
+        tls: false,
       };
     }
 
     return config;
   },
+
+  // Server external packages (moved from experimental.serverComponentsExternalPackages)
+  serverExternalPackages: ['bcrypt', 'mongoose'],
 };
 
 export default nextConfig;

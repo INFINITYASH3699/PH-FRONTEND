@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { uploadFile, deleteFile } from '@/lib/cloudinary';
+import { uploadToCloudinary, deleteFromCloudinary } from '@/lib/cloudinary';
 
-// Maximum file size (5MB)
+// Define max file size (5MB)
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
 // Valid file types by category
@@ -22,11 +22,12 @@ const VALID_FILE_TYPES = {
  */
 export async function POST(req: NextRequest) {
   try {
-    // Check if user is authenticated
+    // Authenticate the user
     const session = await auth();
+
     if (!session?.user) {
       return NextResponse.json(
-        { success: false, message: 'Unauthorized' },
+        { success: false, error: 'Authentication required' },
         { status: 401 }
       );
     }
@@ -34,10 +35,12 @@ export async function POST(req: NextRequest) {
     // Get the uploaded file from the request
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
+    const folder = formData.get('folder') as string || 'portfolio-hub';
 
+    // Validate file
     if (!file) {
       return NextResponse.json(
-        { success: false, message: 'No file provided' },
+        { success: false, error: 'No file provided' },
         { status: 400 }
       );
     }
@@ -45,108 +48,54 @@ export async function POST(req: NextRequest) {
     // Check file size
     if (file.size > MAX_FILE_SIZE) {
       return NextResponse.json(
-        {
-          success: false,
-          message: `File size exceeds the limit of ${MAX_FILE_SIZE / (1024 * 1024)}MB`
-        },
+        { success: false, error: `File size exceeds the limit of ${MAX_FILE_SIZE / (1024 * 1024)}MB` },
         { status: 400 }
       );
     }
 
-    // Get file type and validate
+    // Check file type (basic validation)
     const fileType = file.type;
-    const requestedType = (formData.get('type') as string || 'image').toLowerCase();
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf'];
 
-    // Check if the requested type is valid
-    if (!VALID_FILE_TYPES[requestedType as keyof typeof VALID_FILE_TYPES]) {
+    if (!allowedTypes.includes(fileType)) {
       return NextResponse.json(
-        { success: false, message: `Invalid file type category: ${requestedType}` },
+        { success: false, error: 'Invalid file type. Allowed types: JPEG, PNG, GIF, WEBP, PDF' },
         { status: 400 }
       );
     }
 
-    // Check if the file type is valid for the requested category
-    const validTypes = VALID_FILE_TYPES[requestedType as keyof typeof VALID_FILE_TYPES];
-    if (!validTypes.includes(fileType)) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: `Invalid file type. For ${requestedType}, please upload one of: ${validTypes.join(', ')}`
-        },
-        { status: 400 }
-      );
-    }
+    // Convert file to buffer
+    const buffer = Buffer.from(await file.arrayBuffer());
 
-    // Get file as buffer
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-
-    // Convert buffer to base64
-    const base64File = `data:${fileType};base64,${buffer.toString('base64')}`;
-
-    // Use the formData folder or default to 'portfolio'
-    const folder = (formData.get('folder') as string || 'portfolio').replace(/[^a-zA-Z0-9_-]/g, '');
-
-    // Get optional publicId if provided
-    let publicId = formData.get('publicId') as string || '';
-    if (publicId) {
-      // Sanitize publicId
-      publicId = publicId.replace(/[^a-zA-Z0-9_-]/g, '');
-    }
-
-    // Upload options
-    const uploadOptions = {
-      folder: `portfoliohub/${folder}`,
-      resource_type: requestedType === 'image' ? 'image' : 'auto',
-      // Add user ID to the public_id to help with organization
-      public_id: publicId || `user_${session.user.id}_${Date.now()}`,
-      // Add metadata about the upload
-      context: {
-        user_id: session.user.id,
-        uploaded_at: new Date().toISOString(),
-      },
-      // For images, apply some basic optimizations
-      ...(requestedType === 'image' && {
-        quality: 'auto',
-        fetch_format: 'auto',
-        // Add responsive breakpoints for responsive images
-        responsive_breakpoints: {
-          create_derived: true,
-          min_width: 200,
-          max_width: 1000,
-          max_images: 3
-        }
-      })
-    };
+    // Set folder path based on user ID for organization
+    const userFolder = `${folder}/${session.user.id}`;
 
     // Upload to Cloudinary
-    const result = await uploadFile(base64File, uploadOptions);
+    const uploadResult = await uploadToCloudinary(buffer, userFolder);
 
-    if (!result.success) {
+    if (!uploadResult.success) {
       return NextResponse.json(
-        { success: false, message: result.error || 'Upload failed' },
+        { success: false, error: uploadResult.error || 'Failed to upload file' },
         { status: 500 }
       );
     }
 
     return NextResponse.json({
       success: true,
-      url: result.url,
-      publicId: result.publicId,
-      // Include additional data for responsive images
-      ...(requestedType === 'image' && result.data.responsive_breakpoints && {
-        responsiveUrls: result.data.responsive_breakpoints[0].breakpoints.map((b: any) => ({
-          width: b.width,
-          url: b.secure_url
-        }))
-      })
+      file: {
+        url: uploadResult.url,
+        publicId: uploadResult.publicId,
+        format: uploadResult.format,
+        width: uploadResult.width,
+        height: uploadResult.height,
+      },
     });
   } catch (error) {
-    console.error('Upload error:', error);
+    console.error('File upload error:', error);
     return NextResponse.json(
       {
         success: false,
-        message: error instanceof Error ? error.message : 'Error uploading file'
+        error: error instanceof Error ? error.message : 'An unexpected error occurred',
       },
       { status: 500 }
     );
@@ -160,56 +109,53 @@ export async function POST(req: NextRequest) {
  */
 export async function DELETE(req: NextRequest) {
   try {
-    // Check if user is authenticated
     const session = await auth();
+
     if (!session?.user) {
       return NextResponse.json(
-        { success: false, message: 'Unauthorized' },
+        { success: false, error: 'Authentication required' },
         { status: 401 }
       );
     }
 
-    // Get the publicId from the URL parameters
-    const { searchParams } = new URL(req.url);
-    const publicId = searchParams.get('publicId');
+    // Get the public ID from the request
+    const { publicId } = await req.json();
 
     if (!publicId) {
       return NextResponse.json(
-        { success: false, message: 'No public ID provided' },
+        { success: false, error: 'Public ID is required' },
         { status: 400 }
       );
     }
 
-    // Security check: Ensure the file belongs to the user
-    // This is a basic check assuming you follow the naming convention from the upload
-    // For more robust security, store file metadata in your database
-    if (!publicId.includes(`user_${session.user.id}_`) && session.user.role !== 'admin') {
+    // Make sure the file belongs to the user (basic security check)
+    if (!publicId.includes(`user_${session.user.id}_`)) {
       return NextResponse.json(
-        { success: false, message: 'You do not have permission to delete this file' },
+        { success: false, error: 'You do not have permission to delete this file' },
         { status: 403 }
       );
     }
 
     // Delete from Cloudinary
-    const result = await deleteFile(publicId);
+    const result = await deleteFromCloudinary(publicId);
 
     if (!result.success) {
       return NextResponse.json(
-        { success: false, message: 'Failed to delete file' },
+        { success: false, error: result.error || 'Failed to delete file' },
         { status: 500 }
       );
     }
 
     return NextResponse.json({
       success: true,
-      message: 'File deleted successfully'
+      message: 'File deleted successfully',
     });
   } catch (error) {
-    console.error('Delete error:', error);
+    console.error('File deletion error:', error);
     return NextResponse.json(
       {
         success: false,
-        message: error instanceof Error ? error.message : 'Error deleting file'
+        error: error instanceof Error ? error.message : 'An unexpected error occurred',
       },
       { status: 500 }
     );

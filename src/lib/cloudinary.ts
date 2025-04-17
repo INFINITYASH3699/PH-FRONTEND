@@ -1,93 +1,72 @@
 import { v2 as cloudinary } from 'cloudinary';
 
-// Verify environment variables
-const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-const apiKey = process.env.CLOUDINARY_API_KEY;
-const apiSecret = process.env.CLOUDINARY_API_SECRET;
-
-if (!cloudName || !apiKey || !apiSecret) {
-  console.error('Missing Cloudinary environment variables. File uploads will not work.');
-}
-
-// Configure Cloudinary
+// Configure Cloudinary with your credentials
 cloudinary.config({
-  cloud_name: cloudName,
-  api_key: apiKey,
-  api_secret: apiSecret,
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
   secure: true,
 });
 
 /**
  * Upload a file to Cloudinary
- * @param file - File buffer or file path
- * @param options - Upload options
- * @returns Promise with upload result
+ * @param file - File buffer
+ * @param folder - Destination folder in Cloudinary
+ * @param publicId - Optional public ID for the file
+ * @returns Cloudinary upload result
  */
-export async function uploadFile(file: string | Buffer, options: any = {}) {
+export const uploadToCloudinary = async (
+  file: Buffer,
+  folder: string = 'portfolio-hub',
+  publicId?: string
+) => {
   try {
-    const defaultOptions = {
-      resource_type: 'auto',
-      folder: 'portfoliohub',
-    };
+    // Convert buffer to base64
+    const fileStr = `data:image/jpeg;base64,${file.toString('base64')}`;
 
-    const result = await cloudinary.uploader.upload(file, {
-      ...defaultOptions,
-      ...options,
+    // Upload to Cloudinary
+    const result = await cloudinary.uploader.upload(fileStr, {
+      folder,
+      public_id: publicId,
+      overwrite: !!publicId,
+      resource_type: 'auto',
     });
 
     return {
       success: true,
-      data: result,
       url: result.secure_url,
       publicId: result.public_id,
+      format: result.format,
+      width: result.width,
+      height: result.height,
     };
   } catch (error) {
     console.error('Cloudinary upload error:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown upload error',
+      error: error instanceof Error ? error.message : 'Upload failed',
     };
   }
-}
+};
 
 /**
- * Delete a file from Cloudinary by public ID
- * @param publicId - The public ID of the file to delete
- * @returns Promise with deletion result
+ * Delete a file from Cloudinary
+ * @param publicId - Public ID of the file to delete
+ * @returns Deletion result
  */
-export async function deleteFile(publicId: string, options: any = {}) {
+export const deleteFromCloudinary = async (publicId: string) => {
   try {
-    const result = await cloudinary.uploader.destroy(publicId, options);
+    const result = await cloudinary.uploader.destroy(publicId);
     return {
       success: result === 'ok',
-      data: result,
     };
   } catch (error) {
     console.error('Cloudinary delete error:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown delete error',
+      error: error instanceof Error ? error.message : 'Deletion failed',
     };
   }
-}
-
-/**
- * Generate a URL with transformations
- * @param publicId - The public ID of the image
- * @param options - Transformation options
- * @returns Transformed image URL
- */
-export function generateImageUrl(publicId: string, options: any = {}) {
-  const defaultOptions = {
-    secure: true,
-    quality: 'auto',
-    fetch_format: 'auto',
-  };
-
-  return cloudinary.url(publicId, {
-    ...defaultOptions,
-    ...options,
-  });
 }
 
 export { cloudinary };

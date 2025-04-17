@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { hash } from 'bcrypt';
 import dbConnect from '@/lib/db/mongodb';
 import { User } from '@/models/User';
+import { Token } from '@/models/Token';
 import { z } from 'zod';
 import crypto from 'crypto';
+import { sendVerificationEmail } from '@/lib/email';
 
 // Create a schema for user registration with stronger validation
 const registerSchema = z.object({
@@ -90,34 +92,44 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate verification token (for email verification)
+    // Generate verification token
     const verificationToken = crypto.randomBytes(32).toString('hex');
 
     // Create a new user
-    // With our enhanced User model, we don't need to hash the password here
-    // as it will be hashed in the pre-save hook
     const newUser = await User.create({
       fullName,
       username,
       email,
-      password,
+      password, // Will be hashed in the pre-save hook
       accountType: 'credentials',
-      status: 'active', // Change to 'pending' if you implement email verification
+      status: 'pending', // Changed to 'pending' for email verification
       emailVerified: null, // Will be set when user verifies email
-      // Store verification token in a separate collection or Redis in production
+    });
+
+    // Save verification token
+    await Token.create({
+      userId: newUser._id,
+      token: verificationToken,
+      type: 'email_verification',
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
     });
 
     // Remove password from the response
     const user = newUser.toObject();
     delete user.password;
 
-    // Send verification email (implementation would go here)
-    // In a real app, you would integrate with an email provider like SendGrid, Mailgun, etc.
+    // Send verification email
+    try {
+      await sendVerificationEmail(email, verificationToken);
+    } catch (emailError) {
+      console.error('Failed to send verification email:', emailError);
+      // Continue despite email failure, but log it
+    }
 
     return NextResponse.json(
       {
         success: true,
-        message: 'User registered successfully',
+        message: 'User registered successfully. Please check your email to verify your account.',
         user
       },
       { status: 201 }
