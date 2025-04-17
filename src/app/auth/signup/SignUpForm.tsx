@@ -12,6 +12,7 @@ import { signIn } from 'next-auth/react';
 export default function SignUpForm() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const [isResendingEmail, setIsResendingEmail] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [formData, setFormData] = useState({
     firstName: '',
@@ -79,6 +80,37 @@ export default function SignUpForm() {
     }
   };
 
+  const handleResendVerification = async () => {
+    if (!formData.email) return;
+
+    setIsResendingEmail(true);
+
+    try {
+      const res = await fetch('/api/auth/resend-verification', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: formData.email,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.message || 'Failed to resend verification email');
+      }
+
+      toast.success('Verification email sent! Please check your inbox and spam folder.');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to resend verification email';
+      toast.error(message);
+    } finally {
+      setIsResendingEmail(false);
+    }
+  };
+
   if (isSuccess) {
     return (
       <CardContent className="space-y-6">
@@ -93,12 +125,10 @@ export default function SignUpForm() {
             Didn't receive the email? Check your spam folder or{' '}
             <button
               className="text-primary hover:underline font-medium"
-              onClick={() => {
-                // This would call an API to resend the verification email
-                toast.info('This feature is coming soon');
-              }}
+              onClick={handleResendVerification}
+              disabled={isResendingEmail}
             >
-              click here to resend
+              {isResendingEmail ? 'Sending...' : 'click here to resend'}
             </button>
           </p>
         </div>

@@ -1,26 +1,105 @@
+'use client';
+
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { NavBar } from '@/components/layout/NavBar';
 import { Footer } from '@/components/layout/Footer';
-import { portfolios } from '@/data/portfolios';
-import { templates } from '@/data/templates';
+import { useSession } from 'next-auth/react';
+import { toast } from 'sonner';
 
-// Mock user info for demo
-const user = {
-  id: 'user-1',
-  name: 'John Doe',
-  email: 'john@example.com',
-  image: 'https://ui-avatars.com/api/?name=John+Doe&background=6d28d9&color=fff'
-};
+// Portfolio interface
+interface Portfolio {
+  id: string;
+  _id: string;
+  title: string;
+  subtitle?: string;
+  subdomain: string;
+  isPublished: boolean;
+  updatedAt: string;
+  createdAt: string;
+  template?: {
+    id: string;
+    name: string;
+    previewImage?: string;
+    category?: string;
+  };
+}
 
 export default function DashboardPage() {
-  // Combine portfolios with template data
-  const portfoliosWithTemplates = portfolios.map(portfolio => {
-    const template = templates.find(t => t._id === portfolio.templateId);
-    return { ...portfolio, template };
-  });
+  const { data: session, status } = useSession();
+  const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch user portfolios when session is available
+  useEffect(() => {
+    const fetchPortfolios = async () => {
+      if (status === 'authenticated') {
+        try {
+          const response = await fetch('/api/user/portfolios');
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(data.message || 'Failed to fetch portfolios');
+          }
+
+          setPortfolios(data.portfolios);
+        } catch (error) {
+          console.error('Error fetching portfolios:', error);
+          toast.error('Failed to load your portfolios');
+        } finally {
+          setLoading(false);
+        }
+      } else if (status === 'unauthenticated') {
+        // Not logged in, no need to fetch
+        setLoading(false);
+      }
+    };
+
+    fetchPortfolios();
+  }, [status]);
+
+  // Function to handle portfolio publishing state change
+  const handlePublishToggle = async (portfolioId: string, currentState: boolean) => {
+    try {
+      const response = await fetch('/api/portfolios', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: portfolioId,
+          isPublished: !currentState,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to update portfolio');
+      }
+
+      // Update local state
+      setPortfolios(prevPortfolios =>
+        prevPortfolios.map(portfolio =>
+          portfolio.id === portfolioId
+            ? { ...portfolio, isPublished: !currentState }
+            : portfolio
+        )
+      );
+
+      toast.success(
+        currentState
+          ? 'Portfolio unpublished successfully'
+          : 'Portfolio published successfully'
+      );
+    } catch (error) {
+      console.error('Error toggling publish state:', error);
+      toast.error('Failed to update portfolio');
+    }
+  };
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -42,12 +121,20 @@ export default function DashboardPage() {
             </Link>
           </div>
 
-          {portfoliosWithTemplates.length === 0 ? (
+          {loading ? (
+            <LoadingState />
+          ) : status === 'unauthenticated' ? (
+            <UnauthenticatedState />
+          ) : portfolios.length === 0 ? (
             <EmptyState />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {portfoliosWithTemplates.map((portfolio) => (
-                <PortfolioCard key={portfolio._id} portfolio={portfolio} />
+              {portfolios.map((portfolio) => (
+                <PortfolioCard
+                  key={portfolio.id}
+                  portfolio={portfolio}
+                  onPublishToggle={handlePublishToggle}
+                />
               ))}
             </div>
           )}
@@ -55,6 +142,68 @@ export default function DashboardPage() {
       </main>
 
       <Footer />
+    </div>
+  );
+}
+
+// Loading state when fetching portfolios
+function LoadingState() {
+  return (
+    <div className="mt-12 py-12 border rounded-lg flex flex-col items-center justify-center text-center">
+      <div className="h-20 w-20 mb-6 rounded-full bg-muted flex items-center justify-center animate-pulse">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="h-10 w-10 text-muted-foreground"
+        >
+          <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+        </svg>
+      </div>
+      <h2 className="text-xl font-semibold mb-2">Loading your portfolios...</h2>
+      <p className="text-muted-foreground max-w-md">
+        Please wait while we retrieve your portfolio data.
+      </p>
+    </div>
+  );
+}
+
+// State when user is not authenticated
+function UnauthenticatedState() {
+  return (
+    <div className="mt-12 py-12 border rounded-lg flex flex-col items-center justify-center text-center">
+      <div className="h-20 w-20 mb-6 rounded-full bg-muted flex items-center justify-center">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="h-10 w-10 text-muted-foreground"
+        >
+          <circle cx="12" cy="12" r="10" />
+          <path d="M8 15h8M10 9h.01M14 9h.01" />
+        </svg>
+      </div>
+      <h2 className="text-xl font-semibold mb-2">Not Signed In</h2>
+      <p className="text-muted-foreground max-w-md mb-6">
+        You need to sign in to view and manage your portfolios.
+      </p>
+      <Link href="/auth/signin">
+        <Button className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white">
+          Sign In
+        </Button>
+      </Link>
     </div>
   );
 }
@@ -95,15 +244,29 @@ function EmptyState() {
 }
 
 // Portfolio card component
-function PortfolioCard({ portfolio }: { portfolio: any }) {
-  const template = portfolio.template || {};
+interface PortfolioCardProps {
+  portfolio: Portfolio;
+  onPublishToggle: (id: string, currentState: boolean) => Promise<void>;
+}
+
+function PortfolioCard({ portfolio, onPublishToggle }: PortfolioCardProps) {
+  const [isPublishing, setIsPublishing] = useState(false);
   const portfolioUrl = `${portfolio.subdomain}.portfoliohub.com`;
+
+  const handlePublishClick = async () => {
+    setIsPublishing(true);
+    try {
+      await onPublishToggle(portfolio.id, portfolio.isPublished);
+    } finally {
+      setIsPublishing(false);
+    }
+  };
 
   return (
     <Card className="overflow-hidden">
       <div className="relative h-48">
         <Image
-          src={template.previewImage || 'https://placehold.co/600x400/e2e8f0/a3adc2?text=No+Preview'}
+          src={portfolio.template?.previewImage || 'https://placehold.co/600x400/e2e8f0/a3adc2?text=No+Preview'}
           alt={portfolio.title}
           fill
           className="object-cover"
@@ -129,10 +292,10 @@ function PortfolioCard({ portfolio }: { portfolio: any }) {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center overflow-hidden">
-              {template.previewImage ? (
+              {portfolio.template?.previewImage ? (
                 <Image
-                  src={template.previewImage}
-                  alt={template.name || 'Template'}
+                  src={portfolio.template.previewImage}
+                  alt={portfolio.template?.name || 'Template'}
                   width={24}
                   height={24}
                   className="object-cover"
@@ -156,7 +319,7 @@ function PortfolioCard({ portfolio }: { portfolio: any }) {
                 </svg>
               )}
             </div>
-            <span className="text-sm text-muted-foreground">{template.name || 'Custom Template'}</span>
+            <span className="text-sm text-muted-foreground">{portfolio.template?.name || 'Custom Template'}</span>
           </div>
           <div className="text-sm text-muted-foreground">
             {new Date(portfolio.updatedAt).toLocaleDateString()}
@@ -178,14 +341,29 @@ function PortfolioCard({ portfolio }: { portfolio: any }) {
       </CardContent>
 
       <CardFooter className="border-t p-4 flex gap-2">
-        <Link href={`/templates/use/${portfolio.templateId}?portfolioId=${portfolio._id}`} className="flex-1">
+        <Link href={`/templates/use/${portfolio.template?.id || 'default'}?portfolioId=${portfolio.id}`} className="flex-1">
           <Button variant="outline" className="w-full">Edit</Button>
         </Link>
-        <Button variant="outline" className="flex-1">Preview</Button>
+        <Link href={`/portfolio/${portfolio.subdomain}`} target="_blank" className="flex-1">
+          <Button variant="outline" className="w-full">Preview</Button>
+        </Link>
         {portfolio.isPublished ? (
-          <Button variant="outline" className="flex-1">Unpublish</Button>
+          <Button
+            variant="outline"
+            className="flex-1"
+            onClick={handlePublishClick}
+            disabled={isPublishing}
+          >
+            {isPublishing ? 'Updating...' : 'Unpublish'}
+          </Button>
         ) : (
-          <Button className="flex-1 bg-gradient-to-r from-violet-600 to-indigo-600 text-white">Publish</Button>
+          <Button
+            className="flex-1 bg-gradient-to-r from-violet-600 to-indigo-600 text-white"
+            onClick={handlePublishClick}
+            disabled={isPublishing}
+          >
+            {isPublishing ? 'Publishing...' : 'Publish'}
+          </Button>
         )}
       </CardFooter>
     </Card>
