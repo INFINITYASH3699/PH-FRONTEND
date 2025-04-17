@@ -4,15 +4,22 @@ import { NextRequest, NextResponse } from 'next/server';
 export const runtime = 'edge';
 
 /**
- * GET - Fetch a user's portfolio by username or subdomain
- * Using a more generic type for compatibility with Next.js 15
+ * GET - Fetch a user's portfolio by username or subdomain (using query parameter)
  */
-export async function GET(
-  request: NextRequest,
-  { params }: any
-) {
+export async function GET(request: NextRequest) {
   try {
-    const username = params.username;
+    const { searchParams } = new URL(request.url);
+    const username = searchParams.get('username');
+
+    if (!username) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Username is required as a query parameter'
+        },
+        { status: 400 }
+      );
+    }
 
     // For now, return a mock response to test deployment
     return NextResponse.json({

@@ -11,10 +11,10 @@ export const runtime = 'edge';
  */
 export async function GET(
   request: NextRequest,
-  context: { params: { id: string } }
+  { params }: any
 ) {
   try {
-    const id = context.params.id;
+    const id = params.id;
 
     // For now, return a mock response for deployment testing
     return NextResponse.json({
@@ -46,7 +46,7 @@ export async function GET(
  */
 export async function PATCH(
   request: NextRequest,
-  context: { params: { id: string } }
+  { params }: any
 ) {
   return NextResponse.json(
     {
@@ -62,7 +62,7 @@ export async function PATCH(
  */
 export async function DELETE(
   request: NextRequest,
-  context: { params: { id: string } }
+  { params }: any
 ) {
   return NextResponse.json(
     {

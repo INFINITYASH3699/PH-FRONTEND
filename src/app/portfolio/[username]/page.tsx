@@ -1,6 +1,8 @@
+'use client';
+
 import Link from 'next/link';
 import Image from 'next/image';
-import { notFound } from 'next/navigation';
+import { notFound, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 
 // Mock user portfolio data
@@ -105,9 +107,13 @@ const portfolios = [
   }
 ];
 
-export default function PublishedPortfolioPage({ params }: { params: { username: string } }) {
+export default function PublishedPortfolioPage() {
+  // Get username from route params using the useParams hook
+  const params = useParams();
+  const username = typeof params.username === 'string' ? params.username : '';
+
   // Find the portfolio by username
-  const portfolio = portfolios.find(p => p.username === params.username);
+  const portfolio = portfolios.find(p => p.username === username);
 
   // If portfolio not found, return 404
   if (!portfolio) {

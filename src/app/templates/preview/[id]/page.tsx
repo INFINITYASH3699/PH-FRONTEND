@@ -1,6 +1,8 @@
+'use client';
+
 import Image from 'next/image';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { NavBar } from '@/components/layout/NavBar';
 import { Footer } from '@/components/layout/Footer';
@@ -46,9 +48,13 @@ const templateFeatures = {
   ],
 };
 
-export default function TemplatePreviewPage({ params }: { params: { id: string } }) {
+export default function TemplatePreviewPage() {
+  // Get ID from route params using the useParams hook
+  const params = useParams();
+  const id = typeof params.id === 'string' ? params.id : '';
+
   // Find the template by ID
-  const template = templates.find(t => t._id === params.id);
+  const template = templates.find(t => t._id === id);
 
   // If template not found, return 404
   if (!template) {

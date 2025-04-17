@@ -3,8 +3,7 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { notFound } from 'next/navigation';
+import { useRouter, notFound, useParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -233,13 +232,13 @@ interface Portfolio {
   sectionContent: SectionContent;
 }
 
-export default function PortfolioEditorPage({ params }: { params: { id: string } }) {
+export default function PortfolioEditorPage() {
   const router = useRouter();
-  const { toast } = useToast();
-  const { data: session, status } = useSession();
+  const params = useParams();
+  const templateId = typeof params.id === 'string' ? params.id : '';
 
   // Find the template by ID
-  const template = templates.find(t => t.id === params.id);
+  const template = templates.find(t => t.id === templateId);
 
   // If template not found, return 404
   if (!template) {
@@ -312,6 +311,7 @@ export default function PortfolioEditorPage({ params }: { params: { id: string }
   const [loading, setLoading] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<string>('about');
   const [portfolioId, setPortfolioId] = useState<string | null>(null);
+  const { data: session, status } = useSession();
 
   // Effect to set username as subdomain if authenticated
   useEffect(() => {

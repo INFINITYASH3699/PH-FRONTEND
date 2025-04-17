@@ -1,15 +1,15 @@
+'use client';
+
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { NavBar } from '@/components/layout/NavBar';
 import { Footer } from '@/components/layout/Footer';
 import ResetPasswordForm from './ResetPasswordForm';
 
-export default function ResetPasswordPage({
-  searchParams
-}: {
-  searchParams: { token?: string }
-}) {
-  const token = searchParams.token || '';
+export default function ResetPasswordPage() {
+  const searchParams = useSearchParams();
+  const token = searchParams.get('token') || '';
 
   return (
     <div className="min-h-screen flex flex-col">
