@@ -3,6 +3,7 @@ import dbConnect from '@/lib/db/mongodb';
 import { User } from '@/models/User';
 import crypto from 'crypto';
 import { sendPasswordResetEmail } from '@/lib/email';
+import { z } from 'zod';
 
 // Schema for forgot password request
 const forgotPasswordSchema = z.object({
@@ -58,10 +59,10 @@ export async function POST(request: NextRequest) {
     await user.save();
 
     // Send password reset email
-    const result = await sendPasswordResetEmail(user.email, resetToken);
+    const emailResult = await sendPasswordResetEmail(user.email, resetToken);
 
-    if (!result.success) {
-      console.error('Failed to send password reset email:', result.error);
+    if (!emailResult.success) {
+      console.error('Failed to send password reset email:', emailResult.error);
       return NextResponse.json(
         { success: false, message: 'Failed to send password reset email' },
         { status: 500 }

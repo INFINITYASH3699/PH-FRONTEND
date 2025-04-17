@@ -82,12 +82,15 @@ const nextConfig = {
         zlib: false,
         child_process: false,
         '@mapbox/node-pre-gyp': false,
+        'aws-sdk': false,
+        'mock-aws-s3': false,
+        'nock': false,
         canvas: false,
       };
 
-      // Prevent webpack from trying to process node modules that should be server-side only
+      // More extensive handling of problematic modules
       config.module.rules.push({
-        test: /node_modules\/(@mapbox\/node-pre-gyp|bcrypt|mongodb|mongoose).*/,
+        test: /node_modules[/\\](@mapbox[/\\]node-pre-gyp|bcrypt|mongodb|mongoose)[/\\].*/,
         use: 'null-loader',
       });
     }
@@ -98,15 +101,14 @@ const nextConfig = {
   // Server external packages
   serverExternalPackages: ['bcrypt', 'mongoose', 'mongodb', '@mapbox/node-pre-gyp'],
 
-  // Increase the memory limit for the build process
-  experimental: {
-    outputFileTracingExcludes: {
-      '*': [
-        './node_modules/@swc/core-linux-x64-gnu',
-        './node_modules/@swc/core-linux-x64-musl',
-        './node_modules/@esbuild/linux-x64',
-      ],
-    },
+  // Increase the memory limit for the build process (moved from experimental to root)
+  outputFileTracingExcludes: {
+    '*': [
+      './node_modules/@swc/core-linux-x64-gnu',
+      './node_modules/@swc/core-linux-x64-musl',
+      './node_modules/@esbuild/linux-x64',
+      './node_modules/@mapbox/node-pre-gyp/**/*',
+    ],
   },
 };
 
