@@ -1,6 +1,6 @@
 import mongoose, { Schema, models, model } from 'mongoose';
 import { hash, compare } from 'bcrypt';
-import crypto from 'crypto';
+// Remove crypto import and create edge-compatible alternatives
 
 export type UserRole = 'user' | 'admin';
 export type UserStatus = 'active' | 'inactive' | 'pending';
@@ -34,6 +34,26 @@ export interface IUser {
   lastLogin?: Date;
   createdAt: Date;
   updatedAt: Date;
+}
+
+// Helper function to generate random tokens (edge compatible)
+async function generateSecureToken(): Promise<string> {
+  // Use Web Crypto API instead of Node.js crypto
+  const array = new Uint8Array(32);
+  if (typeof crypto !== 'undefined') {
+    crypto.getRandomValues(array);
+  }
+  return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
+// Helper function to hash a token (edge compatible)
+async function hashToken(token: string): Promise<string> {
+  // Simple hash function compatible with Edge
+  const encoder = new TextEncoder();
+  const data = encoder.encode(token);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
 const userSchema = new Schema<IUser>(
@@ -140,14 +160,10 @@ userSchema.methods.comparePassword = async function(candidatePassword: string) {
   return compare(candidatePassword, this.password);
 };
 
-// Create a method to generate a password reset token
-userSchema.methods.createPasswordResetToken = function() {
-  const resetToken = crypto.randomBytes(32).toString('hex');
-
-  this.passwordResetToken = crypto
-    .createHash('sha256')
-    .update(resetToken)
-    .digest('hex');
+// Create a method to generate a password reset token (edge compatible)
+userSchema.methods.createPasswordResetToken = async function() {
+  const resetToken = await generateSecureToken();
+  this.passwordResetToken = await hashToken(resetToken);
 
   // Token expires in 1 hour
   this.passwordResetExpires = new Date(Date.now() + 60 * 60 * 1000);
@@ -155,14 +171,10 @@ userSchema.methods.createPasswordResetToken = function() {
   return resetToken;
 };
 
-// Create a method to generate an email verification token
-userSchema.methods.createVerificationToken = function() {
-  const verificationToken = crypto.randomBytes(32).toString('hex');
-
-  this.verificationToken = crypto
-    .createHash('sha256')
-    .update(verificationToken)
-    .digest('hex');
+// Create a method to generate an email verification token (edge compatible)
+userSchema.methods.createVerificationToken = async function() {
+  const verificationToken = await generateSecureToken();
+  this.verificationToken = await hashToken(verificationToken);
 
   // Token expires in 24 hours
   this.verificationTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);

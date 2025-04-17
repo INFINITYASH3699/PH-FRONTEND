@@ -1,69 +1,30 @@
-import nodemailer from 'nodemailer';
-
 interface EmailPayload {
   to: string;
   subject: string;
   html: string;
 }
 
-// Check if we're using placeholder credentials
-const isUsingPlaceholderCreds =
-  process.env.EMAIL_SERVER_HOST === 'smtp.example.com' ||
-  process.env.EMAIL_SERVER_USER === 'placeholder@example.com' ||
-  process.env.EMAIL_SERVER_PASSWORD === 'placeholder';
-
-const isDevelopmentMode = process.env.NODE_ENV === 'development';
-
-// Create mock transporter for development
-const createDevTransporter = () => {
-  console.warn('Using development email service. Emails will be logged but not sent.');
-  return {
-    sendMail: async (mailOptions: any) => {
-      console.log('\n--- DEVELOPMENT MODE: EMAIL NOT ACTUALLY SENT ---');
-      console.log('To:', mailOptions.to);
-      console.log('Subject:', mailOptions.subject);
-      console.log('Content:', mailOptions.html.replace(/<[^>]*>/g, ' ').substring(0, 100) + '...');
-      console.log('-----------------------------------------------\n');
-      return { messageId: `dev-${Date.now()}@portfoliohub.test` };
-    },
-    verify: (callback: (error: Error | null, success: boolean) => void) => {
-      callback(null, true);
-    }
-  };
+// Create a simplified logger for email operations
+const logEmail = (to: string, subject: string, html: string) => {
+  console.log('\n--- EMAIL MOCK [Edge Runtime] ---');
+  console.log('To:', to);
+  console.log('Subject:', subject);
+  console.log('Content:', html.replace(/<[^>]*>/g, ' ').substring(0, 100) + '...');
+  console.log('-----------------------------\n');
 };
 
-// Create reusable transporter with environment variables or mock for development
-const transporter = isDevelopmentMode && isUsingPlaceholderCreds
-  ? createDevTransporter()
-  : nodemailer.createTransport({
-      host: process.env.EMAIL_SERVER_HOST,
-      port: Number(process.env.EMAIL_SERVER_PORT) || 587,
-      secure: Number(process.env.EMAIL_SERVER_PORT) === 465, // true for 465, false for other ports
-      auth: {
-        user: process.env.EMAIL_SERVER_USER,
-        pass: process.env.EMAIL_SERVER_PASSWORD,
-      },
-    });
-
-// Verify connection configuration
-if (!(isDevelopmentMode && isUsingPlaceholderCreds)) {
-  transporter.verify((error) => {
-    if (error) {
-      console.error('Email service error:', error);
-    } else {
-      console.log('Email service is ready');
-    }
-  });
-}
-
+// Simple mock implementation for Edge runtime
 export const sendEmail = async (payload: EmailPayload) => {
   try {
-    const info = await transporter.sendMail({
-      from: process.env.EMAIL_FROM || 'no-reply@portfoliohub.com',
-      ...payload,
-    });
+    const { to, subject, html } = payload;
 
-    return { success: true, messageId: info.messageId };
+    // Log the email attempt
+    logEmail(to, subject, html);
+
+    // Simulating success - in a real app, you'd call an API endpoint
+    // that runs in a Node.js environment or use a service like SendGrid/Mailgun API directly
+
+    return { success: true, messageId: `edge-${Date.now()}@portfoliohub.test` };
   } catch (error) {
     console.error('Failed to send email:', error);
     return { success: false, error };

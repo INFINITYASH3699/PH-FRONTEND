@@ -42,9 +42,6 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
 
-  // For Vercel deployment, make sure we have the right settings
-  swcMinify: true,
-
   // Configure redirects
   async redirects() {
     return [

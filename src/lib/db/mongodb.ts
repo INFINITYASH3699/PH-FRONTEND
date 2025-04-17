@@ -61,24 +61,4 @@ async function dbConnect() {
   return cached.conn;
 }
 
-// Add event listeners for connection status
-mongoose.connection.on('connected', () => {
-  console.log('MongoDB connection established');
-});
-
-mongoose.connection.on('error', (err) => {
-  console.error('MongoDB connection error:', err);
-});
-
-mongoose.connection.on('disconnected', () => {
-  console.log('MongoDB connection disconnected');
-});
-
-// Handle process termination
-process.on('SIGINT', async () => {
-  await mongoose.connection.close();
-  console.log('MongoDB connection closed due to app termination');
-  process.exit(0);
-});
-
 export default dbConnect;
