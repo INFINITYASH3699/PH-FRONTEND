@@ -63,32 +63,23 @@ const nextConfig = {
   },
 
   // Configure webpack
-  webpack(config, { isServer }) {
-    // Don't bundle server-only packages on the client side
-    if (!isServer) {
-      // Replace problematic packages with empty modules
-      config.resolve.alias = {
-        ...config.resolve.alias,
-        bcrypt: false,
-        mongoose: false,
-        mongodb: false,
-        '@mapbox/node-pre-gyp': false,
-      };
-    } else {
-      // For server-side code, we should still use the real modules
-      // but we'll handle them properly
-      config.externals = [...(config.externals || []), 'bcrypt', 'mongoose', 'mongodb'];
-    }
+  webpack(config) {
+    // Ensure problematic packages are not bundled on client or Edge runtime
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      bcrypt: false,
+      mongoose: false,
+      mongodb: false,
+      '@mapbox/node-pre-gyp': false,
+      'aws-sdk': false,
+      'mock-aws-s3': false,
+      'nock': false,
+    };
 
     return config;
   },
 
-  // Explicitly mark server-only packages
-  experimental: {
-    serverComponentsExternalPackages: ['bcrypt', 'mongoose', 'mongodb', '@mapbox/node-pre-gyp'],
-  },
-
-  // Increase the memory limit for the build process (moved from experimental to root)
+  // Increase the memory limit for the build process
   outputFileTracingExcludes: {
     '*': [
       './node_modules/@swc/core-linux-x64-gnu',
@@ -99,11 +90,6 @@ const nextConfig = {
       './node_modules/mongoose/**/*',
       './node_modules/mongodb/**/*',
     ],
-  },
-
-  // Specify server actions settings
-  serverActions: {
-    bodySizeLimit: '2mb',
   },
 };
 
