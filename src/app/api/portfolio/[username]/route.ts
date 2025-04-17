@@ -3,18 +3,17 @@ import { NextRequest, NextResponse } from 'next/server';
 // Make this an Edge API route
 export const runtime = 'edge';
 
-interface RouteContext {
-  params: {
-    username: string;
-  };
-}
+type Params = { params: { username: string } };
 
 /**
  * GET - Fetch a user's portfolio by username or subdomain
  */
-export async function GET(request: NextRequest, context: RouteContext) {
+export async function GET(
+  request: NextRequest,
+  { params }: Params
+) {
   try {
-    const { username } = context.params;
+    const username = params.username;
 
     // For now, return a mock response to test deployment
     return NextResponse.json({
