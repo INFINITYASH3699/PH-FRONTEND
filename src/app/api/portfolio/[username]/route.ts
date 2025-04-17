@@ -10,10 +10,10 @@ type Params = { params: { username: string } };
  */
 export async function GET(
   request: NextRequest,
-  { params }: Params
+  context: { params: { username: string } }
 ) {
   try {
-    const username = params.username;
+    const username = context.params.username;
 
     // For now, return a mock response to test deployment
     return NextResponse.json({
