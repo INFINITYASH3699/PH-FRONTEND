@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db/mongodb';
 import { User } from '@/models/User';
-import { Token } from '@/models/Token';
-import { z } from 'zod';
 import crypto from 'crypto';
 import { sendPasswordResetEmail } from '@/lib/email';
 
@@ -31,70 +29,53 @@ export async function POST(request: NextRequest) {
 
     const { email } = result.data;
 
+    // Connect to database
     await dbConnect();
 
-    // Find user by email
-    const user = await User.findOne({ email });
+    // Find user by email (case-insensitive)
+    const user = await User.findOne({
+      email: { $regex: new RegExp(`^${email}$`, 'i') }
+    });
 
-    // We'll respond with success even if the email doesn't exist
-    // This prevents user enumeration attacks
+    // Don't reveal that the user doesn't exist (security best practice)
     if (!user) {
-      return NextResponse.json({
-        success: true,
-        message: 'If an account with that email exists, we have sent a password reset link',
-      });
+      return NextResponse.json(
+        { success: true, message: 'If the email exists, a password reset link has been sent' },
+        { status: 200 }
+      );
     }
 
-    // Check if user is active
-    if (user.status !== 'active') {
-      return NextResponse.json({
-        success: true,
-        message: 'If an account with that email exists, we have sent a password reset link',
-      });
-    }
-
-    // Generate a reset token
+    // Generate reset token and set expiration (1 hour)
     const resetToken = crypto.randomBytes(32).toString('hex');
+    const hashedToken = crypto
+      .createHash('sha256')
+      .update(resetToken)
+      .digest('hex');
 
-    // Delete any existing password reset tokens for this user
-    await Token.deleteMany({
-      userId: user._id,
-      type: 'password_reset',
-    });
-
-    // Save the new token
-    await Token.create({
-      userId: user._id,
-      token: resetToken,
-      type: 'password_reset',
-      expiresAt: new Date(Date.now() + 60 * 60 * 1000), // 1 hour
-    });
+    // Update user with reset token
+    user.passwordResetToken = hashedToken;
+    user.passwordResetExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+    await user.save();
 
     // Send password reset email
-    try {
-      await sendPasswordResetEmail(email, resetToken);
-    } catch (emailError) {
-      console.error('Failed to send password reset email:', emailError);
+    const result = await sendPasswordResetEmail(user.email, resetToken);
+
+    if (!result.success) {
+      console.error('Failed to send password reset email:', result.error);
       return NextResponse.json(
-        {
-          success: false,
-          error: 'Failed to send password reset email',
-        },
+        { success: false, message: 'Failed to send password reset email' },
         { status: 500 }
       );
     }
 
-    return NextResponse.json({
-      success: true,
-      message: 'Password reset email sent. Please check your inbox.',
-    });
+    return NextResponse.json(
+      { success: true, message: 'Password reset link sent' },
+      { status: 200 }
+    );
   } catch (error) {
     console.error('Forgot password error:', error);
     return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : 'An unexpected error occurred',
-      },
+      { success: false, message: 'Internal server error' },
       { status: 500 }
     );
   }

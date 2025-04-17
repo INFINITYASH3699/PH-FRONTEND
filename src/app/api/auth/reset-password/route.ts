@@ -4,6 +4,7 @@ import { User } from '@/models/User';
 import { Token } from '@/models/Token';
 import { z } from 'zod';
 import { hash } from 'bcrypt';
+import crypto from 'crypto';
 
 // Schema for password reset
 const resetPasswordSchema = z.object({
@@ -41,73 +42,52 @@ export async function POST(request: NextRequest) {
 
     const { token, password } = result.data;
 
+    // Connect to database
     await dbConnect();
 
-    // Find the token
-    const tokenRecord = await Token.findOne({
-      token,
-      type: 'password_reset',
+    // Hash the token that was sent to the user's email
+    // to match the hashed version stored in the database
+    const hashedToken = crypto
+      .createHash('sha256')
+      .update(token)
+      .digest('hex');
+
+    // Find user with matching reset token and valid expiration
+    const user = await User.findOne({
+      passwordResetToken: hashedToken,
+      passwordResetExpires: { $gt: Date.now() },
     });
-
-    if (!tokenRecord) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Invalid or expired token',
-        },
-        { status: 400 }
-      );
-    }
-
-    // Check if token is expired
-    if (tokenRecord.expiresAt < new Date()) {
-      await Token.deleteOne({ _id: tokenRecord._id });
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Token has expired',
-        },
-        { status: 400 }
-      );
-    }
-
-    // Find the user
-    const user = await User.findById(tokenRecord.userId);
 
     if (!user) {
       return NextResponse.json(
-        {
-          success: false,
-          error: 'User not found',
-        },
-        { status: 404 }
+        { success: false, message: 'Token is invalid or has expired' },
+        { status: 400 }
       );
     }
 
     // Hash the new password
-    const hashedPassword = await hash(password, 12);
+    const hashedPassword = await hash(password, 10);
 
-    // Update the password
+    // Update user's password and clear reset token fields
     user.password = hashedPassword;
+    user.passwordResetToken = undefined;
+    user.passwordResetExpires = undefined;
+
+    // Update last password change timestamp if your schema has this field
+    if ('passwordChangedAt' in user) {
+      user.passwordChangedAt = new Date();
+    }
+
     await user.save();
 
-    // Delete all password reset tokens for this user
-    await Token.deleteMany({
-      userId: user._id,
-      type: 'password_reset',
-    });
-
-    return NextResponse.json({
-      success: true,
-      message: 'Password has been reset successfully. You can now log in with your new password.',
-    });
-  } catch (error) {
-    console.error('Password reset error:', error);
     return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : 'An unexpected error occurred',
-      },
+      { success: true, message: 'Password has been reset successfully' },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error('Reset password error:', error);
+    return NextResponse.json(
+      { success: false, message: 'Internal server error' },
       { status: 500 }
     );
   }

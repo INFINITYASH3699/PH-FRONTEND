@@ -28,6 +28,9 @@ export interface IUser {
   emailVerified?: Date;
   passwordResetToken?: string;
   passwordResetExpires?: Date;
+  verificationToken?: string;
+  verificationTokenExpires?: Date;
+  passwordChangedAt?: Date;
   lastLogin?: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -108,6 +111,9 @@ const userSchema = new Schema<IUser>(
     },
     passwordResetToken: String,
     passwordResetExpires: Date,
+    verificationToken: String,
+    verificationTokenExpires: Date,
+    passwordChangedAt: Date,
     lastLogin: Date,
   },
   {
@@ -147,6 +153,21 @@ userSchema.methods.createPasswordResetToken = function() {
   this.passwordResetExpires = new Date(Date.now() + 60 * 60 * 1000);
 
   return resetToken;
+};
+
+// Create a method to generate an email verification token
+userSchema.methods.createVerificationToken = function() {
+  const verificationToken = crypto.randomBytes(32).toString('hex');
+
+  this.verificationToken = crypto
+    .createHash('sha256')
+    .update(verificationToken)
+    .digest('hex');
+
+  // Token expires in 24 hours
+  this.verificationTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+  return verificationToken;
 };
 
 // Create virtual for full user profile URL

@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { hash } from 'bcrypt';
-import dbConnect from '@/lib/db/mongodb';
 import { User } from '@/models/User';
-import { Token } from '@/models/Token';
-import { z } from 'zod';
-import crypto from 'crypto';
+import dbConnect from '@/lib/db/mongodb';
+import { hash } from 'bcrypt';
 import { sendVerificationEmail } from '@/lib/email';
+import { z } from 'zod';
+import crypto from 'crypto'; // Import crypto for token generation
 
 // Create a schema for user registration with stronger validation
 const registerSchema = z.object({
@@ -17,7 +16,7 @@ const registerSchema = z.object({
   username: z
     .string()
     .min(3, 'Username must be at least 3 characters')
-    .max(20, 'Username must be at most 20 characters')
+    .max(30, 'Username must not exceed 30 characters')
     .regex(/^[a-zA-Z0-9_-]+$/, 'Username can only contain letters, numbers, underscores, and hyphens')
     .trim()
     .toLowerCase(),
@@ -28,30 +27,22 @@ const registerSchema = z.object({
     .toLowerCase(),
   password: z
     .string()
-    .min(8, 'Password must be at least 8 characters')
-    .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
-    .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
-    .regex(/[0-9]/, 'Password must contain at least one number')
-    .regex(/[^A-Za-z0-9]/, 'Password must contain at least one special character'),
+    .min(8, 'Password must be at least 8 characters'),
 });
 
 export async function POST(request: NextRequest) {
   try {
-    // Rate limiting check (basic implementation)
-    const ip = request.headers.get('x-forwarded-for') || 'unknown';
-    // In a real app, you would use Redis or another store to track requests
-
     const body = await request.json();
 
     // Validate request body
     const result = registerSchema.safeParse(body);
-
     if (!result.success) {
+      const errors = result.error.format();
       return NextResponse.json(
         {
           success: false,
-          error: 'Validation failed',
-          details: result.error.format()
+          message: 'Validation failed',
+          errors
         },
         { status: 400 }
       );
@@ -63,16 +54,10 @@ export async function POST(request: NextRequest) {
     await dbConnect();
 
     // Check if user with email already exists (case insensitive)
-    const existingUserByEmail = await User.findOne({
-      email: { $regex: new RegExp(`^${email}$`, 'i') }
-    });
-
+    const existingUserByEmail = await User.findOne({ email: email.toLowerCase() });
     if (existingUserByEmail) {
       return NextResponse.json(
-        {
-          success: false,
-          error: 'User with this email already exists'
-        },
+        { success: false, message: 'Email is already in use' },
         { status: 409 }
       );
     }
@@ -81,81 +66,58 @@ export async function POST(request: NextRequest) {
     const existingUserByUsername = await User.findOne({
       username: { $regex: new RegExp(`^${username}$`, 'i') }
     });
-
     if (existingUserByUsername) {
       return NextResponse.json(
-        {
-          success: false,
-          error: 'Username is already taken'
-        },
+        { success: false, message: 'Username is already taken' },
         { status: 409 }
       );
     }
 
+    // Create new user
+    const user = new User({
+      fullName,
+      username: username.toLowerCase(),
+      email: email.toLowerCase(),
+      password, // Will be hashed in the pre-save hook
+      status: 'pending', // Set status to pending until email is verified
+    });
+
     // Generate verification token
     const verificationToken = crypto.randomBytes(32).toString('hex');
 
-    // Create a new user
-    const newUser = await User.create({
-      fullName,
-      username,
-      email,
-      password, // Will be hashed in the pre-save hook
-      accountType: 'credentials',
-      status: 'pending', // Changed to 'pending' for email verification
-      emailVerified: null, // Will be set when user verifies email
-    });
+    // Save user to database
+    await user.save();
 
     // Save verification token
     await Token.create({
-      userId: newUser._id,
+      userId: user._id,
       token: verificationToken,
       type: 'email_verification',
       expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
     });
 
-    // Remove password from the response
-    const user = newUser.toObject();
-    delete user.password;
-
     // Send verification email
-    try {
-      await sendVerificationEmail(email, verificationToken);
-    } catch (emailError) {
-      console.error('Failed to send verification email:', emailError);
-      // Continue despite email failure, but log it
+    const emailResult = await sendVerificationEmail(email, verificationToken);
+
+    if (!emailResult.success) {
+      console.error('Failed to send verification email:', emailResult.error);
+      // We still return success but log the error
+      // The user can request a new verification email later
     }
 
     return NextResponse.json(
       {
         success: true,
-        message: 'User registered successfully. Please check your email to verify your account.',
-        user
+        message: 'Registration successful. Please check your email to verify your account.',
+        requiresVerification: true,
       },
       { status: 201 }
     );
   } catch (error) {
     console.error('Registration error:', error);
-    let errorMessage = 'Registration failed';
-    let statusCode = 500;
-
-    // Provide more specific error message based on the type of error
-    if (error instanceof Error) {
-      errorMessage = error.message;
-
-      // Handle MongoDB duplicate key errors
-      if ((error as any).code === 11000) {
-        statusCode = 409;
-        errorMessage = 'A user with this email or username already exists';
-      }
-    }
-
     return NextResponse.json(
-      {
-        success: false,
-        error: errorMessage
-      },
-      { status: statusCode }
+      { success: false, message: 'Internal server error' },
+      { status: 500 }
     );
   }
 }

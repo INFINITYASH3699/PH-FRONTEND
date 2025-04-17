@@ -12,6 +12,7 @@ import { signIn } from 'next-auth/react';
 export default function SignUpForm() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -32,6 +33,16 @@ export default function SignUpForm() {
     // Basic validation
     if (formData.password !== formData.confirmPassword) {
       toast.error('Passwords do not match');
+      return;
+    }
+
+    if (formData.password.length < 8) {
+      toast.error('Password must be at least 8 characters long');
+      return;
+    }
+
+    if (!/^[a-zA-Z0-9_-]{3,30}$/.test(formData.username)) {
+      toast.error('Username must be 3-30 characters and can only contain letters, numbers, underscores, and hyphens');
       return;
     }
 
@@ -57,24 +68,48 @@ export default function SignUpForm() {
         throw new Error(data.message || 'Something went wrong');
       }
 
-      toast.success('Account created successfully!');
-
-      // Auto sign in after successful registration
-      await signIn('credentials', {
-        redirect: false,
-        email: formData.email,
-        password: formData.password,
-      });
-
-      router.push('/dashboard');
-      router.refresh();
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to create account');
+      setIsSuccess(true);
+      toast.success('Account created! Please check your email to verify your account.');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to create account';
+      toast.error(message);
       console.error(error);
     } finally {
       setIsLoading(false);
     }
   };
+
+  if (isSuccess) {
+    return (
+      <CardContent className="space-y-6">
+        <div className="bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 p-4 rounded-lg text-center">
+          <h3 className="font-medium text-lg mb-2">Account Created Successfully!</h3>
+          <p>
+            We've sent a verification link to <strong>{formData.email}</strong>. Please check your email and click the link to verify your account.
+          </p>
+        </div>
+        <div className="text-center text-sm text-muted-foreground">
+          <p>
+            Didn't receive the email? Check your spam folder or{' '}
+            <button
+              className="text-primary hover:underline font-medium"
+              onClick={() => {
+                // This would call an API to resend the verification email
+                toast.info('This feature is coming soon');
+              }}
+            >
+              click here to resend
+            </button>
+          </p>
+        </div>
+        <div className="flex justify-center">
+          <Link href="/auth/signin">
+            <Button variant="outline">Go to Sign In</Button>
+          </Link>
+        </div>
+      </CardContent>
+    );
+  }
 
   return (
     <>
@@ -152,8 +187,11 @@ export default function SignUpForm() {
               onChange={handleChange}
               disabled={isLoading}
               required
-              minLength={6}
+              minLength={8}
             />
+            <p className="text-xs text-muted-foreground">
+              Password must be at least 8 characters long
+            </p>
           </div>
 
           <div className="space-y-2">
