@@ -66,40 +66,27 @@ const nextConfig = {
   webpack(config, { isServer }) {
     // Don't bundle server-only packages on the client side
     if (!isServer) {
-      config.resolve.fallback = {
-        ...config.resolve.fallback,
+      // Replace problematic packages with empty modules
+      config.resolve.alias = {
+        ...config.resolve.alias,
         bcrypt: false,
-        crypto: false,
-        net: false,
-        tls: false,
-        fs: false,
-        path: false,
-        os: false,
-        dns: false,
-        http: false,
-        https: false,
-        stream: false,
-        zlib: false,
-        child_process: false,
+        mongoose: false,
+        mongodb: false,
         '@mapbox/node-pre-gyp': false,
-        'aws-sdk': false,
-        'mock-aws-s3': false,
-        'nock': false,
-        canvas: false,
       };
-
-      // More extensive handling of problematic modules
-      config.module.rules.push({
-        test: /node_modules[/\\](@mapbox[/\\]node-pre-gyp|bcrypt|mongodb|mongoose)[/\\].*/,
-        use: 'null-loader',
-      });
+    } else {
+      // For server-side code, we should still use the real modules
+      // but we'll handle them properly
+      config.externals = [...(config.externals || []), 'bcrypt', 'mongoose', 'mongodb'];
     }
 
     return config;
   },
 
-  // Server external packages
-  serverExternalPackages: ['bcrypt', 'mongoose', 'mongodb', '@mapbox/node-pre-gyp'],
+  // Explicitly mark server-only packages
+  experimental: {
+    serverComponentsExternalPackages: ['bcrypt', 'mongoose', 'mongodb', '@mapbox/node-pre-gyp'],
+  },
 
   // Increase the memory limit for the build process (moved from experimental to root)
   outputFileTracingExcludes: {
@@ -108,7 +95,15 @@ const nextConfig = {
       './node_modules/@swc/core-linux-x64-musl',
       './node_modules/@esbuild/linux-x64',
       './node_modules/@mapbox/node-pre-gyp/**/*',
+      './node_modules/bcrypt/**/*',
+      './node_modules/mongoose/**/*',
+      './node_modules/mongodb/**/*',
     ],
+  },
+
+  // Specify server actions settings
+  serverActions: {
+    bodySizeLimit: '2mb',
   },
 };
 

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { auth } from './lib/auth';
+import { auth } from 'next-auth'; // Updated to use next-auth for Edge compatibility
 
 // List of paths that require authentication
 const PROTECTED_PATHS = [
