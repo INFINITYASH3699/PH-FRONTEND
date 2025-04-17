@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { getToken } from 'next-auth/jwt'; // Updated to use getToken for authentication
+import { auth } from './lib/auth'; // Updated to use the auth export instead of getToken
 
 // List of paths that require authentication
 const PROTECTED_PATHS = [
@@ -18,9 +18,9 @@ const AUTH_ONLY_PATHS = [
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Get token to check if user is authenticated
-  const token = await getToken({ req: request });
-  const isAuthenticated = !!token;
+  // Get the session using the updated auth() function from NextAuth v5
+  const session = await auth();
+  const isAuthenticated = !!session;
 
   // Check if the path requires authentication
   const isProtectedPath = PROTECTED_PATHS.some(path =>

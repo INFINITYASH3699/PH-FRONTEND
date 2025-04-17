@@ -1,11 +1,12 @@
 import NextAuth from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
+import { NextResponse } from 'next/server';
 
 // For Edge deployment
 export const runtime = 'edge';
 
-// Create a simple auth handler for Edge deployment
-export const { GET, POST } = NextAuth({
+// Create auth config for Edge deployment
+const handler = NextAuth({
   providers: [
     CredentialsProvider({
       name: 'Credentials',
@@ -24,3 +25,12 @@ export const { GET, POST } = NextAuth({
     error: '/auth/error',
   },
 });
+
+// Export the API route handlers
+export async function GET(request: Request) {
+  return handler.auth(request);
+}
+
+export async function POST(request: Request) {
+  return handler.auth(request);
+}
