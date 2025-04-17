@@ -4,8 +4,42 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
-// Create a single supabase client for interacting with your database
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Check if we're using placeholder credentials
+const isDevelopmentMode = process.env.NODE_ENV === 'development';
+const hasValidSupabaseConfig = supabaseUrl && supabaseAnonKey &&
+  !supabaseUrl.includes('placeholder') &&
+  !supabaseAnonKey.includes('placeholder');
+
+// Create a supabase client or a mock if in development with missing credentials
+export const supabase = hasValidSupabaseConfig
+  ? createClient(supabaseUrl, supabaseAnonKey)
+  : createMockClient();
+
+function createMockClient() {
+  console.warn('Using mock Supabase client. Storage operations will be mocked.');
+
+  return {
+    storage: {
+      from: (bucket: string) => ({
+        upload: async (path: string, file: any) => {
+          console.log(`DEV MODE: Mock uploading file to ${bucket}/${path}`);
+          return {
+            data: { path: `${bucket}/${path}` },
+            error: null
+          };
+        },
+        getPublicUrl: (path: string) => ({
+          data: { publicUrl: `https://via.placeholder.com/300?text=${encodeURIComponent(path)}` }
+        }),
+        remove: async (paths: string[]) => {
+          console.log(`DEV MODE: Mock removing files: ${paths.join(', ')}`);
+          return { data: { message: 'Files removed' }, error: null };
+        }
+      })
+    },
+    // Add other mocked methods as needed
+  } as any;
+}
 
 // Type definitions for our database tables
 export type User = {

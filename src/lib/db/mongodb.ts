@@ -18,6 +18,12 @@ if (!cached) {
 }
 
 async function dbConnect() {
+  // Check if we're using placeholder MongoDB URI
+  if (MONGODB_URI.includes('placeholder')) {
+    console.warn('Using placeholder MongoDB URI. Database operations will be mocked.');
+    return { connection: { readyState: 1 } }; // Fake connected state
+  }
+
   if (cached.conn) {
     console.log('Using existing MongoDB connection');
     return cached.conn;

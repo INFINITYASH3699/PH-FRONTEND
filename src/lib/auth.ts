@@ -11,6 +11,10 @@ if (!nextAuthSecret) {
   console.error('Missing NEXTAUTH_SECRET environment variable');
 }
 
+// Dev mode check for using placeholder credentials
+const isDevelopmentMode = process.env.NODE_ENV === 'development';
+const isUsingPlaceholderCreds = process.env.MONGODB_URI?.includes('placeholder');
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   pages: {
     signIn: '/auth/signin',
@@ -27,6 +31,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
           throw new Error('Please provide both email and password');
+        }
+
+        // For development with placeholder credentials, allow a test user login
+        if (isDevelopmentMode && isUsingPlaceholderCreds) {
+          console.warn('Using development mock authentication');
+          if (credentials.email === 'test@example.com' && credentials.password === 'password') {
+            return {
+              id: '1',
+              name: 'Test User',
+              email: 'test@example.com',
+              username: 'testuser',
+              image: 'https://via.placeholder.com/150',
+              role: 'user',
+            };
+          }
+          throw new Error('Invalid test credentials');
         }
 
         // Connect to the database
@@ -94,6 +114,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
   callbacks: {
     async signIn({ user, account }) {
+      // Skip database operations in development with placeholder credentials
+      if (isDevelopmentMode && isUsingPlaceholderCreds) {
+        return true;
+      }
+
       // For OAuth (Google, etc.) accounts, we need to check if the user exists in our database
       // If not, we create a new user
       if (account?.provider !== 'credentials') {

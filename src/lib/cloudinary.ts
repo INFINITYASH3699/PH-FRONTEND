@@ -1,12 +1,24 @@
 import { v2 as cloudinary } from 'cloudinary';
 
+// Check if we're using placeholder credentials
+const isUsingPlaceholderCreds =
+  process.env.CLOUDINARY_CLOUD_NAME === 'placeholder' ||
+  process.env.CLOUDINARY_API_KEY === 'placeholder' ||
+  process.env.CLOUDINARY_API_SECRET === 'placeholder';
+
+const isDevelopmentMode = process.env.NODE_ENV === 'development';
+
 // Configure Cloudinary with your credentials
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-  secure: true,
-});
+if (!isUsingPlaceholderCreds) {
+  cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+    secure: true,
+  });
+} else {
+  console.warn('Using placeholder Cloudinary credentials. File operations will be mocked.');
+}
 
 /**
  * Upload a file to Cloudinary
@@ -20,6 +32,21 @@ export const uploadToCloudinary = async (
   folder: string = 'portfolio-hub',
   publicId?: string
 ) => {
+  // Return mock data for development with placeholder credentials
+  if (isDevelopmentMode && isUsingPlaceholderCreds) {
+    console.log('DEV MODE: Mocking Cloudinary upload');
+    // Generate a random ID for the mock upload
+    const mockId = publicId || `dev_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    return {
+      success: true,
+      url: `https://via.placeholder.com/300?text=Mocked+Upload`,
+      publicId: mockId,
+      format: 'jpg',
+      width: 300,
+      height: 300,
+    };
+  }
+
   try {
     // Convert buffer to base64
     const fileStr = `data:image/jpeg;base64,${file.toString('base64')}`;
@@ -55,6 +82,14 @@ export const uploadToCloudinary = async (
  * @returns Deletion result
  */
 export const deleteFromCloudinary = async (publicId: string) => {
+  // Return mock success for development with placeholder credentials
+  if (isDevelopmentMode && isUsingPlaceholderCreds) {
+    console.log(`DEV MODE: Mocking Cloudinary delete for ${publicId}`);
+    return {
+      success: true,
+    };
+  }
+
   try {
     const result = await cloudinary.uploader.destroy(publicId);
     return {

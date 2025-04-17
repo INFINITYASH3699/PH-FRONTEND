@@ -21,6 +21,7 @@ const nextConfig = {
       { protocol: 'https', hostname: 'www.portfoliowebsitetemplate.com' },
       { protocol: 'https', hostname: 'designshack.net' },
       { protocol: 'https', hostname: 'templatefor.net' },
+      { protocol: 'https', hostname: 'via.placeholder.com' },
     ],
   },
 
@@ -63,7 +64,7 @@ const nextConfig = {
 
   // Configure webpack
   webpack(config, { isServer }) {
-    // Don't bundle bcrypt on the client side
+    // Don't bundle server-only packages on the client side
     if (!isServer) {
       config.resolve.fallback = {
         ...config.resolve.fallback,
@@ -71,14 +72,42 @@ const nextConfig = {
         crypto: false,
         net: false,
         tls: false,
+        fs: false,
+        path: false,
+        os: false,
+        dns: false,
+        http: false,
+        https: false,
+        stream: false,
+        zlib: false,
+        child_process: false,
+        '@mapbox/node-pre-gyp': false,
+        canvas: false,
       };
+
+      // Prevent webpack from trying to process node modules that should be server-side only
+      config.module.rules.push({
+        test: /node_modules\/(@mapbox\/node-pre-gyp|bcrypt|mongodb|mongoose).*/,
+        use: 'null-loader',
+      });
     }
 
     return config;
   },
 
-  // Server external packages (moved from experimental.serverComponentsExternalPackages)
-  serverExternalPackages: ['bcrypt', 'mongoose'],
+  // Server external packages
+  serverExternalPackages: ['bcrypt', 'mongoose', 'mongodb', '@mapbox/node-pre-gyp'],
+
+  // Increase the memory limit for the build process
+  experimental: {
+    outputFileTracingExcludes: {
+      '*': [
+        './node_modules/@swc/core-linux-x64-gnu',
+        './node_modules/@swc/core-linux-x64-musl',
+        './node_modules/@esbuild/linux-x64',
+      ],
+    },
+  },
 };
 
 export default nextConfig;

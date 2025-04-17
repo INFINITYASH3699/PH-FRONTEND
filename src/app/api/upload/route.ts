@@ -1,43 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { uploadToCloudinary, deleteFromCloudinary } from '@/lib/cloudinary';
+import { uploadToCloudinary } from '@/lib/cloudinary';
 
-// Define max file size (5MB)
+// Max file size (5MB)
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
-// Valid file types by category
-const VALID_FILE_TYPES = {
-  image: ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml'],
-  document: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
-  // Add more categories as needed
-};
+// Allowed image formats
+const ALLOWED_FORMATS = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg', 'image/gif'];
 
 /**
- * POST - Upload a file
- * FormData parameters:
- * - file: The file to upload
- * - folder: (optional) The folder to upload to (default: 'portfolio')
- * - type: (optional) The type of file ('image', 'document', etc.) - defaults to 'image'
- * - publicId: (optional) The public ID to use for the file
+ * POST - Handle file upload
+ * Uses Cloudinary for file storage
  */
-export async function POST(req: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
-    // Authenticate the user
     const session = await auth();
 
-    if (!session?.user) {
+    if (!session || !session.user) {
       return NextResponse.json(
         { success: false, error: 'Authentication required' },
         { status: 401 }
       );
     }
 
-    // Get the uploaded file from the request
-    const formData = await req.formData();
+    // Parse the form data
+    const formData = await request.formData();
     const file = formData.get('file') as File | null;
-    const folder = formData.get('folder') as string || 'portfolio-hub';
 
-    // Validate file
     if (!file) {
       return NextResponse.json(
         { success: false, error: 'No file provided' },
@@ -45,119 +34,67 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check file size
+    // Validate file size
     if (file.size > MAX_FILE_SIZE) {
       return NextResponse.json(
-        { success: false, error: `File size exceeds the limit of ${MAX_FILE_SIZE / (1024 * 1024)}MB` },
+        { success: false, error: `File size exceeds maximum limit of ${MAX_FILE_SIZE / (1024 * 1024)}MB` },
         { status: 400 }
       );
     }
 
-    // Check file type (basic validation)
-    const fileType = file.type;
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf'];
-
-    if (!allowedTypes.includes(fileType)) {
+    // Validate file type
+    if (!ALLOWED_FORMATS.includes(file.type)) {
       return NextResponse.json(
-        { success: false, error: 'Invalid file type. Allowed types: JPEG, PNG, GIF, WEBP, PDF' },
+        { success: false, error: 'File format not supported. Please upload JPG, PNG, WebP, or GIF images.' },
         { status: 400 }
       );
     }
+
+    // Get the folder to upload to (default to 'portfolio-hub')
+    const folder = formData.get('folder')?.toString() || 'portfolio-hub';
 
     // Convert file to buffer
-    const buffer = Buffer.from(await file.arrayBuffer());
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
 
-    // Set folder path based on user ID for organization
-    const userFolder = `${folder}/${session.user.id}`;
+    // Create a unique public ID using user ID and timestamp
+    const userId = session.user.id;
+    const timestamp = Date.now();
+    const publicId = `${folder}/${userId}_${timestamp}`;
 
     // Upload to Cloudinary
-    const uploadResult = await uploadToCloudinary(buffer, userFolder);
+    const result = await uploadToCloudinary(buffer, folder, publicId);
 
-    if (!uploadResult.success) {
+    if (!result.success) {
       return NextResponse.json(
-        { success: false, error: uploadResult.error || 'Failed to upload file' },
+        { success: false, error: result.error || 'Failed to upload file' },
         { status: 500 }
       );
     }
 
     return NextResponse.json({
       success: true,
-      file: {
-        url: uploadResult.url,
-        publicId: uploadResult.publicId,
-        format: uploadResult.format,
-        width: uploadResult.width,
-        height: uploadResult.height,
-      },
+      url: result.url,
+      publicId: result.publicId,
+      width: result.width,
+      height: result.height,
     });
   } catch (error) {
     console.error('File upload error:', error);
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : 'An unexpected error occurred',
+        error: error instanceof Error ? error.message : 'Failed to upload file'
       },
       { status: 500 }
     );
   }
 }
 
-/**
- * DELETE - Delete a file
- * Query parameters:
- * - publicId: The public ID of the file to delete
- */
-export async function DELETE(req: NextRequest) {
-  try {
-    const session = await auth();
-
-    if (!session?.user) {
-      return NextResponse.json(
-        { success: false, error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
-
-    // Get the public ID from the request
-    const { publicId } = await req.json();
-
-    if (!publicId) {
-      return NextResponse.json(
-        { success: false, error: 'Public ID is required' },
-        { status: 400 }
-      );
-    }
-
-    // Make sure the file belongs to the user (basic security check)
-    if (!publicId.includes(`user_${session.user.id}_`)) {
-      return NextResponse.json(
-        { success: false, error: 'You do not have permission to delete this file' },
-        { status: 403 }
-      );
-    }
-
-    // Delete from Cloudinary
-    const result = await deleteFromCloudinary(publicId);
-
-    if (!result.success) {
-      return NextResponse.json(
-        { success: false, error: result.error || 'Failed to delete file' },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: 'File deleted successfully',
-    });
-  } catch (error) {
-    console.error('File deletion error:', error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : 'An unexpected error occurred',
-      },
-      { status: 500 }
-    );
-  }
-}
+// Set larger response size limit for file upload
+export const config = {
+  api: {
+    bodyParser: false,
+    responseLimit: '10mb',
+  },
+};

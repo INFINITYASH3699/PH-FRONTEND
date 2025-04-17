@@ -18,6 +18,104 @@ export interface IPortfolioSettings {
   };
 }
 
+interface IAboutContent {
+  title?: string;
+  bio?: string;
+  profileImage?: string;
+}
+
+interface IProjectItem {
+  id?: string;
+  title: string;
+  description: string;
+  imageUrl?: string;
+  projectUrl?: string;
+  githubUrl?: string;
+  tags: string[];
+  order?: number;
+}
+
+interface IProjectsContent {
+  items: IProjectItem[];
+}
+
+interface ISkillItem {
+  name: string;
+  proficiency: number;
+}
+
+interface ISkillCategory {
+  name: string;
+  skills: ISkillItem[];
+}
+
+interface ISkillsContent {
+  categories: ISkillCategory[];
+}
+
+interface IExperienceItem {
+  id?: string;
+  title: string;
+  company: string;
+  location?: string;
+  startDate: Date | string;
+  endDate?: Date | string;
+  current: boolean;
+  description: string;
+  order?: number;
+}
+
+interface IExperienceContent {
+  items: IExperienceItem[];
+}
+
+interface IEducationItem {
+  id?: string;
+  degree: string;
+  institution: string;
+  location?: string;
+  startDate: Date | string;
+  endDate?: Date | string;
+  description?: string;
+  order?: number;
+}
+
+interface IEducationContent {
+  items: IEducationItem[];
+}
+
+interface IContactContent {
+  email?: string;
+  phone?: string;
+  address?: string;
+  showContactForm?: boolean;
+}
+
+interface IGalleryItem {
+  id?: string;
+  title: string;
+  description?: string;
+  imageUrl: string;
+  category?: string;
+  order?: number;
+}
+
+interface IGalleryContent {
+  items: IGalleryItem[];
+}
+
+export interface ISectionContent {
+  about?: IAboutContent;
+  projects?: IProjectsContent;
+  skills?: ISkillsContent;
+  experience?: IExperienceContent;
+  education?: IEducationContent;
+  contact?: IContactContent;
+  gallery?: IGalleryContent;
+  // Add other content types as needed
+  [key: string]: any;
+}
+
 export interface IPortfolio {
   userId: mongoose.Types.ObjectId;
   templateId: mongoose.Types.ObjectId;
@@ -27,9 +125,105 @@ export interface IPortfolio {
   subdomain: string;
   isPublished: boolean;
   settings: IPortfolioSettings;
+  sectionContent: ISectionContent;
   createdAt: Date;
   updatedAt: Date;
 }
+
+// Schema for section content
+const aboutContentSchema = new Schema({
+  title: { type: String, default: 'About Me' },
+  bio: { type: String, default: '' },
+  profileImage: { type: String, default: '' },
+}, { _id: false });
+
+const projectItemSchema = new Schema({
+  title: { type: String, required: true },
+  description: { type: String, default: '' },
+  imageUrl: { type: String },
+  projectUrl: { type: String },
+  githubUrl: { type: String },
+  tags: { type: [String], default: [] },
+  order: { type: Number, default: 0 },
+}, { _id: false });
+
+const projectsContentSchema = new Schema({
+  items: { type: [projectItemSchema], default: [] },
+}, { _id: false });
+
+const skillItemSchema = new Schema({
+  name: { type: String, required: true },
+  proficiency: { type: Number, min: 0, max: 100, default: 50 },
+}, { _id: false });
+
+const skillCategorySchema = new Schema({
+  name: { type: String, required: true },
+  skills: { type: [skillItemSchema], default: [] },
+}, { _id: false });
+
+const skillsContentSchema = new Schema({
+  categories: { type: [skillCategorySchema], default: [] },
+}, { _id: false });
+
+const experienceItemSchema = new Schema({
+  title: { type: String, required: true },
+  company: { type: String, required: true },
+  location: { type: String },
+  startDate: { type: Date, required: true },
+  endDate: { type: Date },
+  current: { type: Boolean, default: false },
+  description: { type: String, default: '' },
+  order: { type: Number, default: 0 },
+}, { _id: false });
+
+const experienceContentSchema = new Schema({
+  items: { type: [experienceItemSchema], default: [] },
+}, { _id: false });
+
+const educationItemSchema = new Schema({
+  degree: { type: String, required: true },
+  institution: { type: String, required: true },
+  location: { type: String },
+  startDate: { type: Date, required: true },
+  endDate: { type: Date },
+  description: { type: String },
+  order: { type: Number, default: 0 },
+}, { _id: false });
+
+const educationContentSchema = new Schema({
+  items: { type: [educationItemSchema], default: [] },
+}, { _id: false });
+
+const contactContentSchema = new Schema({
+  email: { type: String },
+  phone: { type: String },
+  address: { type: String },
+  showContactForm: { type: Boolean, default: true },
+}, { _id: false });
+
+const galleryItemSchema = new Schema({
+  title: { type: String, required: true },
+  description: { type: String },
+  imageUrl: { type: String, required: true },
+  category: { type: String },
+  order: { type: Number, default: 0 },
+}, { _id: false });
+
+const galleryContentSchema = new Schema({
+  items: { type: [galleryItemSchema], default: [] },
+}, { _id: false });
+
+// Main section content schema
+const sectionContentSchema = new Schema({
+  about: { type: aboutContentSchema, default: () => ({}) },
+  projects: { type: projectsContentSchema, default: () => ({ items: [] }) },
+  skills: { type: skillsContentSchema, default: () => ({ categories: [] }) },
+  experience: { type: experienceContentSchema, default: () => ({ items: [] }) },
+  education: { type: educationContentSchema, default: () => ({ items: [] }) },
+  contact: { type: contactContentSchema, default: () => ({}) },
+  gallery: { type: galleryContentSchema, default: () => ({ items: [] }) },
+  // Add other section schemas as needed
+}, { _id: false, strict: false }); // Allow additional fields not in the schema
 
 const portfolioSchema = new Schema<IPortfolio>(
   {
@@ -86,6 +280,10 @@ const portfolioSchema = new Schema<IPortfolio>(
         showHeader: { type: Boolean, default: true },
         showFooter: { type: Boolean, default: true },
       },
+    },
+    sectionContent: {
+      type: sectionContentSchema,
+      default: () => ({}),
     },
   },
   {

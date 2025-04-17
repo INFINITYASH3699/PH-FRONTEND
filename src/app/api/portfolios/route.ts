@@ -5,6 +5,105 @@ import { Portfolio } from '@/models/Portfolio';
 import { Template } from '@/models/Template';
 import { z } from 'zod';
 
+// Validation schema for section content
+const aboutContentSchema = z.object({
+  title: z.string().optional(),
+  bio: z.string().optional(),
+  profileImage: z.string().optional(),
+}).optional();
+
+const projectItemSchema = z.object({
+  id: z.string().optional(),
+  title: z.string().min(1, 'Project title is required'),
+  description: z.string().optional(),
+  imageUrl: z.string().optional(),
+  projectUrl: z.string().optional(),
+  githubUrl: z.string().optional(),
+  tags: z.array(z.string()).optional(),
+  order: z.number().optional(),
+});
+
+const projectsContentSchema = z.object({
+  items: z.array(projectItemSchema).optional(),
+}).optional();
+
+const skillItemSchema = z.object({
+  name: z.string().min(1, 'Skill name is required'),
+  proficiency: z.number().min(0).max(100).optional(),
+});
+
+const skillCategorySchema = z.object({
+  name: z.string().min(1, 'Category name is required'),
+  skills: z.array(skillItemSchema).optional(),
+});
+
+const skillsContentSchema = z.object({
+  categories: z.array(skillCategorySchema).optional(),
+}).optional();
+
+const experienceItemSchema = z.object({
+  id: z.string().optional(),
+  title: z.string().min(1, 'Job title is required'),
+  company: z.string().min(1, 'Company name is required'),
+  location: z.string().optional(),
+  startDate: z.string(),
+  endDate: z.string().optional(),
+  current: z.boolean().optional(),
+  description: z.string().optional(),
+  order: z.number().optional(),
+});
+
+const experienceContentSchema = z.object({
+  items: z.array(experienceItemSchema).optional(),
+}).optional();
+
+const educationItemSchema = z.object({
+  id: z.string().optional(),
+  degree: z.string().min(1, 'Degree is required'),
+  institution: z.string().min(1, 'Institution is required'),
+  location: z.string().optional(),
+  startDate: z.string(),
+  endDate: z.string().optional(),
+  description: z.string().optional(),
+  order: z.number().optional(),
+});
+
+const educationContentSchema = z.object({
+  items: z.array(educationItemSchema).optional(),
+}).optional();
+
+const contactContentSchema = z.object({
+  email: z.string().email().optional(),
+  phone: z.string().optional(),
+  address: z.string().optional(),
+  showContactForm: z.boolean().optional(),
+}).optional();
+
+const galleryItemSchema = z.object({
+  id: z.string().optional(),
+  title: z.string().min(1, 'Image title is required'),
+  description: z.string().optional(),
+  imageUrl: z.string().min(1, 'Image URL is required'),
+  category: z.string().optional(),
+  order: z.number().optional(),
+});
+
+const galleryContentSchema = z.object({
+  items: z.array(galleryItemSchema).optional(),
+}).optional();
+
+// Schema for all section content
+const sectionContentSchema = z.object({
+  about: aboutContentSchema,
+  projects: projectsContentSchema,
+  skills: skillsContentSchema,
+  experience: experienceContentSchema,
+  education: educationContentSchema,
+  contact: contactContentSchema,
+  gallery: galleryContentSchema,
+  // Allow additional custom sections
+}).passthrough().optional();
+
 // Validation schema for creating a portfolio
 const createPortfolioSchema = z.object({
   templateId: z.string().min(1, 'Template ID is required'),
@@ -42,6 +141,7 @@ const createPortfolioSchema = z.object({
       })
       .optional(),
   }).optional(),
+  sectionContent: sectionContentSchema,
 });
 
 // Validation schema for updating a portfolio
@@ -140,7 +240,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { templateId, title, subtitle, subdomain, customDomain, isPublished, settings } = result.data;
+    const {
+      templateId,
+      title,
+      subtitle,
+      subdomain,
+      customDomain,
+      isPublished,
+      settings,
+      sectionContent
+    } = result.data;
 
     await dbConnect();
 
@@ -238,6 +347,7 @@ export async function POST(request: NextRequest) {
       customDomain: customDomain || '',
       isPublished,
       settings: mergedSettings,
+      sectionContent: sectionContent || {}, // Include section content if provided
     });
 
     // Populate template data in the response
@@ -287,7 +397,7 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const { id, ...updateData } = result.data;
+    const { id, sectionContent, ...updateData } = result.data;
 
     await dbConnect();
 
@@ -349,32 +459,68 @@ export async function PATCH(request: NextRequest) {
       }
     }
 
+    // Create update object
+    const updateObj: any = {
+      ...updateData,
+      // If subdomain is provided, ensure it's lowercase
+      ...(updateData.subdomain && { subdomain: updateData.subdomain.toLowerCase() }),
+    };
+
+    // Handle nested settings updates
+    if (updateData.settings) {
+      if (updateData.settings.colors) {
+        updateObj['settings.colors'] = {
+          ...portfolio.settings.colors,
+          ...updateData.settings.colors,
+        };
+      }
+
+      if (updateData.settings.fonts) {
+        updateObj['settings.fonts'] = {
+          ...portfolio.settings.fonts,
+          ...updateData.settings.fonts,
+        };
+      }
+
+      if (updateData.settings.layout) {
+        updateObj['settings.layout'] = {
+          ...portfolio.settings.layout,
+          ...updateData.settings.layout,
+        };
+      }
+
+      // Remove the original settings field to avoid conflicts
+      delete updateObj.settings;
+    }
+
+    // Handle section content updates
+    if (sectionContent) {
+      // For each section in the content update, merge with existing content
+      Object.keys(sectionContent).forEach(section => {
+        const existingSection = portfolio.sectionContent[section] || {};
+        const newSection = sectionContent[section];
+
+        if (newSection) {
+          // Special handling for array fields (items, categories, etc.)
+          if (newSection.items && Array.isArray(newSection.items)) {
+            updateObj[`sectionContent.${section}.items`] = newSection.items;
+          } else if (newSection.categories && Array.isArray(newSection.categories)) {
+            updateObj[`sectionContent.${section}.categories`] = newSection.categories;
+          } else {
+            // For non-array fields, merge objects
+            updateObj[`sectionContent.${section}`] = {
+              ...existingSection,
+              ...newSection,
+            };
+          }
+        }
+      });
+    }
+
     // Update the portfolio
-    // Use a deep merge for settings to avoid overwriting nested properties
     const updatedPortfolio = await Portfolio.findByIdAndUpdate(
       id,
-      {
-        $set: {
-          ...updateData,
-          // If subdomain is provided, ensure it's lowercase
-          ...(updateData.subdomain && { subdomain: updateData.subdomain.toLowerCase() }),
-          // Handle nested settings updates
-          ...(updateData.settings && {
-            'settings.colors': {
-              ...portfolio.settings.colors,
-              ...updateData.settings.colors,
-            },
-            'settings.fonts': {
-              ...portfolio.settings.fonts,
-              ...updateData.settings.fonts,
-            },
-            'settings.layout': {
-              ...portfolio.settings.layout,
-              ...updateData.settings.layout,
-            },
-          }),
-        }
-      },
+      { $set: updateObj },
       { new: true, runValidators: true }
     ).populate('templateId', 'name previewImage category');
 
