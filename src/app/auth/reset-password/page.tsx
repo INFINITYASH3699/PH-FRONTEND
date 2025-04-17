@@ -1,19 +1,27 @@
 'use client';
 
 import Link from 'next/link';
-import { Suspense } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { NavBar } from '@/components/layout/NavBar';
 import { Footer } from '@/components/layout/Footer';
 import ResetPasswordForm from './ResetPasswordForm';
 
-// This component will load within Suspense
+// Client component that safely uses browser APIs
 const ResetPasswordContent = () => {
   'use client';
 
-  // useSearchParams is now safely wrapped in a client component within Suspense
-  const searchParams = new URLSearchParams(window.location.search);
-  const token = searchParams.get('token') || '';
+  // We need to use dynamic imports for React hooks to avoid SSR issues
+  const React = require('react');
+  const [token, setToken] = React.useState('');
+
+  React.useEffect(() => {
+    // Only access window in useEffect, which only runs in browser
+    if (typeof window !== 'undefined') {
+      const searchParams = new URLSearchParams(window.location.search);
+      setToken(searchParams.get('token') || '');
+    }
+  }, []);
 
   return (
     <Card className="shadow-lg">
