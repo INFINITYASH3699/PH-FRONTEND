@@ -4,7 +4,11 @@ import jwt from "jsonwebtoken";
 import fs from "fs";
 import path from "path";
 import User, { IUser } from "../models/User";
-import { uploadToCloudinary, deleteFromCloudinary } from "../config/cloudinary";
+import {
+  uploadToCloudinary,
+  deleteFromCloudinary,
+  CloudinaryUploadResult
+} from "../config/cloudinary";
 
 // Generate JWT token
 const generateToken = (id: string): string => {
@@ -292,7 +296,7 @@ export const uploadProfilePicture = async (
     const filePath = req.file.path;
 
     // Upload to Cloudinary
-    const cloudinaryResult = await uploadToCloudinary(
+    const cloudinaryResult: CloudinaryUploadResult = await uploadToCloudinary(
       filePath,
       'portfolio-hub/profile-pictures',
       user.profilePictureId || undefined // Use existing ID for overwrite if available

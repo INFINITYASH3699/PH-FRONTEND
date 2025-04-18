@@ -4,6 +4,39 @@ import dotenv from 'dotenv';
 // Load environment variables
 dotenv.config();
 
+// Success response interface for Cloudinary upload
+interface CloudinaryUploadSuccess {
+  success: true;
+  url: string;
+  publicId: string;
+  format: string;
+  width: number;
+  height: number;
+}
+
+// Error response interface for Cloudinary upload
+interface CloudinaryUploadError {
+  success: false;
+  error: string;
+}
+
+// Combined type for Cloudinary upload response
+export type CloudinaryUploadResult = CloudinaryUploadSuccess | CloudinaryUploadError;
+
+// Success response interface for Cloudinary delete
+interface CloudinaryDeleteSuccess {
+  success: true;
+}
+
+// Error response interface for Cloudinary delete
+interface CloudinaryDeleteError {
+  success: false;
+  error: string;
+}
+
+// Combined type for Cloudinary delete response
+export type CloudinaryDeleteResult = CloudinaryDeleteSuccess | CloudinaryDeleteError;
+
 // Configure Cloudinary
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -23,7 +56,7 @@ export const uploadToCloudinary = async (
   filePath: string,
   folder: string = 'portfolio-hub',
   publicId?: string
-) => {
+): Promise<CloudinaryUploadResult> => {
   try {
     // Upload to Cloudinary
     const result = await cloudinary.uploader.upload(filePath, {
@@ -55,7 +88,7 @@ export const uploadToCloudinary = async (
  * @param publicId - Public ID of the file to delete
  * @returns Deletion result
  */
-export const deleteFromCloudinary = async (publicId: string) => {
+export const deleteFromCloudinary = async (publicId: string): Promise<CloudinaryDeleteResult> => {
   try {
     const result = await cloudinary.uploader.destroy(publicId);
     return {

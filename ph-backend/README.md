@@ -90,7 +90,7 @@ Cloudinary images are organized in the following folder structure:
 ```
 PORT=5000
 NODE_ENV=development
-MONGODB_URI=mongodb+srv://...
+MONGODB_URI_AUTH=mongodb+srv://...
 JWT_SECRET=your-jwt-secret
 CLIENT_URL=http://localhost:3001
 CLOUDINARY_CLOUD_NAME=your-cloud-name

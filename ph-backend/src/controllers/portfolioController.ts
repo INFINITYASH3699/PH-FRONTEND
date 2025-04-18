@@ -3,7 +3,11 @@ import mongoose from 'mongoose';
 import fs from 'fs';
 import Portfolio from '../models/Portfolio';
 import Template from '../models/Template';
-import { uploadToCloudinary, deleteFromCloudinary } from '../config/cloudinary';
+import {
+  uploadToCloudinary,
+  deleteFromCloudinary,
+  CloudinaryUploadResult
+} from '../config/cloudinary';
 
 // @desc    Create new portfolio
 // @route   POST /api/portfolios
@@ -359,7 +363,7 @@ export const uploadPortfolioImage = async (req: Request, res: Response): Promise
     }
 
     // Upload to Cloudinary
-    const cloudinaryResult = await uploadToCloudinary(
+    const cloudinaryResult: CloudinaryUploadResult = await uploadToCloudinary(
       filePath,
       folder,
       existingPublicId
@@ -377,7 +381,7 @@ export const uploadPortfolioImage = async (req: Request, res: Response): Promise
     }
 
     // Update portfolio with new image
-    if (imageType === 'header') {
+    if (imageType === 'header' && cloudinaryResult.success) {
       // If we're not overwriting and there's an existing image with a different ID
       if (portfolio.headerImage?.publicId &&
           portfolio.headerImage.publicId !== cloudinaryResult.publicId) {
@@ -389,7 +393,7 @@ export const uploadPortfolioImage = async (req: Request, res: Response): Promise
         url: cloudinaryResult.url,
         publicId: cloudinaryResult.publicId
       };
-    } else if (imageType === 'gallery') {
+    } else if (imageType === 'gallery' && cloudinaryResult.success) {
       // Initialize gallery array if it doesn't exist
       if (!portfolio.galleryImages) {
         portfolio.galleryImages = [];
@@ -408,8 +412,8 @@ export const uploadPortfolioImage = async (req: Request, res: Response): Promise
       success: true,
       message: `${imageType === 'header' ? 'Header' : 'Gallery'} image uploaded successfully`,
       image: {
-        url: cloudinaryResult.url,
-        publicId: cloudinaryResult.publicId
+        url: cloudinaryResult.success ? cloudinaryResult.url : '',
+        publicId: cloudinaryResult.success ? cloudinaryResult.publicId : ''
       }
     });
   } catch (error: any) {
