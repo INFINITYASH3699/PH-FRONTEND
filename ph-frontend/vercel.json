@@ -14,5 +14,22 @@
     "NODE_ENV": "production",
     "NEXTAUTH_URL": "${VERCEL_URL}",
     "VERCEL_URL": "${VERCEL_URL}"
+  },
+  "buildCommand": "cd ../.. && npm run build",
+  "ignoreCommand": "echo 'Building...'",
+  "outputDirectory": ".next",
+  "framework": "nextjs",
+  "devCommand": "npm run dev",
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://ph-backend-api.vercel.app/api/:path*"
+    }
+  ],
+  "functions": {
+    "pages/api/**/*.js": {
+      "memory": 1024,
+      "maxDuration": 10
+    }
   }
 }

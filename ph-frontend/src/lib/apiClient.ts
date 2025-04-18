@@ -15,6 +15,24 @@ interface ApiResponse<T> {
   [key: string]: any;
 }
 
+// Social links interface
+export interface SocialLinks {
+  github?: string;
+  twitter?: string;
+  linkedin?: string;
+  instagram?: string;
+  [key: string]: string | undefined;
+}
+
+// User profile interface
+export interface UserProfile {
+  title?: string;
+  bio?: string;
+  location?: string;
+  website?: string;
+  socialLinks?: SocialLinks;
+}
+
 // User interface
 export interface User {
   id: string;
@@ -23,6 +41,7 @@ export interface User {
   email: string;
   role: string;
   profilePicture?: string;
+  profile?: UserProfile;
 }
 
 // Auth related interfaces
@@ -33,6 +52,10 @@ interface LoginResponse extends ApiResponse<any> {
 
 interface RegisterResponse extends ApiResponse<any> {
   token: string;
+  user: User;
+}
+
+interface ProfileUpdateResponse extends ApiResponse<any> {
   user: User;
 }
 
@@ -204,6 +227,70 @@ export const getCurrentUser = async (): Promise<User> => {
   }
 };
 
+// Profile API calls
+export const updateProfile = async (profileData: {
+  fullName?: string;
+  profilePicture?: string;
+  title?: string;
+  bio?: string;
+  location?: string;
+  website?: string;
+  socialLinks?: SocialLinks;
+}): Promise<User> => {
+  try {
+    const response = await apiRequest<ProfileUpdateResponse>(
+      "/auth/profile",
+      "PUT",
+      profileData
+    );
+
+    if (response.success && response.user) {
+      // Update the stored user data
+      const token = getToken() as string;
+      setAuthData(token, response.user);
+      return response.user;
+    }
+
+    throw new Error("Profile update failed");
+  } catch (error: any) {
+    throw error;
+  }
+};
+
+// Upload profile picture
+export const uploadProfilePicture = async (file: File): Promise<string> => {
+  try {
+    const url = `${API_BASE_URL}/auth/profile/upload`;
+    const token = getToken();
+    if (!token) {
+      throw new Error("Authentication required");
+    }
+
+    const formData = new FormData();
+    formData.append("profilePicture", file);
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${token}`
+      },
+      credentials: "include",
+      body: formData
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || "Failed to upload profile picture");
+    }
+
+    const data = await response.json();
+    return data.profilePicture;
+  } catch (error: any) {
+    console.error("Upload profile picture error:", error);
+    throw error;
+  }
+};
+
 // Export the API client
 const apiClient = {
   // Auth
@@ -214,6 +301,10 @@ const apiClient = {
   isAuthenticated,
   getToken,
   getUser,
+
+  // Profile
+  updateProfile,
+  uploadProfilePicture,
 
   // Generic request method for other API calls
   request: apiRequest,

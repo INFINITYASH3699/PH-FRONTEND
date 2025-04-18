@@ -1,31 +1,236 @@
+'use client';
+
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea'; // Fixed import for Textarea
+import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { NavBar } from '@/components/layout/NavBar';
 import { Footer } from '@/components/layout/Footer';
-
-// Mock user data
-const user = {
-  name: 'John Doe',
-  email: 'john.doe@example.com',
-  username: 'johndoe',
-  avatar: 'https://ui-avatars.com/api/?name=John+Doe&background=6d28d9&color=fff',
-  title: 'Full Stack Developer',
-  bio: 'Passionate developer with 5+ years of experience in building web applications. Skilled in React, Node.js, and TypeScript.',
-  location: 'San Francisco, CA',
-  website: 'https://johndoe.com',
-  socialLinks: {
-    github: 'johndoe',
-    twitter: 'johndoe',
-    linkedin: 'johndoe',
-    instagram: 'johndoe',
-  }
-};
+import { toast } from 'sonner';
+import { useAuth } from '@/components/providers/AuthContext';
+import apiClient, { SocialLinks, User, UserProfile } from '@/lib/apiClient';
 
 export default function ProfilePage() {
+  const { user, isLoading, updateProfile, uploadProfilePicture } = useAuth();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [profileData, setProfileData] = useState({
+    fullName: '',
+    firstName: '',
+    lastName: '',
+    email: '',
+    username: '',
+    avatar: 'https://ui-avatars.com/api/?background=6d28d9&color=fff',
+    title: '',
+    bio: '',
+    location: '',
+    website: '',
+    socialLinks: {
+      github: '',
+      twitter: '',
+      linkedin: '',
+      instagram: '',
+    }
+  });
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [charCount, setCharCount] = useState(0);
+
+  useEffect(() => {
+    if (user) {
+      // Split fullName into firstName and lastName
+      const nameParts = user.fullName.split(' ');
+      const firstName = nameParts[0] || '';
+      const lastName = nameParts.slice(1).join(' ') || '';
+
+      // Initialize form data with user data
+      setProfileData({
+        fullName: user.fullName,
+        firstName,
+        lastName,
+        email: user.email,
+        username: user.username,
+        avatar: user.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.fullName)}&background=6d28d9&color=fff`,
+        title: user.profile?.title || '',
+        bio: user.profile?.bio || '',
+        location: user.profile?.location || '',
+        website: user.profile?.website || '',
+        socialLinks: {
+          github: user.profile?.socialLinks?.github || '',
+          twitter: user.profile?.socialLinks?.twitter || '',
+          linkedin: user.profile?.socialLinks?.linkedin || '',
+          instagram: user.profile?.socialLinks?.instagram || '',
+        }
+      });
+
+      // Update char count for bio
+      setCharCount(user.profile?.bio?.length || 0);
+    }
+  }, [user]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { id, value } = e.target;
+
+    if (id === 'bio') {
+      setCharCount(value.length);
+    }
+
+    // Handle social links
+    if (['github', 'twitter', 'linkedin', 'instagram'].includes(id)) {
+      setProfileData(prev => ({
+        ...prev,
+        socialLinks: {
+          ...prev.socialLinks,
+          [id]: value
+        }
+      }));
+    } else if (id === 'first-name' || id === 'last-name') {
+      // Special handling for first/last name that will update fullName
+      const firstName = id === 'first-name' ? value : profileData.firstName;
+      const lastName = id === 'last-name' ? value : profileData.lastName;
+      setProfileData(prev => ({
+        ...prev,
+        firstName,
+        lastName,
+        fullName: `${firstName} ${lastName}`.trim()
+      }));
+    } else {
+      // For other fields, update them directly
+      setProfileData(prev => ({
+        ...prev,
+        [id]: value
+      }));
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+
+    const file = e.target.files[0];
+
+    try {
+      // Create a local object URL for immediate display
+      const localUrl = URL.createObjectURL(file);
+      setProfileData(prev => ({
+        ...prev,
+        avatar: localUrl
+      }));
+
+      // Upload the file to the server
+      toast.loading('Uploading profile picture...');
+      const uploadedUrl = await uploadProfilePicture(file);
+
+      // Update with the real URL from the server
+      setProfileData(prev => ({
+        ...prev,
+        avatar: uploadedUrl
+      }));
+
+      toast.success('Profile picture uploaded successfully');
+    } catch (error) {
+      setProfileData(prev => ({
+        ...prev,
+        avatar: user?.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.fullName || '')}&background=6d28d9&color=fff`
+      }));
+
+      const message = error instanceof Error ? error.message : 'Failed to upload profile picture';
+      toast.error(message);
+    }
+  };
+
+  const triggerFileUpload = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleRemoveProfilePicture = async () => {
+    try {
+      const defaultAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.fullName || '')}&background=6d28d9&color=fff`;
+
+      // Update UI immediately
+      setProfileData(prev => ({
+        ...prev,
+        avatar: defaultAvatar
+      }));
+
+      // Update on server
+      await updateProfile({ profilePicture: '' });
+      toast.success('Profile picture removed');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to remove profile picture';
+      toast.error(message);
+
+      // Restore previous avatar if there's an error
+      if (user?.profilePicture) {
+        setProfileData(prev => ({
+          ...prev,
+          avatar: user.profilePicture || ''
+        }));
+      }
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    setIsUpdating(true);
+    try {
+      // Prepare data for API
+      const updateData = {
+        fullName: profileData.fullName,
+        profilePicture: profileData.avatar !== `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.fullName || '')}&background=6d28d9&color=fff` ? profileData.avatar : undefined,
+        title: profileData.title,
+        bio: profileData.bio,
+        location: profileData.location,
+        website: profileData.website,
+        socialLinks: profileData.socialLinks
+      };
+
+      // Call context method to update profile
+      await updateProfile(updateData);
+      toast.success('Profile updated successfully');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to update profile';
+      toast.error(message);
+      console.error('Profile update error:', error);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <NavBar />
+        <main className="flex-grow py-12 flex items-center justify-center">
+          <div className="text-center">
+            <h2 className="text-2xl font-semibold mb-2">Loading...</h2>
+            <p className="text-muted-foreground">Please wait while we fetch your profile</p>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <NavBar />
+        <main className="flex-grow py-12 flex items-center justify-center">
+          <div className="text-center">
+            <h2 className="text-2xl font-semibold mb-2">Access Denied</h2>
+            <p className="text-muted-foreground mb-4">Please sign in to view this page</p>
+            <Button asChild>
+              <Link href="/auth/signin">Sign In</Link>
+            </Button>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col">
       <NavBar />
@@ -52,12 +257,12 @@ export default function ProfilePage() {
                 <CardContent className="flex flex-col items-center">
                   <div className="relative w-32 h-32 mb-4">
                     <Image
-                      src={user.avatar}
-                      alt={user.name}
+                      src={profileData.avatar}
+                      alt={profileData.fullName}
                       fill
                       className="rounded-full object-cover"
                     />
-                    <button className="absolute -bottom-2 -right-2 bg-primary text-white rounded-full p-2 shadow-md">
+                    <button className="absolute -bottom-2 -right-2 bg-primary text-white rounded-full p-2 shadow-md" onClick={triggerFileUpload}>
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
                         width="24"
@@ -75,10 +280,22 @@ export default function ProfilePage() {
                     </button>
                   </div>
                   <div className="flex flex-col gap-2 w-full">
-                    <Button variant="outline" size="sm">
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      className="hidden"
+                      accept="image/*"
+                      onChange={handleFileUpload}
+                    />
+                    <Button variant="outline" size="sm" onClick={triggerFileUpload}>
                       Upload New Picture
                     </Button>
-                    <Button variant="ghost" size="sm">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleRemoveProfilePicture}
+                      disabled={!user?.profilePicture || profileData.avatar === `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.fullName || '')}&background=6d28d9&color=fff`}
+                    >
                       Remove Picture
                     </Button>
                   </div>
@@ -89,11 +306,11 @@ export default function ProfilePage() {
                 <CardContent className="space-y-4">
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-muted-foreground">Email</span>
-                    <span className="text-sm">{user.email}</span>
+                    <span className="text-sm">{profileData.email}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-muted-foreground">Username</span>
-                    <span className="text-sm">@{user.username}</span>
+                    <span className="text-sm">@{profileData.username}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-muted-foreground">Password</span>
@@ -120,13 +337,21 @@ export default function ProfilePage() {
                       <label htmlFor="first-name" className="text-sm font-medium">
                         First Name
                       </label>
-                      <Input id="first-name" defaultValue="John" />
+                      <Input
+                        id="first-name"
+                        value={profileData.firstName}
+                        onChange={handleInputChange}
+                      />
                     </div>
                     <div className="space-y-2">
                       <label htmlFor="last-name" className="text-sm font-medium">
                         Last Name
                       </label>
-                      <Input id="last-name" defaultValue="Doe" />
+                      <Input
+                        id="last-name"
+                        value={profileData.lastName}
+                        onChange={handleInputChange}
+                      />
                     </div>
                   </div>
 
@@ -134,7 +359,11 @@ export default function ProfilePage() {
                     <label htmlFor="title" className="text-sm font-medium">
                       Professional Title
                     </label>
-                    <Input id="title" defaultValue={user.title} />
+                    <Input
+                      id="title"
+                      value={profileData.title}
+                      onChange={handleInputChange}
+                    />
                     <p className="text-xs text-muted-foreground">
                       For example: Full Stack Developer, UX Designer, Photographer
                     </p>
@@ -148,11 +377,13 @@ export default function ProfilePage() {
                       <Textarea
                         id="bio"
                         placeholder="Tell us about yourself"
-                        defaultValue={user.bio}
+                        value={profileData.bio}
+                        onChange={handleInputChange}
                         className="min-h-32 resize-none"
+                        maxLength={500}
                       />
                       <div className="absolute bottom-2 right-2 text-xs text-muted-foreground">
-                        150 / 200
+                        {charCount} / 500
                       </div>
                     </div>
                     <p className="text-xs text-muted-foreground">
@@ -164,7 +395,11 @@ export default function ProfilePage() {
                     <label htmlFor="location" className="text-sm font-medium">
                       Location
                     </label>
-                    <Input id="location" defaultValue={user.location} />
+                    <Input
+                      id="location"
+                      value={profileData.location}
+                      onChange={handleInputChange}
+                    />
                     <p className="text-xs text-muted-foreground">
                       City, Country or Remote
                     </p>
@@ -174,7 +409,12 @@ export default function ProfilePage() {
                     <label htmlFor="website" className="text-sm font-medium">
                       Website
                     </label>
-                    <Input id="website" type="url" defaultValue={user.website} />
+                    <Input
+                      id="website"
+                      type="url"
+                      value={profileData.website}
+                      onChange={handleInputChange}
+                    />
                   </div>
                 </CardContent>
 
@@ -203,7 +443,12 @@ export default function ProfilePage() {
                       <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground">
                         github.com/
                       </div>
-                      <Input id="github" className="pl-24" defaultValue={user.socialLinks.github} />
+                      <Input
+                        id="github"
+                        className="pl-24"
+                        value={profileData.socialLinks.github}
+                        onChange={handleInputChange}
+                      />
                     </div>
                   </div>
 
@@ -225,7 +470,12 @@ export default function ProfilePage() {
                       <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground">
                         twitter.com/
                       </div>
-                      <Input id="twitter" className="pl-24" defaultValue={user.socialLinks.twitter} />
+                      <Input
+                        id="twitter"
+                        className="pl-24"
+                        value={profileData.socialLinks.twitter}
+                        onChange={handleInputChange}
+                      />
                     </div>
                   </div>
 
@@ -247,7 +497,12 @@ export default function ProfilePage() {
                       <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground">
                         linkedin.com/in/
                       </div>
-                      <Input id="linkedin" className="pl-28" defaultValue={user.socialLinks.linkedin} />
+                      <Input
+                        id="linkedin"
+                        className="pl-28"
+                        value={profileData.socialLinks.linkedin}
+                        onChange={handleInputChange}
+                      />
                     </div>
                   </div>
 
@@ -269,15 +524,24 @@ export default function ProfilePage() {
                       <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground">
                         instagram.com/
                       </div>
-                      <Input id="instagram" className="pl-28" defaultValue={user.socialLinks.instagram} />
+                      <Input
+                        id="instagram"
+                        className="pl-28"
+                        value={profileData.socialLinks.instagram}
+                        onChange={handleInputChange}
+                      />
                     </div>
                   </div>
                 </CardContent>
 
                 <CardFooter className="flex justify-end space-x-4 border-t mt-4 pt-6">
                   <Button variant="outline">Cancel</Button>
-                  <Button className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white">
-                    Save Changes
+                  <Button
+                    className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white"
+                    onClick={handleSaveProfile}
+                    disabled={isUpdating}
+                  >
+                    {isUpdating ? 'Saving...' : 'Save Changes'}
                   </Button>
                 </CardFooter>
               </Card>

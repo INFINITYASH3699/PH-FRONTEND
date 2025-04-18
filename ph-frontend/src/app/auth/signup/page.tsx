@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Suspense } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,7 +19,9 @@ export default function SignUpPage() {
               <CardTitle className="text-2xl font-bold">Create an account</CardTitle>
               <CardDescription>Enter your details to create your PortfolioHub account</CardDescription>
             </CardHeader>
-            <SignUpForm />
+            <Suspense fallback={<div className="p-6 text-center">Loading...</div>}>
+              <SignUpForm />
+            </Suspense>
           </Card>
         </div>
       </main>

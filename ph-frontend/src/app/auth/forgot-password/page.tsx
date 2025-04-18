@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Suspense } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { NavBar } from '@/components/layout/NavBar';
 import { Footer } from '@/components/layout/Footer';
@@ -16,7 +17,9 @@ export default function ForgotPasswordPage() {
               <CardTitle className="text-2xl font-bold">Forgot Password</CardTitle>
               <CardDescription>Enter your email address and we'll send you a link to reset your password</CardDescription>
             </CardHeader>
-            <ForgotPasswordForm />
+            <Suspense fallback={<div className="p-6 text-center">Loading...</div>}>
+              <ForgotPasswordForm />
+            </Suspense>
           </Card>
         </div>
       </main>

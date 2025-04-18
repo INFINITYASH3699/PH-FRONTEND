@@ -176,3 +176,119 @@ export const getCurrentUser = async (
     });
   }
 };
+
+// @desc    Update user profile
+// @route   PUT /api/auth/profile
+// @access  Private
+export const updateUserProfile = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  try {
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found"
+      });
+    }
+
+    const {
+      fullName,
+      profilePicture,
+      title,
+      bio,
+      location,
+      website,
+      socialLinks
+    } = req.body;
+
+    // Update the basic fields if provided
+    if (fullName) user.fullName = fullName;
+    if (profilePicture) user.profilePicture = profilePicture;
+
+    // Check if we need to update additional profile fields
+    // We'll need to extend the user model to include these fields
+    if (user.profile === undefined) {
+      user.profile = {};
+    }
+
+    if (title) user.profile.title = title;
+    if (bio) user.profile.bio = bio;
+    if (location) user.profile.location = location;
+    if (website) user.profile.website = website;
+    if (socialLinks) user.profile.socialLinks = socialLinks;
+
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Profile updated successfully",
+      user: {
+        id: user._id,
+        fullName: user.fullName,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        profilePicture: user.profilePicture,
+        profile: user.profile,
+      },
+    });
+  } catch (error: any) {
+    console.error("Update profile error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error during profile update",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+// @desc    Upload profile picture
+// @route   POST /api/auth/profile/upload
+// @access  Private
+export const uploadProfilePicture = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  try {
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found"
+      });
+    }
+
+    // Verify that req.file exists (multer middleware adds this)
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "No file uploaded"
+      });
+    }
+
+    // Construct the URL for the uploaded file
+    const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 5000}`;
+    const fileUrl = `${baseUrl}/uploads/${req.file.filename}`;
+
+    // Update the user's profile picture
+    user.profilePicture = fileUrl;
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Profile picture uploaded successfully",
+      profilePicture: fileUrl
+    });
+  } catch (error: any) {
+    console.error("Upload profile picture error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error during profile picture upload",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};

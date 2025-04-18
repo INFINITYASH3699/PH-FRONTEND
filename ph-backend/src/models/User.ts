@@ -2,6 +2,24 @@
 import mongoose, { Document, Schema } from "mongoose";
 import bcrypt from "bcrypt";
 
+// Interface for social links
+interface SocialLinks {
+  github?: string;
+  twitter?: string;
+  linkedin?: string;
+  instagram?: string;
+  [key: string]: string | undefined;
+}
+
+// Interface for user profile
+interface UserProfile {
+  title?: string;
+  bio?: string;
+  location?: string;
+  website?: string;
+  socialLinks?: SocialLinks;
+}
+
 export interface IUser extends Document {
   fullName: string;
   username: string;
@@ -9,10 +27,32 @@ export interface IUser extends Document {
   password: string;
   profilePicture?: string;
   role: "user" | "admin";
+  profile?: UserProfile;
   createdAt: Date;
   updatedAt: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
+
+const SocialLinksSchema = new Schema(
+  {
+    github: { type: String },
+    twitter: { type: String },
+    linkedin: { type: String },
+    instagram: { type: String },
+  },
+  { _id: false }
+);
+
+const UserProfileSchema = new Schema(
+  {
+    title: { type: String },
+    bio: { type: String, maxlength: 500 },
+    location: { type: String },
+    website: { type: String },
+    socialLinks: { type: SocialLinksSchema, default: {} },
+  },
+  { _id: false }
+);
 
 const UserSchema = new Schema<IUser>(
   {
@@ -55,6 +95,10 @@ const UserSchema = new Schema<IUser>(
       type: String,
       enum: ["user", "admin"],
       default: "user",
+    },
+    profile: {
+      type: UserProfileSchema,
+      default: {},
     },
   },
   {
