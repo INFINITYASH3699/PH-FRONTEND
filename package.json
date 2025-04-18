@@ -24,6 +24,7 @@
     "cloudinary": "^2.6.0",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
+    "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.488.0",
     "mongodb": "^6.15.0",
     "mongoose": "^8.13.2",

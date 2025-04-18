@@ -1,9 +1,10 @@
 import mongoose from 'mongoose';
 
-const MONGODB_URI = process.env.MONGODB_URI as string;
+// Use MONGODB_URI_AUTH for authentication or fallback to MONGODB_URI
+const MONGODB_URI = process.env.MONGODB_URI_AUTH || process.env.MONGODB_URI as string;
 
 if (!MONGODB_URI) {
-  throw new Error('Please define the MONGODB_URI environment variable inside .env.local');
+  throw new Error('Please define the MONGODB_URI_AUTH or MONGODB_URI environment variable inside .env.local');
 }
 
 /**

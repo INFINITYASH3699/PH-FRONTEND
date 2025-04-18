@@ -7,13 +7,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { CardContent, CardFooter } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { signIn } from 'next-auth/react';
 
 export default function SignUpForm() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
-  const [isResendingEmail, setIsResendingEmail] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -50,7 +47,8 @@ export default function SignUpForm() {
     setIsLoading(true);
 
     try {
-      const res = await fetch('/api/auth/register', {
+      // Register the user
+      const registerResponse = await fetch('/api/auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -63,14 +61,35 @@ export default function SignUpForm() {
         }),
       });
 
-      const data = await res.json();
+      const registerData = await registerResponse.json();
 
-      if (!res.ok) {
-        throw new Error(data.message || 'Something went wrong');
+      if (!registerResponse.ok) {
+        throw new Error(registerData.message || 'Something went wrong');
       }
 
-      setIsSuccess(true);
-      toast.success('Account created! Please check your email to verify your account.');
+      toast.success('Account created successfully! Logging you in...');
+
+      // Directly login after successful registration
+      const loginResponse = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+        }),
+      });
+
+      const loginData = await loginResponse.json();
+
+      if (!loginResponse.ok) {
+        throw new Error('Registration successful but failed to login. Please try logging in manually.');
+      }
+
+      // Redirect to dashboard
+      router.push('/dashboard');
+      router.refresh();
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to create account';
       toast.error(message);
@@ -79,67 +98,6 @@ export default function SignUpForm() {
       setIsLoading(false);
     }
   };
-
-  const handleResendVerification = async () => {
-    if (!formData.email) return;
-
-    setIsResendingEmail(true);
-
-    try {
-      const res = await fetch('/api/auth/resend-verification', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: formData.email,
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.message || 'Failed to resend verification email');
-      }
-
-      toast.success('Verification email sent! Please check your inbox and spam folder.');
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to resend verification email';
-      toast.error(message);
-    } finally {
-      setIsResendingEmail(false);
-    }
-  };
-
-  if (isSuccess) {
-    return (
-      <CardContent className="space-y-6">
-        <div className="bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 p-4 rounded-lg text-center">
-          <h3 className="font-medium text-lg mb-2">Account Created Successfully!</h3>
-          <p>
-            We've sent a verification link to <strong>{formData.email}</strong>. Please check your email and click the link to verify your account.
-          </p>
-        </div>
-        <div className="text-center text-sm text-muted-foreground">
-          <p>
-            Didn't receive the email? Check your spam folder or{' '}
-            <button
-              className="text-primary hover:underline font-medium"
-              onClick={handleResendVerification}
-              disabled={isResendingEmail}
-            >
-              {isResendingEmail ? 'Sending...' : 'click here to resend'}
-            </button>
-          </p>
-        </div>
-        <div className="flex justify-center">
-          <Link href="/auth/signin">
-            <Button variant="outline">Go to Sign In</Button>
-          </Link>
-        </div>
-      </CardContent>
-    );
-  }
 
   return (
     <>

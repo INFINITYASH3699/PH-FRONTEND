@@ -111,7 +111,7 @@ const userSchema = new Schema<IUser>(
     status: {
       type: String,
       enum: ['active', 'inactive', 'pending'],
-      default: 'active',
+      default: 'active', // Changed from 'pending' to 'active' to skip verification
     },
     accountType: {
       type: String,
@@ -127,7 +127,7 @@ const userSchema = new Schema<IUser>(
     },
     emailVerified: {
       type: Date,
-      default: null,
+      default: Date.now, // Set default to current time to consider all emails verified
     },
     passwordResetToken: String,
     passwordResetExpires: Date,

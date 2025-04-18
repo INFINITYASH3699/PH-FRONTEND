@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { NavBar } from '@/components/layout/NavBar';
 import { Footer } from '@/components/layout/Footer';
-import { useSession } from 'next-auth/react';
 import { toast } from 'sonner';
 
 // Portfolio interface
@@ -28,15 +27,44 @@ interface Portfolio {
   };
 }
 
+interface User {
+  id: string;
+  email: string;
+  username: string;
+  fullName: string;
+}
+
 export default function DashboardPage() {
-  const { data: session, status } = useSession();
+  const [user, setUser] = useState<User | null>(null);
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
   const [loading, setLoading] = useState(true);
+  const [authStatus, setAuthStatus] = useState<'loading' | 'authenticated' | 'unauthenticated'>('loading');
 
-  // Fetch user portfolios when session is available
+  // Check if user is authenticated
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const response = await fetch('/api/auth/user');
+        if (response.ok) {
+          const data = await response.json();
+          setUser(data.user);
+          setAuthStatus('authenticated');
+        } else {
+          setAuthStatus('unauthenticated');
+        }
+      } catch (error) {
+        console.error('Error checking authentication:', error);
+        setAuthStatus('unauthenticated');
+      }
+    };
+
+    checkAuth();
+  }, []);
+
+  // Fetch user portfolios when authenticated
   useEffect(() => {
     const fetchPortfolios = async () => {
-      if (status === 'authenticated') {
+      if (authStatus === 'authenticated') {
         try {
           const response = await fetch('/api/user/portfolios');
           const data = await response.json();
@@ -52,14 +80,14 @@ export default function DashboardPage() {
         } finally {
           setLoading(false);
         }
-      } else if (status === 'unauthenticated') {
+      } else if (authStatus === 'unauthenticated') {
         // Not logged in, no need to fetch
         setLoading(false);
       }
     };
 
     fetchPortfolios();
-  }, [status]);
+  }, [authStatus]);
 
   // Function to handle portfolio publishing state change
   const handlePublishToggle = async (portfolioId: string, currentState: boolean) => {
@@ -101,6 +129,19 @@ export default function DashboardPage() {
     }
   };
 
+  // Handle logout
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+      });
+      window.location.href = '/auth/signin';
+    } catch (error) {
+      console.error('Error logging out:', error);
+      toast.error('Failed to log out');
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
       <NavBar />
@@ -114,16 +155,24 @@ export default function DashboardPage() {
                 Manage your portfolios and see how they're performing
               </p>
             </div>
-            <Link href="/templates">
-              <Button className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white">
-                Create New Portfolio
+            <div className="flex gap-2">
+              <Link href="/templates">
+                <Button className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white">
+                  Create New Portfolio
+                </Button>
+              </Link>
+              <Button
+                variant="outline"
+                onClick={handleLogout}
+              >
+                Logout
               </Button>
-            </Link>
+            </div>
           </div>
 
           {loading ? (
             <LoadingState />
-          ) : status === 'unauthenticated' ? (
+          ) : authStatus === 'unauthenticated' ? (
             <UnauthenticatedState />
           ) : portfolios.length === 0 ? (
             <EmptyState />

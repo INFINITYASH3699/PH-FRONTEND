@@ -1,94 +1,94 @@
-import NextAuth from 'next-auth';
-import CredentialsProvider from 'next-auth/providers/credentials';
-import GoogleProvider from 'next-auth/providers/google';
-import { compare } from 'bcrypt';
-import { User } from '@/models/User';
-import dbConnect from './db/mongodb';
+import NextAuth from "next-auth";
+import CredentialsProvider from "next-auth/providers/credentials";
+import GoogleProvider from "next-auth/providers/google";
 
 // Verify required environment variables
 const nextAuthSecret = process.env.NEXTAUTH_SECRET;
 if (!nextAuthSecret) {
-  console.error('Missing NEXTAUTH_SECRET environment variable');
+  console.error("Missing NEXTAUTH_SECRET environment variable");
 }
 
 // Dev mode check for using placeholder credentials
-const isDevelopmentMode = process.env.NODE_ENV === 'development';
-const isUsingPlaceholderCreds = process.env.MONGODB_URI?.includes('placeholder');
+const isDevelopmentMode = process.env.NODE_ENV === "development";
+const isUsingPlaceholderCreds =
+  process.env.MONGODB_URI?.includes("placeholder");
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   pages: {
-    signIn: '/auth/signin',
-    signUp: '/auth/signup',
-    error: '/auth/error',
+    signIn: "/auth/signin",
+    signUp: "/auth/signup",
+    error: "/auth/error",
   },
   providers: [
     CredentialsProvider({
-      name: 'Credentials',
+      name: "Credentials",
       credentials: {
-        email: { label: 'Email', type: 'email' },
-        password: { label: 'Password', type: 'password' },
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
-          throw new Error('Please provide both email and password');
+          throw new Error("Please provide both email and password");
         }
 
         // For development with placeholder credentials, allow a test user login
         if (isDevelopmentMode && isUsingPlaceholderCreds) {
-          console.warn('Using development mock authentication');
-          if (credentials.email === 'test@example.com' && credentials.password === 'password') {
+          console.warn("Using development mock authentication");
+          if (
+            credentials.email === "test@example.com" &&
+            credentials.password === "password"
+          ) {
             return {
-              id: '1',
-              name: 'Test User',
-              email: 'test@example.com',
-              username: 'testuser',
-              image: 'https://via.placeholder.com/150',
-              role: 'user',
+              id: "1",
+              name: "Test User",
+              email: "test@example.com",
+              username: "testuser",
+              image: "https://via.placeholder.com/150",
+              role: "user",
             };
           }
-          throw new Error('Invalid test credentials');
-        }
-
-        // Connect to the database
-        try {
-          await dbConnect();
-        } catch (error) {
-          console.error('Database connection error:', error);
-          throw new Error('Database connection failed. Please try again later.');
+          throw new Error("Invalid test credentials");
         }
 
         try {
-          // Case-insensitive email search
-          const user = await User.findOne({
-            email: { $regex: new RegExp(`^${credentials.email}$`, 'i') }
-          }).select('+password');
+          // Use the validate-credentials API
+          const baseUrl = process.env.VERCEL_URL
+            ? `https://${process.env.VERCEL_URL}`
+            : process.env.NEXTAUTH_URL || "";
 
-          if (!user) {
-            throw new Error('No user found with this email');
-          }
+          const response = await fetch(
+            `${baseUrl}/api/auth/validate-credentials`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                email: credentials.email,
+                password: credentials.password,
+              }),
+            }
+          );
 
-          const passwordMatch = await compare(credentials.password, user.password);
+          const data = await response.json();
 
-          if (!passwordMatch) {
-            throw new Error('Incorrect password');
-          }
-
-          // Check if user is active
-          if (user.status === 'inactive') {
-            throw new Error('Your account has been deactivated');
+          if (!response.ok) {
+            throw new Error(data.message || "Authentication failed");
           }
 
           return {
-            id: user._id.toString(),
-            name: user.fullName,
-            email: user.email,
-            username: user.username,
-            image: user.profilePicture,
-            role: user.role || 'user',
+            id: data.id,
+            name: data.name,
+            email: data.email,
+            username: data.username,
+            image: data.image,
+            role: data.role || "user",
           };
         } catch (error) {
-          console.error('Authentication error:', error);
-          throw error instanceof Error ? error : new Error('Authentication failed');
+          console.error("Authentication error:", error);
+          throw error instanceof Error
+            ? error
+            : new Error("Authentication failed");
         }
       },
     }),
@@ -119,30 +119,31 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         return true;
       }
 
-      // For OAuth (Google, etc.) accounts, we need to check if the user exists in our database
-      // If not, we create a new user
-      if (account?.provider !== 'credentials') {
-        await dbConnect();
-
+      // For OAuth accounts, check if they exist via API route
+      if (account?.provider !== "credentials") {
         try {
-          const existingUser = await User.findOne({ email: user.email });
+          // Use the check-oauth-user API
+          const baseUrl = process.env.VERCEL_URL
+            ? `https://${process.env.VERCEL_URL}`
+            : process.env.NEXTAUTH_URL || "";
 
-          if (!existingUser && user.email) {
-            // Create a new user from OAuth data
-            const newUser = new User({
+          const response = await fetch(`${baseUrl}/api/auth/check-oauth-user`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
               email: user.email,
-              fullName: user.name,
-              username: user.email?.split('@')[0] || `user_${Date.now()}`,
-              profilePicture: user.image,
-              // No password for OAuth users
-              password: '',
-              // Additional fields as needed
-            });
+              name: user.name,
+              image: user.image,
+            }),
+          });
 
-            await newUser.save();
+          if (!response.ok) {
+            return false;
           }
         } catch (error) {
-          console.error('Error during OAuth sign in:', error);
+          console.error("Error during OAuth sign in:", error);
           return false;
         }
       }
@@ -154,7 +155,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (user) {
         token.id = user.id;
         token.username = user.username;
-        token.role = user.role || 'user';
+        token.role = user.role || "user";
         token.provider = account?.provider;
       }
 
@@ -184,12 +185,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
   },
   session: {
-    strategy: 'jwt',
+    strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   jwt: {
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   secret: nextAuthSecret,
-  debug: process.env.NODE_ENV === 'development',
+  debug: process.env.NODE_ENV === "development",
 });
