@@ -15,12 +15,14 @@
   "description": "Backend API for Portfolio Hub",
   "dependencies": {
     "bcrypt": "^5.1.1",
+    "cloudinary": "^1.41.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.4.3",
     "multer": "^1.4.5-lts.2",
+    "multer-storage-cloudinary": "^4.0.0",
     "typescript": "^5.8.3"
   },
   "devDependencies": {

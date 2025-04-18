@@ -26,6 +26,7 @@ export interface IUser extends Document {
   email: string;
   password: string;
   profilePicture?: string;
+  profilePictureId?: string; // Cloudinary public ID
   role: "user" | "admin";
   profile?: UserProfile;
   createdAt: Date;
@@ -90,6 +91,10 @@ const UserSchema = new Schema<IUser>(
     profilePicture: {
       type: String,
       default: "",
+    },
+    profilePictureId: {
+      type: String,
+      default: "", // Cloudinary public ID
     },
     role: {
       type: String,

@@ -1,5 +1,11 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
+// Interface for image object
+interface ImageObject {
+  url: string;
+  publicId: string;
+}
+
 export interface IPortfolio extends Document {
   title: string;
   subtitle?: string;
@@ -7,12 +13,24 @@ export interface IPortfolio extends Document {
   userId: mongoose.Types.ObjectId;
   templateId?: mongoose.Types.ObjectId;
   content: Record<string, any>;
+  // Store images with their Cloudinary public IDs
+  headerImage?: ImageObject;
+  galleryImages?: ImageObject[];
   isPublished: boolean;
   viewCount: number;
   customDomain?: string;
   createdAt: Date;
   updatedAt: Date;
 }
+
+// Schema for image objects
+const ImageObjectSchema = new Schema(
+  {
+    url: { type: String, required: true },
+    publicId: { type: String, required: true },
+  },
+  { _id: false }
+);
 
 const PortfolioSchema = new Schema<IPortfolio>(
   {
@@ -47,6 +65,14 @@ const PortfolioSchema = new Schema<IPortfolio>(
     content: {
       type: Schema.Types.Mixed,
       default: {},
+    },
+    // Add fields for storing images with their Cloudinary public IDs
+    headerImage: {
+      type: ImageObjectSchema,
+    },
+    galleryImages: {
+      type: [ImageObjectSchema],
+      default: [],
     },
     isPublished: {
       type: Boolean,

@@ -5,9 +5,12 @@ import {
   getPortfolioById,
   updatePortfolio,
   deletePortfolio,
-  getPortfolioBySubdomain
+  getPortfolioBySubdomain,
+  uploadPortfolioImage,
+  deletePortfolioImage
 } from '../controllers/portfolioController';
 import { auth } from '../middleware/auth';
+import upload, { handleMulterError } from '../middleware/upload';
 
 const router = express.Router();
 
@@ -24,5 +27,18 @@ router.route('/:id')
   .get(getPortfolioById as express.RequestHandler)
   .put(updatePortfolio as express.RequestHandler)
   .delete(deletePortfolio as express.RequestHandler);
+
+// Image upload/delete routes
+router.post(
+  '/:id/upload-image',
+  upload.single('image'),
+  handleMulterError,
+  uploadPortfolioImage as express.RequestHandler
+);
+
+router.delete(
+  '/:id/delete-image/:imageId',
+  deletePortfolioImage as express.RequestHandler
+);
 
 export default router;
