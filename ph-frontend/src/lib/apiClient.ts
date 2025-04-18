@@ -260,7 +260,7 @@ export const updateProfile = async (profileData: {
 // Upload profile picture
 export const uploadProfilePicture = async (file: File): Promise<string> => {
   try {
-    const url = `${API_BASE_URL}/auth/profile/upload`;
+    const url = `${API_BASE_URL}/auth/profile/upload-image`;
     const token = getToken();
     if (!token) {
       throw new Error("Authentication required");
