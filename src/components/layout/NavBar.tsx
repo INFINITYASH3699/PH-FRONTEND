@@ -33,14 +33,16 @@ import {
   Sparkles,
   BadgeCheck,
 } from "lucide-react";
-import { useSession, signOut } from "next-auth/react";
+// REMOVE NextAuth imports!
+// import { useSession, signOut } from "next-auth/react";
 import { useRouter, usePathname } from "next/navigation";
+import { useAuth } from "@/components/providers/AuthContext"; // <-- IMPORT YOURS
 
 export function NavBar() {
-  const { data: session, status } = useSession();
+  // Use custom auth
+  const { user, logout, isAuthenticated } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
-  const isAuthenticated = status === "authenticated";
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -54,8 +56,9 @@ export function NavBar() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  // Custom logout handler
   const handleSignOut = async () => {
-    await signOut({ redirect: false });
+    logout();
     router.push("/");
   };
 
@@ -147,10 +150,10 @@ export function NavBar() {
                     size="sm"
                     className="flex items-center gap-2 pl-2 pr-3 relative border border-muted-foreground/20 hover:bg-accent"
                   >
-                    {session?.user?.image ? (
+                    {user?.image ? (
                       <img
-                        src={session.user.image}
-                        alt={session.user.name || "User"}
+                        src={user.image}
+                        alt={user.name || "User"}
                         className="h-7 w-7 rounded-full ring-2 ring-background"
                       />
                     ) : (
@@ -159,10 +162,10 @@ export function NavBar() {
                       </div>
                     )}
                     <span className="font-medium max-w-[120px] truncate">
-                      {session?.user?.name || "User"}
+                      {user?.name || user?.username || "User"}
                     </span>
                     <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                    {status === "authenticated" && (
+                    {isAuthenticated && (
                       <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-green-500 border-2 border-background"></span>
                     )}
                   </Button>
@@ -176,10 +179,10 @@ export function NavBar() {
                       Signed in as
                     </p>
                     <div className="flex items-center gap-3">
-                      {session?.user?.image ? (
+                      {user?.image ? (
                         <img
-                          src={session.user.image}
-                          alt={session.user.name || "User"}
+                          src={user.image}
+                          alt={user.name || "User"}
                           className="h-10 w-10 rounded-full"
                         />
                       ) : (
@@ -189,10 +192,10 @@ export function NavBar() {
                       )}
                       <div className="flex flex-col">
                         <p className="font-medium">
-                          {session?.user?.name || "User"}
+                          {user?.name || user?.username || "User"}
                         </p>
                         <p className="text-xs text-muted-foreground truncate max-w-[150px]">
-                          {session?.user?.email || ""}
+                          {user?.email || ""}
                         </p>
                       </div>
                     </div>
@@ -221,7 +224,7 @@ export function NavBar() {
                     className="flex items-center cursor-pointer"
                   >
                     <Link
-                      href={`/portfolio/${session?.user?.username || ""}`}
+                      href={`/portfolio/${user?.username || ""}`}
                       className="flex items-center"
                     >
                       <BadgeCheck className="h-4 w-4 mr-2" />
@@ -262,7 +265,7 @@ export function NavBar() {
           )}
         </div>
 
-        {/* Mobile Navigation */}
+        {/* Mobile Navigation (also refactored) */}
         <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
           <SheetTrigger asChild className="md:hidden">
             <Button variant="ghost" size="icon">
@@ -287,10 +290,10 @@ export function NavBar() {
             <nav className="flex flex-col gap-5 mt-8">
               {isAuthenticated && (
                 <div className="flex items-center gap-3 mb-4 bg-muted p-3 rounded-lg">
-                  {session?.user?.image ? (
+                  {user?.image ? (
                     <img
-                      src={session.user.image}
-                      alt={session.user.name || "User"}
+                      src={user.image}
+                      alt={user.name || "User"}
                       className="h-12 w-12 rounded-full border-2 border-background"
                     />
                   ) : (
@@ -300,10 +303,10 @@ export function NavBar() {
                   )}
                   <div>
                     <p className="font-medium">
-                      {session?.user?.name || "User"}
+                      {user?.name || user?.username || "User"}
                     </p>
                     <p className="text-xs text-muted-foreground truncate max-w-[180px]">
-                      {session?.user?.email}
+                      {user?.email}
                     </p>
                   </div>
                 </div>
@@ -355,7 +358,7 @@ export function NavBar() {
                       </Button>
                     </Link>
                     <Link
-                      href={`/portfolio/${session?.user?.username || ""}`}
+                      href={`/portfolio/${user?.username || ""}`}
                       onClick={() => setMobileMenuOpen(false)}
                     >
                       <Button

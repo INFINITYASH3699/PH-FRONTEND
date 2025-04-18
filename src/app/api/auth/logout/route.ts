@@ -3,8 +3,16 @@ import { cookies } from "next/headers";
 
 export async function POST(request: NextRequest) {
   try {
-    // Clear the auth token cookie
-    cookies().delete("auth-token");
+    // Determine if we're in a production environment
+    const isProduction = process.env.NODE_ENV === "production";
+
+    // Clear the auth token cookie with proper settings
+    cookies().delete({
+      name: "auth-token",
+      path: "/",
+      secure: isProduction,
+      sameSite: "lax"
+    });
 
     return NextResponse.json({
       success: true,

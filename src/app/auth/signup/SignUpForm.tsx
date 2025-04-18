@@ -1,23 +1,23 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { CardContent, CardFooter } from '@/components/ui/card';
-import { toast } from 'sonner';
+import { useState } from "react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { CardContent, CardFooter } from "@/components/ui/card";
+import { toast } from "sonner";
+import { useAuth } from "@/components/providers/AuthContext";
 
 export default function SignUpForm() {
-  const router = useRouter();
+  const { register } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    username: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
+    firstName: "",
+    lastName: "",
+    username: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -30,68 +30,39 @@ export default function SignUpForm() {
 
     // Basic validation
     if (formData.password !== formData.confirmPassword) {
-      toast.error('Passwords do not match');
+      toast.error("Passwords do not match");
       return;
     }
 
     if (formData.password.length < 8) {
-      toast.error('Password must be at least 8 characters long');
+      toast.error("Password must be at least 8 characters long");
       return;
     }
 
     if (!/^[a-zA-Z0-9_-]{3,30}$/.test(formData.username)) {
-      toast.error('Username must be 3-30 characters and can only contain letters, numbers, underscores, and hyphens');
+      toast.error(
+        "Username must be 3-30 characters and can only contain letters, numbers, underscores, and hyphens"
+      );
       return;
     }
 
     setIsLoading(true);
 
     try {
-      // Register the user
-      const registerResponse = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          fullName: `${formData.firstName} ${formData.lastName}`,
-          username: formData.username,
-          email: formData.email,
-          password: formData.password,
-        }),
+      // Use the Auth Context register function
+      await register({
+        fullName: `${formData.firstName} ${formData.lastName}`,
+        username: formData.username,
+        email: formData.email,
+        password: formData.password,
       });
 
-      const registerData = await registerResponse.json();
+      toast.success("Account created successfully!");
 
-      if (!registerResponse.ok) {
-        throw new Error(registerData.message || 'Something went wrong');
-      }
-
-      toast.success('Account created successfully! Logging you in...');
-
-      // Directly login after successful registration
-      const loginResponse = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-        }),
-      });
-
-      const loginData = await loginResponse.json();
-
-      if (!loginResponse.ok) {
-        throw new Error('Registration successful but failed to login. Please try logging in manually.');
-      }
-
-      // Redirect to dashboard
-      router.push('/dashboard');
-      router.refresh();
+      // The redirection is handled inside the register function
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to create account';
+      const message =
+        error instanceof Error ? error.message : "Failed to create account";
       toast.error(message);
       console.error(error);
     } finally {
@@ -105,7 +76,10 @@ export default function SignUpForm() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label htmlFor="firstName" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+              <label
+                htmlFor="firstName"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
                 First name
               </label>
               <Input
@@ -118,7 +92,10 @@ export default function SignUpForm() {
               />
             </div>
             <div className="space-y-2">
-              <label htmlFor="lastName" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+              <label
+                htmlFor="lastName"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
                 Last name
               </label>
               <Input
@@ -133,7 +110,10 @@ export default function SignUpForm() {
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="username" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+            <label
+              htmlFor="username"
+              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+            >
               Username
             </label>
             <Input
@@ -145,12 +125,16 @@ export default function SignUpForm() {
               required
             />
             <p className="text-xs text-muted-foreground">
-              This will be used for your portfolio URL: username.portfoliohub.com
+              This will be used for your portfolio URL:
+              username.portfoliohub.com
             </p>
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="email" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+            <label
+              htmlFor="email"
+              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+            >
               Email
             </label>
             <Input
@@ -165,7 +149,10 @@ export default function SignUpForm() {
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="password" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+            <label
+              htmlFor="password"
+              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+            >
               Password
             </label>
             <Input
@@ -183,7 +170,10 @@ export default function SignUpForm() {
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="confirmPassword" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+            <label
+              htmlFor="confirmPassword"
+              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+            >
               Confirm Password
             </label>
             <Input
@@ -201,13 +191,13 @@ export default function SignUpForm() {
             className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 text-white"
             disabled={isLoading}
           >
-            {isLoading ? 'Creating Account...' : 'Create Account'}
+            {isLoading ? "Creating Account..." : "Create Account"}
           </Button>
         </form>
       </CardContent>
       <CardFooter className="flex flex-col space-y-4">
         <div className="text-sm text-center text-muted-foreground">
-          Already have an account?{' '}
+          Already have an account?{" "}
           <Link href="/auth/signin" className="text-primary hover:underline">
             Sign in
           </Link>

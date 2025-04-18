@@ -65,7 +65,10 @@ export async function POST(request: NextRequest) {
         { expiresIn: "7d" }
       );
 
-      // Set the cookie
+      // Determine if we're in a production environment
+      const isProduction = process.env.NODE_ENV === "production";
+
+      // Set the cookie with appropriate settings for the environment
       cookies().set({
         name: "auth-token",
         value: token,
@@ -73,11 +76,14 @@ export async function POST(request: NextRequest) {
         path: "/",
         maxAge: 60 * 60 * 24 * 7, // 7 days
         sameSite: "lax",
+        secure: isProduction, // Only use secure in production
       });
 
-      // Return user data without sensitive information
+      // Return user data and the token in the response
+      // This allows client-side code to store the token in localStorage
       return NextResponse.json({
         success: true,
+        token, // Include the token in the response
         user: {
           id: user._id.toString(),
           name: user.fullName,

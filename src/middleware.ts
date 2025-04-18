@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { auth } from './lib/auth'; // Updated to use the auth export instead of getToken
+import { verify } from 'jsonwebtoken';
 
 // List of paths that require authentication
 const PROTECTED_PATHS = [
@@ -15,12 +15,25 @@ const AUTH_ONLY_PATHS = [
   '/auth/signup',
 ];
 
+const JWT_SECRET = process.env.NEXTAUTH_SECRET || "your-jwt-secret-key-change-me";
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Get the session using the updated auth() function from NextAuth v5
-  const session = await auth();
-  const isAuthenticated = !!session;
+  // Get the auth token from cookies
+  const authToken = request.cookies.get('auth-token');
+  let isAuthenticated = false;
+
+  // Verify the token if it exists
+  if (authToken?.value) {
+    try {
+      verify(authToken.value, JWT_SECRET);
+      isAuthenticated = true;
+    } catch (error) {
+      console.error('Invalid token:', error);
+      isAuthenticated = false;
+    }
+  }
 
   // Check if the path requires authentication
   const isProtectedPath = PROTECTED_PATHS.some(path =>
