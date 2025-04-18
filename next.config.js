@@ -50,6 +50,18 @@ const nextConfig = {
         destination: '/',
         permanent: true,
       },
+      // Add a redirect from 0.0.0.0 to localhost
+      {
+        source: '/:path*',
+        has: [
+          {
+            type: 'host',
+            value: '0.0.0.0:3001',
+          },
+        ],
+        destination: 'http://localhost:3001/:path*',
+        permanent: false,
+      },
     ];
   },
 

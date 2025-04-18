@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CardContent, CardFooter } from "@/components/ui/card";
@@ -9,10 +10,23 @@ import { toast } from "sonner";
 import { useAuth } from "@/components/providers/AuthContext";
 
 export default function SignInForm() {
-  const { login } = useAuth();
+  const { login, isAuthenticated } = useAuth();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+
+  // Get callbackUrl from URL if available
+  const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
+
+  // If already authenticated, redirect to dashboard or callback
+  useEffect(() => {
+    if (isAuthenticated) {
+      console.log("User already authenticated, redirecting to:", callbackUrl);
+      router.push(callbackUrl);
+    }
+  }, [isAuthenticated, router, callbackUrl]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,7 +37,13 @@ export default function SignInForm() {
       await login(email, password);
       toast.success("Signed in successfully");
 
-      // The redirection is handled inside the login function
+      // Manual redirect to dashboard or callback URL
+      console.log("Login successful, redirecting to:", callbackUrl);
+
+      // Add a slight delay to ensure token is set properly
+      setTimeout(() => {
+        window.location.href = callbackUrl;
+      }, 100);
     } catch (error) {
       const message =
         error instanceof Error

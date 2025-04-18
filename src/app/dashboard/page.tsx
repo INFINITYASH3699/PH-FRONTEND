@@ -9,6 +9,7 @@ import { NavBar } from '@/components/layout/NavBar';
 import { Footer } from '@/components/layout/Footer';
 import { toast } from 'sonner';
 import apiClient, { User } from '@/lib/apiClient';
+import { useAuth } from '@/components/providers/AuthContext';
 
 // Portfolio interface
 interface Portfolio {
@@ -29,41 +30,48 @@ interface Portfolio {
 }
 
 export default function DashboardPage() {
-  const [user, setUser] = useState<User | null>(null);
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
   const [loading, setLoading] = useState(true);
   const [authStatus, setAuthStatus] = useState<'loading' | 'authenticated' | 'unauthenticated'>('loading');
 
-  // Check if user is authenticated
+  // Log auth status for debugging
   useEffect(() => {
-    const checkAuth = async () => {
-      // First check local storage for token
-      if (!apiClient.isAuthenticated()) {
-        setAuthStatus('unauthenticated');
-        window.location.href = '/auth/signin';
-        return;
-      }
+    console.log('Dashboard auth status:', {
+      isAuthenticated,
+      authLoading,
+      user: user ? {
+        id: user.id,
+        email: user.email,
+        username: user.username
+      } : null
+    });
+  }, [isAuthenticated, authLoading, user]);
 
-      try {
-        const user = await apiClient.getCurrentUser();
-        setUser(user);
-        setAuthStatus('authenticated');
-      } catch (error) {
-        console.error('Error checking authentication:', error);
-        setAuthStatus('unauthenticated');
+  // Check if user is authenticated using Auth context
+  useEffect(() => {
+    if (authLoading) {
+      setAuthStatus('loading');
+    } else if (isAuthenticated && user) {
+      setAuthStatus('authenticated');
+    } else {
+      setAuthStatus('unauthenticated');
+      // Only redirect if not in the loading state
+      if (!authLoading) {
+        console.log('Not authenticated, redirecting to signin');
         window.location.href = '/auth/signin';
       }
-    };
-
-    checkAuth();
-  }, []);
+    }
+  }, [isAuthenticated, authLoading, user]);
 
   // Fetch user portfolios when authenticated
   useEffect(() => {
     const fetchPortfolios = async () => {
       if (authStatus === 'authenticated') {
         try {
+          console.log('Fetching portfolios...');
           const data = await apiClient.request<{ success: boolean; portfolios: Portfolio[] }>('/portfolios');
+          console.log('Portfolios fetched:', data.portfolios.length);
           setPortfolios(data.portfolios);
         } catch (error) {
           console.error('Error fetching portfolios:', error);
@@ -124,6 +132,11 @@ export default function DashboardPage() {
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
             <div>
               <h1 className="text-3xl font-bold">Dashboard</h1>
+              {user && (
+                <p className="text-muted-foreground mb-2">
+                  Welcome, {user.fullName || user.username}! ({user.email})
+                </p>
+              )}
               <p className="text-muted-foreground">
                 Manage your portfolios and see how they're performing
               </p>

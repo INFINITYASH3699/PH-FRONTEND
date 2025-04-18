@@ -2,7 +2,7 @@ import { toast } from "sonner";
 
 // API base URL - use environment variable or default to localhost
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
 // Storage keys
 const TOKEN_KEY = "ph_auth_token";
@@ -91,7 +91,7 @@ const apiRequest = async <T>(
     const options: RequestInit = {
       method,
       headers,
-      credentials: "include",
+      credentials: "include", // Important for cookie handling
     };
 
     if (data && (method === "POST" || method === "PUT" || method === "PATCH")) {
@@ -100,7 +100,7 @@ const apiRequest = async <T>(
 
     // For development - log API requests
     if (process.env.NODE_ENV === "development") {
-      console.log(`API Request: ${method} ${url}`, { headers, data, isServer });
+      console.log(`API Request: ${method} ${url}`, { ...data, isServer });
     }
 
     const response = await fetch(url, options);
@@ -146,6 +146,7 @@ export const login = async (email: string, password: string): Promise<User> => {
 
     if (response.success && response.token && response.user) {
       setAuthData(response.token, response.user);
+      console.log("Login successful, token and user set in local storage");
       return response.user;
     }
 
