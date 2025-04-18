@@ -7,7 +7,7 @@ import React, {
   useEffect,
   ReactNode,
 } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
 import apiClient, { User } from "@/lib/apiClient";
 
 interface AuthContextType {
@@ -31,7 +31,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
-  const pathname = usePathname();
 
   // Check if user is authenticated on initial load
   useEffect(() => {
@@ -42,7 +41,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     initAuth();
   }, []);
 
-  // Check authentication status and redirect if needed
+  // Check authentication status
   const checkAuth = async (): Promise<boolean> => {
     setIsLoading(true);
     try {
@@ -69,9 +68,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       const user = await apiClient.login(email, password);
       setUser(user);
-
-      // Redirect to dashboard after successful login
-      router.push("/dashboard");
+      // Navigation is handled in the SignInForm component
     } catch (error) {
       console.error("Login error:", error);
       throw error;
@@ -88,8 +85,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       const user = await apiClient.register(userData);
       setUser(user);
-
-      // Redirect to dashboard after successful registration
       router.push("/dashboard");
     } catch (error) {
       console.error("Registration error:", error);

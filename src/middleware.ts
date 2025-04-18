@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { verify } from 'jsonwebtoken';
 
 // List of paths that require authentication
 const PROTECTED_PATHS = [
@@ -15,25 +14,13 @@ const AUTH_ONLY_PATHS = [
   '/auth/signup',
 ];
 
-const JWT_SECRET = process.env.NEXTAUTH_SECRET || "your-jwt-secret-key-change-me";
-
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Get the auth token from cookies
-  const authToken = request.cookies.get('auth-token');
-  let isAuthenticated = false;
-
-  // Verify the token if it exists
-  if (authToken?.value) {
-    try {
-      verify(authToken.value, JWT_SECRET);
-      isAuthenticated = true;
-    } catch (error) {
-      console.error('Invalid token:', error);
-      isAuthenticated = false;
-    }
-  }
+  // Check for token in localStorage - we'll get this from the cookies
+  // because middleware can't access localStorage directly
+  const authToken = request.cookies.get('ph_auth_token');
+  const isAuthenticated = !!authToken?.value;
 
   // Check if the path requires authentication
   const isProtectedPath = PROTECTED_PATHS.some(path =>
@@ -48,7 +35,8 @@ export async function middleware(request: NextRequest) {
   // If it's a protected path and user is not authenticated, redirect to sign in
   if (isProtectedPath && !isAuthenticated) {
     const signInUrl = new URL('/auth/signin', request.url);
-    signInUrl.searchParams.set('callbackUrl', encodeURI(request.url));
+    // Simplified callbackUrl to just use the pathname
+    signInUrl.searchParams.set('callbackUrl', pathname);
     return NextResponse.redirect(signInUrl);
   }
 

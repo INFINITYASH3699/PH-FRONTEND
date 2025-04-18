@@ -33,8 +33,6 @@ import {
   Sparkles,
   BadgeCheck,
 } from "lucide-react";
-// REMOVE NextAuth imports!
-// import { useSession, signOut } from "next-auth/react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthContext"; // <-- IMPORT YOURS
 
@@ -150,10 +148,10 @@ export function NavBar() {
                     size="sm"
                     className="flex items-center gap-2 pl-2 pr-3 relative border border-muted-foreground/20 hover:bg-accent"
                   >
-                    {user?.image ? (
+                    {user?.profilePicture ? (
                       <img
-                        src={user.image}
-                        alt={user.name || "User"}
+                        src={user.profilePicture}
+                        alt={user.fullName || "User"}
                         className="h-7 w-7 rounded-full ring-2 ring-background"
                       />
                     ) : (
@@ -162,7 +160,7 @@ export function NavBar() {
                       </div>
                     )}
                     <span className="font-medium max-w-[120px] truncate">
-                      {user?.name || user?.username || "User"}
+                      {user?.fullName || user?.username || "User"}
                     </span>
                     <ChevronDown className="h-4 w-4 text-muted-foreground" />
                     {isAuthenticated && (
@@ -179,10 +177,10 @@ export function NavBar() {
                       Signed in as
                     </p>
                     <div className="flex items-center gap-3">
-                      {user?.image ? (
+                      {user?.profilePicture ? (
                         <img
-                          src={user.image}
-                          alt={user.name || "User"}
+                          src={user.profilePicture}
+                          alt={user.fullName || "User"}
                           className="h-10 w-10 rounded-full"
                         />
                       ) : (
@@ -192,7 +190,7 @@ export function NavBar() {
                       )}
                       <div className="flex flex-col">
                         <p className="font-medium">
-                          {user?.name || user?.username || "User"}
+                          {user?.fullName || user?.username || "User"}
                         </p>
                         <p className="text-xs text-muted-foreground truncate max-w-[150px]">
                           {user?.email || ""}
@@ -290,10 +288,10 @@ export function NavBar() {
             <nav className="flex flex-col gap-5 mt-8">
               {isAuthenticated && (
                 <div className="flex items-center gap-3 mb-4 bg-muted p-3 rounded-lg">
-                  {user?.image ? (
+                  {user?.profilePicture ? (
                     <img
-                      src={user.image}
-                      alt={user.name || "User"}
+                      src={user.profilePicture}
+                      alt={user.fullName || "User"}
                       className="h-12 w-12 rounded-full border-2 border-background"
                     />
                   ) : (
@@ -303,7 +301,7 @@ export function NavBar() {
                   )}
                   <div>
                     <p className="font-medium">
-                      {user?.name || user?.username || "User"}
+                      {user?.fullName || user?.username || "User"}
                     </p>
                     <p className="text-xs text-muted-foreground truncate max-w-[180px]">
                       {user?.email}

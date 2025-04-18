@@ -33,17 +33,13 @@ export default function SignInForm() {
     setIsLoading(true);
 
     try {
-      // Use the Auth Context login function
+      // Log the user in
       await login(email, password);
       toast.success("Signed in successfully");
 
-      // Manual redirect to dashboard or callback URL
+      // Force a hard navigation to ensure middleware picks up the new auth state
       console.log("Login successful, redirecting to:", callbackUrl);
-
-      // Add a slight delay to ensure token is set properly
-      setTimeout(() => {
-        window.location.href = callbackUrl;
-      }, 100);
+      window.location.href = callbackUrl;
     } catch (error) {
       const message =
         error instanceof Error

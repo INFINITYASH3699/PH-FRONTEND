@@ -1,8 +1,8 @@
 import { toast } from "sonner";
 
-// API base URL - use environment variable or default to localhost
+// API base URL - use environment variable or default to the backend URL
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"; // Updated to port 5000 based on backend code
 
 // Storage keys
 const TOKEN_KEY = "ph_auth_token";
@@ -53,21 +53,24 @@ export const getUser = (): User | null => {
 export const setAuthData = (token: string, user: User): void => {
   localStorage.setItem(TOKEN_KEY, token);
   localStorage.setItem(USER_KEY, JSON.stringify(user));
+
+  // Set a cookie with the same name as localStorage for middleware to detect
+  document.cookie = `${TOKEN_KEY}=${token}; path=/; max-age=${30 * 24 * 60 * 60};`;
 };
 
 // Clear auth data
 export const clearAuthData = (): void => {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
+
+  // Clear the cookie
+  document.cookie = `${TOKEN_KEY}=; path=/; max-age=0;`;
 };
 
 // Check if user is authenticated
 export const isAuthenticated = (): boolean => {
   return !!getToken();
 };
-
-// For debugging purposes - helps identify when running in middleware vs client
-const isServer = typeof window === "undefined";
 
 // Generic API request function
 const apiRequest = async <T>(
@@ -100,7 +103,7 @@ const apiRequest = async <T>(
 
     // For development - log API requests
     if (process.env.NODE_ENV === "development") {
-      console.log(`API Request: ${method} ${url}`, { ...data, isServer });
+      console.log(`API Request: ${method} ${url}`, data);
     }
 
     const response = await fetch(url, options);
@@ -134,8 +137,7 @@ const apiRequest = async <T>(
 // Auth API calls
 export const login = async (email: string, password: string): Promise<User> => {
   try {
-    // For debugging
-    console.log("Attempting login with:", { email, isServer });
+    console.log("Attempting login with:", { email });
 
     const response = await apiRequest<LoginResponse>(
       "/auth/login",
@@ -146,7 +148,7 @@ export const login = async (email: string, password: string): Promise<User> => {
 
     if (response.success && response.token && response.user) {
       setAuthData(response.token, response.user);
-      console.log("Login successful, token and user set in local storage");
+      console.log("Login successful, token and user set");
       return response.user;
     }
 
@@ -163,10 +165,8 @@ export const register = async (userData: {
   password: string;
 }): Promise<User> => {
   try {
-    // For debugging
     console.log("Attempting registration with:", {
       email: userData.email,
-      isServer,
     });
 
     const response = await apiRequest<RegisterResponse>(
