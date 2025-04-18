@@ -39,9 +39,45 @@ export interface User {
   fullName: string;
   username: string;
   email: string;
-  role: string;
   profilePicture?: string;
+  role: string;
   profile?: UserProfile;
+}
+
+// Template interface
+export interface Template {
+  _id: string;
+  name: string;
+  description: string;
+  category: string;
+  previewImage: string;
+  defaultStructure: Record<string, any>;
+  isPublished: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+// Portfolio interface
+export interface Portfolio {
+  _id: string;
+  title: string;
+  subtitle?: string;
+  subdomain: string;
+  templateId?: string | Template;
+  content: Record<string, any>;
+  isPublished: boolean;
+  viewCount: number;
+  customDomain?: string;
+  headerImage?: {
+    url: string;
+    publicId: string;
+  };
+  galleryImages?: Array<{
+    url: string;
+    publicId: string;
+  }>;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 // Auth related interfaces
@@ -291,7 +327,103 @@ export const uploadProfilePicture = async (file: File): Promise<string> => {
   }
 };
 
-// Export the API client
+// Template-related functions
+async function getTemplates(category?: string): Promise<Template[]> {
+  try {
+    const endpoint = category ? `/templates?category=${category}` : '/templates';
+    const response = await apiRequest<{ success: boolean; templates: Template[] }>(endpoint);
+    return response.templates;
+  } catch (error) {
+    console.error('Error fetching templates:', error);
+    throw error;
+  }
+}
+
+async function getTemplateById(id: string): Promise<Template> {
+  try {
+    const response = await apiRequest<{ success: boolean; template: Template }>(`/templates/${id}`);
+    return response.template;
+  } catch (error) {
+    console.error('Error fetching template:', error);
+    throw error;
+  }
+}
+
+// Portfolio-related functions
+async function createPortfolio(data: {
+  title: string;
+  subtitle?: string;
+  subdomain: string;
+  templateId: string;
+  content?: Record<string, any>;
+}): Promise<Portfolio> {
+  try {
+    const response = await apiRequest<{ success: boolean; portfolio: Portfolio }>(
+      '/portfolios',
+      'POST',
+      data
+    );
+    return response.portfolio;
+  } catch (error) {
+    console.error('Error creating portfolio:', error);
+    throw error;
+  }
+}
+
+async function updatePortfolioContent(
+  portfolioId: string,
+  content: Record<string, any>
+): Promise<Portfolio> {
+  try {
+    const response = await apiRequest<{ success: boolean; portfolio: Portfolio }>(
+      `/portfolios/${portfolioId}`,
+      'PUT',
+      { content }
+    );
+    return response.portfolio;
+  } catch (error) {
+    console.error('Error updating portfolio content:', error);
+    throw error;
+  }
+}
+
+async function uploadImage(
+  file: File,
+  type: 'profile' | 'portfolio' | 'project',
+  portfolioId?: string
+): Promise<{ url: string; publicId: string }> {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('type', type);
+    if (portfolioId) {
+      formData.append('portfolioId', portfolioId);
+    }
+
+    const response = await fetch(`${API_BASE_URL}/upload`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${getToken()}`,
+      },
+      body: formData,
+    });
+
+    const data = await response.json();
+    if (!data.success) {
+      throw new Error(data.message || 'Failed to upload image');
+    }
+
+    return {
+      url: data.url,
+      publicId: data.publicId,
+    };
+  } catch (error) {
+    console.error('Error uploading image:', error);
+    throw error;
+  }
+}
+
+// API client object
 const apiClient = {
   // Auth
   login,
@@ -306,8 +438,18 @@ const apiClient = {
   updateProfile,
   uploadProfilePicture,
 
+  // Templates
+  getTemplates,
+  getTemplateById,
+
+  // Portfolios
+  createPortfolio,
+  updatePortfolioContent,
+  uploadImage,
+
   // Generic request method for other API calls
   request: apiRequest,
 };
 
+// Export the API client
 export default apiClient;

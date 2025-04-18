@@ -1,12 +1,15 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { notFound, useParams } from 'next/navigation';
+import { notFound, useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { NavBar } from '@/components/layout/NavBar';
 import { Footer } from '@/components/layout/Footer';
-import { templates } from '@/data/templates';
+import { toast } from 'sonner';
+import apiClient, { Template } from '@/lib/apiClient';
+import { templates as fallbackTemplates } from '@/data/templates'; // Use as fallback
 
 // Sample features for templates
 const templateFeatures = {
@@ -49,15 +52,72 @@ const templateFeatures = {
 };
 
 export default function TemplatePreviewPage() {
-  // Get ID from route params using the useParams hook
+  const [template, setTemplate] = useState<Template | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [notFoundError, setNotFoundError] = useState(false);
   const params = useParams();
+  const router = useRouter();
   const id = typeof params.id === 'string' ? params.id : '';
 
-  // Find the template by ID
-  const template = templates.find(t => t._id === id);
+  // Fetch template data
+  useEffect(() => {
+    const fetchTemplate = async () => {
+      if (!id) {
+        setNotFoundError(true);
+        setLoading(false);
+        return;
+      }
 
-  // If template not found, return 404
-  if (!template) {
+      try {
+        // Try to fetch from API
+        const templateData = await apiClient.getTemplateById(id);
+        setTemplate(templateData);
+      } catch (error) {
+        console.error('Error fetching template:', error);
+        toast.error('Failed to load template from API. Using demo data.');
+
+        // Fallback to demo data
+        const fallbackTemplate = fallbackTemplates.find(t => t._id === id);
+        if (fallbackTemplate) {
+          setTemplate({
+            _id: fallbackTemplate._id,
+            name: fallbackTemplate.name,
+            description: fallbackTemplate.description,
+            category: fallbackTemplate.category,
+            previewImage: fallbackTemplate.previewImage,
+            defaultStructure: fallbackTemplate.settings || {},
+            isPublished: true,
+            longDescription: fallbackTemplate.longDescription,
+          } as Template);
+        } else {
+          setNotFoundError(true);
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTemplate();
+  }, [id]);
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <NavBar />
+        <main className="flex-grow flex items-center justify-center">
+          <div className="text-center">
+            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]"></div>
+            <p className="mt-4 text-muted-foreground">Loading template preview...</p>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  // Show not found
+  if (notFoundError || !template) {
     notFound();
   }
 
@@ -159,7 +219,13 @@ export default function TemplatePreviewPage() {
             </div>
 
             <div className="aspect-[16/9] max-w-5xl mx-auto relative rounded-lg overflow-hidden shadow-xl">
-              <div className="absolute inset-0 bg-gray-900 flex items-center justify-center">
+              <Image
+                src={template.previewImage}
+                alt={template.name}
+                fill
+                className="object-cover"
+              />
+              <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
                 <div className="text-center px-4">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -177,7 +243,11 @@ export default function TemplatePreviewPage() {
                     <path d="M10 8v8l6-4-6-4z" />
                   </svg>
                   <p className="text-white text-lg font-medium mb-3">Template Preview</p>
-                  <Button size="lg" className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white">
+                  <Button
+                    size="lg"
+                    className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white"
+                    onClick={() => router.push(`/templates/use/${template._id}`)}
+                  >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
                       width="24"
@@ -192,7 +262,7 @@ export default function TemplatePreviewPage() {
                     >
                       <path d="M10 8v8l6-4-6-4z" />
                     </svg>
-                    Play Video Preview
+                    Start Customizing
                   </Button>
                 </div>
               </div>

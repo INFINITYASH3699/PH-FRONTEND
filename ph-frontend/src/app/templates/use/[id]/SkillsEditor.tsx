@@ -30,27 +30,28 @@ interface SkillsEditorProps {
 }
 
 export default function SkillsEditor({ content, onSave, isLoading = false }: SkillsEditorProps) {
-  const { toast } = useToast();
   const [categories, setCategories] = useState<SkillCategory[]>(content.categories || []);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newSkillName, setNewSkillName] = useState('');
   const [newSkillProficiency, setNewSkillProficiency] = useState(75);
   const [activeCategoryIndex, setActiveCategoryIndex] = useState<number | null>(null);
   const [editingSkill, setEditingSkill] = useState<{ categoryIndex: number; skillIndex: number } | null>(null);
+  const [errors, setErrors] = useState<{[key: string]: string}>({});
 
   // Add a new category
   const handleAddCategory = () => {
     if (!newCategoryName.trim()) {
-      toast.error('Category name is required');
+      setErrors({ categoryName: 'Category name is required' });
       return;
     }
 
     // Check if category name already exists
     if (categories.some(cat => cat.name.toLowerCase() === newCategoryName.trim().toLowerCase())) {
-      toast.error('Category with this name already exists');
+      setErrors({ categoryName: 'Category with this name already exists' });
       return;
     }
 
+    setErrors({});
     const updatedCategories = [
       ...categories,
       {
@@ -62,6 +63,7 @@ export default function SkillsEditor({ content, onSave, isLoading = false }: Ski
     setCategories(updatedCategories);
     setNewCategoryName('');
     setActiveCategoryIndex(updatedCategories.length - 1);
+    toast.success('Category added successfully');
 
     // Save changes
     onSave({ categories: updatedCategories });
@@ -70,6 +72,7 @@ export default function SkillsEditor({ content, onSave, isLoading = false }: Ski
   // Delete a category
   const handleDeleteCategory = (index: number) => {
     const updatedCategories = [...categories];
+    const categoryName = categories[index].name;
     updatedCategories.splice(index, 1);
     setCategories(updatedCategories);
 
@@ -81,26 +84,30 @@ export default function SkillsEditor({ content, onSave, isLoading = false }: Ski
       setActiveCategoryIndex(activeCategoryIndex - 1);
     }
 
+    toast.success(`"${categoryName}" category deleted`);
+
     // Save changes
     onSave({ categories: updatedCategories });
   };
 
-  // Add a new skill to a category
+  // Add or update a skill in a category
   const handleAddSkill = (categoryIndex: number) => {
     if (!newSkillName.trim()) {
-      toast.error('Skill name is required');
+      setErrors({ skillName: 'Skill name is required' });
       return;
     }
 
-    // Check if skill already exists in this category
-    if (categories[categoryIndex].skills.some(skill =>
+    // Check if skill already exists in this category (if we're not editing it)
+    if (!editingSkill && categories[categoryIndex].skills.some(skill =>
       skill.name.toLowerCase() === newSkillName.trim().toLowerCase()
     )) {
-      toast.error('Skill already exists in this category');
+      setErrors({ skillName: 'Skill already exists in this category' });
       return;
     }
 
+    setErrors({});
     const updatedCategories = [...categories];
+    let successMessage = '';
 
     if (editingSkill && editingSkill.categoryIndex === categoryIndex) {
       // Update existing skill
@@ -109,6 +116,7 @@ export default function SkillsEditor({ content, onSave, isLoading = false }: Ski
         proficiency: newSkillProficiency
       };
 
+      successMessage = `"${newSkillName.trim()}" skill updated`;
       setEditingSkill(null);
     } else {
       // Add new skill
@@ -116,11 +124,14 @@ export default function SkillsEditor({ content, onSave, isLoading = false }: Ski
         name: newSkillName.trim(),
         proficiency: newSkillProficiency
       });
+
+      successMessage = `"${newSkillName.trim()}" skill added`;
     }
 
     setCategories(updatedCategories);
     setNewSkillName('');
     setNewSkillProficiency(75);
+    toast.success(successMessage);
 
     // Save changes
     onSave({ categories: updatedCategories });
@@ -129,6 +140,7 @@ export default function SkillsEditor({ content, onSave, isLoading = false }: Ski
   // Delete a skill
   const handleDeleteSkill = (categoryIndex: number, skillIndex: number) => {
     const updatedCategories = [...categories];
+    const skillName = updatedCategories[categoryIndex].skills[skillIndex].name;
     updatedCategories[categoryIndex].skills.splice(skillIndex, 1);
     setCategories(updatedCategories);
 
@@ -141,6 +153,8 @@ export default function SkillsEditor({ content, onSave, isLoading = false }: Ski
       setNewSkillProficiency(75);
     }
 
+    toast.success(`"${skillName}" skill deleted`);
+
     // Save changes
     onSave({ categories: updatedCategories });
   };
@@ -151,6 +165,7 @@ export default function SkillsEditor({ content, onSave, isLoading = false }: Ski
     setNewSkillName(skill.name);
     setNewSkillProficiency(skill.proficiency);
     setEditingSkill({ categoryIndex, skillIndex });
+    setErrors({});
   };
 
   // Calculate the appropriate color for proficiency level
@@ -177,17 +192,23 @@ export default function SkillsEditor({ content, onSave, isLoading = false }: Ski
         </CardHeader>
         <CardContent>
           <div className="flex gap-2 mb-4">
-            <Input
-              placeholder="New Category (e.g., Frontend)"
-              value={newCategoryName}
-              onChange={e => setNewCategoryName(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  handleAddCategory();
-                }
-              }}
-            />
+            <div className="w-full">
+              <Input
+                placeholder="New Category (e.g., Frontend)"
+                value={newCategoryName}
+                onChange={e => setNewCategoryName(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleAddCategory();
+                  }
+                }}
+                className={errors.categoryName ? "border-red-500" : ""}
+              />
+              {errors.categoryName && (
+                <p className="text-red-500 text-xs mt-1">{errors.categoryName}</p>
+              )}
+            </div>
             <Button
               onClick={handleAddCategory}
               disabled={!newCategoryName.trim() || isLoading}
@@ -244,14 +265,18 @@ export default function SkillsEditor({ content, onSave, isLoading = false }: Ski
             <div className="space-y-4">
               <div className="space-y-2">
                 <label htmlFor="skillName" className="text-sm font-medium">
-                  Skill Name
+                  Skill Name <span className="text-red-500">*</span>
                 </label>
                 <Input
                   id="skillName"
                   placeholder="E.g., React"
                   value={newSkillName}
                   onChange={e => setNewSkillName(e.target.value)}
+                  className={errors.skillName ? "border-red-500" : ""}
                 />
+                {errors.skillName && (
+                  <p className="text-red-500 text-xs mt-1">{errors.skillName}</p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -271,6 +296,12 @@ export default function SkillsEditor({ content, onSave, isLoading = false }: Ski
                   />
                   <span className="text-xs">100%</span>
                 </div>
+                <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden mt-2">
+                  <div
+                    className={`h-full ${getProficiencyColor(newSkillProficiency)}`}
+                    style={{ width: `${newSkillProficiency}%` }}
+                  ></div>
+                </div>
               </div>
 
               <div className="flex gap-2 justify-end">
@@ -281,6 +312,7 @@ export default function SkillsEditor({ content, onSave, isLoading = false }: Ski
                       setEditingSkill(null);
                       setNewSkillName('');
                       setNewSkillProficiency(75);
+                      setErrors({});
                     }}
                   >
                     Cancel

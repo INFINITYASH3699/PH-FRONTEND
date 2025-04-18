@@ -1,3 +1,6 @@
+'use client';
+
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -6,9 +9,67 @@ import { Footer } from '@/components/layout/Footer';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { templates } from '@/data/templates';
+import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
+import apiClient, { Template } from '@/lib/apiClient';
+import { templates as fallbackTemplates } from '@/data/templates'; // Use as fallback
 
 export default function TemplatesPage() {
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeCategory, setActiveCategory] = useState('all');
+  const router = useRouter();
+
+  // Fetch templates from the API
+  useEffect(() => {
+    const fetchTemplates = async () => {
+      try {
+        const category = activeCategory !== 'all' ? activeCategory : undefined;
+        const fetchedTemplates = await apiClient.getTemplates(category);
+        setTemplates(fetchedTemplates);
+      } catch (error) {
+        console.error('Error fetching templates:', error);
+        toast.error('Failed to load templates. Using demo data instead.');
+        // Use fallback templates if API fails
+        setTemplates(fallbackTemplates.map(t => ({
+          _id: t._id,
+          name: t.name,
+          description: t.description,
+          category: t.category,
+          previewImage: t.previewImage,
+          defaultStructure: t.settings || {},
+          isPublished: true,
+        })));
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTemplates();
+  }, [activeCategory]);
+
+  // Filter templates based on search query
+  const filteredTemplates = templates.filter(template => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      template.name.toLowerCase().includes(query) ||
+      template.description.toLowerCase().includes(query) ||
+      template.category.toLowerCase().includes(query)
+    );
+  });
+
+  // Update search query
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value);
+  };
+
+  // Handle category change
+  const handleCategoryChange = (category: string) => {
+    setActiveCategory(category);
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
       <NavBar />
@@ -25,7 +86,12 @@ export default function TemplatesPage() {
               </p>
 
               <div className="relative max-w-md mx-auto mt-8">
-                <Input className="pl-10" placeholder="Search templates..." />
+                <Input
+                  className="pl-10"
+                  placeholder="Search templates..."
+                  value={searchQuery}
+                  onChange={handleSearch}
+                />
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   width="24"
@@ -49,7 +115,12 @@ export default function TemplatesPage() {
         {/* Templates Gallery */}
         <section className="py-12">
           <div className="container px-4 md:px-6">
-            <Tabs defaultValue="all" className="mb-8">
+            <Tabs
+              defaultValue="all"
+              value={activeCategory}
+              onValueChange={handleCategoryChange}
+              className="mb-8"
+            >
               <TabsList className="w-full max-w-lg mx-auto grid grid-cols-3 md:grid-cols-6 h-auto">
                 <TabsTrigger value="all">All</TabsTrigger>
                 <TabsTrigger value="developer">Developer</TabsTrigger>
@@ -59,62 +130,32 @@ export default function TemplatesPage() {
                 <TabsTrigger value="architect">Architect</TabsTrigger>
               </TabsList>
 
-              <TabsContent value="all" className="mt-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                  {templates.map((template) => (
-                    <TemplateCard key={template._id} template={template} />
-                  ))}
-                </div>
-              </TabsContent>
-
-              <TabsContent value="developer" className="mt-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                  {templates
-                    .filter((template) => template.category === 'developer')
-                    .map((template) => (
+              <TabsContent value={activeCategory} className="mt-8">
+                {loading ? (
+                  <div className="py-20 text-center">
+                    <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]"></div>
+                    <p className="mt-4 text-muted-foreground">Loading templates...</p>
+                  </div>
+                ) : filteredTemplates.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    {filteredTemplates.map((template) => (
                       <TemplateCard key={template._id} template={template} />
                     ))}
-                </div>
-              </TabsContent>
-
-              <TabsContent value="designer" className="mt-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                  {templates
-                    .filter((template) => template.category === 'designer')
-                    .map((template) => (
-                      <TemplateCard key={template._id} template={template} />
-                    ))}
-                </div>
-              </TabsContent>
-
-              <TabsContent value="photographer" className="mt-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                  {templates
-                    .filter((template) => template.category === 'photographer')
-                    .map((template) => (
-                      <TemplateCard key={template._id} template={template} />
-                    ))}
-                </div>
-              </TabsContent>
-
-              <TabsContent value="writer" className="mt-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                  {templates
-                    .filter((template) => template.category === 'writer')
-                    .map((template) => (
-                      <TemplateCard key={template._id} template={template} />
-                    ))}
-                </div>
-              </TabsContent>
-
-              <TabsContent value="architect" className="mt-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                  {templates
-                    .filter((template) => template.category === 'architect')
-                    .map((template) => (
-                      <TemplateCard key={template._id} template={template} />
-                    ))}
-                </div>
+                  </div>
+                ) : (
+                  <div className="py-20 text-center">
+                    <p className="text-muted-foreground">No templates found matching your criteria.</p>
+                    <Button
+                      variant="link"
+                      onClick={() => {
+                        setSearchQuery('');
+                        setActiveCategory('all');
+                      }}
+                    >
+                      Clear filters
+                    </Button>
+                  </div>
+                )}
               </TabsContent>
             </Tabs>
           </div>
@@ -126,23 +167,11 @@ export default function TemplatesPage() {
   );
 }
 
-type TemplateProps = {
-  template: {
-    _id: string;
-    name: string;
-    description: string;
-    previewImage: string;
-    isPremium: boolean;
-    category: string;
-    settings?: {
-      layout?: {
-        sections?: string[];
-      };
-    };
-  };
-};
+interface TemplateCardProps {
+  template: Template;
+}
 
-function TemplateCard({ template }: TemplateProps) {
+function TemplateCard({ template }: TemplateCardProps) {
   return (
     <Card className="group overflow-hidden rounded-lg border shadow-sm transition-all hover:shadow-md">
       <div className="relative aspect-[16/9] overflow-hidden">
@@ -165,8 +194,8 @@ function TemplateCard({ template }: TemplateProps) {
         )}
       </div>
       <div className="p-4 flex justify-between items-center">
-        <span className="text-sm font-medium">
-          {template.settings?.layout?.sections?.length || 0} sections
+        <span className="text-sm font-medium capitalize">
+          {template.category}
         </span>
         <div className="flex gap-2">
           <Link href={`/templates/preview/${template._id}`}>

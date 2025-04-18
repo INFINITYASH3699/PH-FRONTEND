@@ -31,7 +31,6 @@ interface ProjectsEditorProps {
 }
 
 export default function ProjectsEditor({ content, onSave, isLoading = false }: ProjectsEditorProps) {
-  const { toast } = useToast();
   const [projects, setProjects] = useState<ProjectItem[]>(content.items || []);
   const [currentProject, setCurrentProject] = useState<ProjectItem>({
     title: '',
@@ -44,12 +43,37 @@ export default function ProjectsEditor({ content, onSave, isLoading = false }: P
   const [currentTag, setCurrentTag] = useState<string>('');
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [uploadLoading, setUploadLoading] = useState<boolean>(false);
+  const [errors, setErrors] = useState<{[key: string]: string}>({});
+
+  // Validate form fields
+  const validateForm = (): boolean => {
+    const newErrors: {[key: string]: string} = {};
+
+    if (!currentProject.title.trim()) {
+      newErrors.title = 'Project title is required';
+    }
+
+    if (!currentProject.description.trim()) {
+      newErrors.description = 'Project description is required';
+    }
+
+    // Validate URLs if they are provided
+    if (currentProject.projectUrl && !/^https?:\/\/.+/.test(currentProject.projectUrl)) {
+      newErrors.projectUrl = 'Please enter a valid URL starting with http:// or https://';
+    }
+
+    if (currentProject.githubUrl && !/^https?:\/\/.+/.test(currentProject.githubUrl)) {
+      newErrors.githubUrl = 'Please enter a valid URL starting with http:// or https://';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   // Add a new project or update an existing one
   const handleAddOrUpdateProject = () => {
-    // Validate required fields
-    if (!currentProject.title) {
-      toast.error('Project title is required');
+    // Validate form
+    if (!validateForm()) {
       return;
     }
 
@@ -61,12 +85,14 @@ export default function ProjectsEditor({ content, onSave, isLoading = false }: P
         ...currentProject,
         id: updatedProjects[editingIndex].id || `project_${Date.now()}_${editingIndex}`,
       };
+      toast.success('Project updated successfully');
     } else {
       // Add new project
       updatedProjects.push({
         ...currentProject,
         id: `project_${Date.now()}`,
       });
+      toast.success('Project added successfully');
     }
 
     // Update state
@@ -82,6 +108,7 @@ export default function ProjectsEditor({ content, onSave, isLoading = false }: P
       tags: [],
     });
     setEditingIndex(null);
+    setErrors({});
 
     // Save changes
     onSave({ items: updatedProjects });
@@ -93,6 +120,7 @@ export default function ProjectsEditor({ content, onSave, isLoading = false }: P
     updatedProjects.splice(index, 1);
     setProjects(updatedProjects);
     onSave({ items: updatedProjects });
+    toast.success('Project deleted successfully');
 
     // If we're editing this project, reset the form
     if (editingIndex === index) {
@@ -105,6 +133,7 @@ export default function ProjectsEditor({ content, onSave, isLoading = false }: P
         tags: [],
       });
       setEditingIndex(null);
+      setErrors({});
     }
   };
 
@@ -112,6 +141,7 @@ export default function ProjectsEditor({ content, onSave, isLoading = false }: P
   const handleEditProject = (index: number) => {
     setCurrentProject(projects[index]);
     setEditingIndex(index);
+    setErrors({});
   };
 
   // Add a tag to the current project
@@ -265,21 +295,24 @@ export default function ProjectsEditor({ content, onSave, isLoading = false }: P
               placeholder="E.g., E-commerce Website"
               value={currentProject.title}
               onChange={(e) => setCurrentProject({ ...currentProject, title: e.target.value })}
+              className={errors.title ? "border-red-500" : ""}
             />
+            {errors.title && <p className="text-red-500 text-xs mt-1">{errors.title}</p>}
           </div>
 
           {/* Project Description */}
           <div className="space-y-2">
             <label htmlFor="projectDescription" className="text-sm font-medium">
-              Description
+              Description <span className="text-red-500">*</span>
             </label>
             <Textarea
               id="projectDescription"
               placeholder="Describe your project..."
               value={currentProject.description}
               onChange={(e) => setCurrentProject({ ...currentProject, description: e.target.value })}
-              className="min-h-24"
+              className={`min-h-24 ${errors.description ? "border-red-500" : ""}`}
             />
+            {errors.description && <p className="text-red-500 text-xs mt-1">{errors.description}</p>}
           </div>
 
           {/* Project Image */}
@@ -338,7 +371,9 @@ export default function ProjectsEditor({ content, onSave, isLoading = false }: P
               placeholder="https://example.com"
               value={currentProject.projectUrl || ''}
               onChange={(e) => setCurrentProject({ ...currentProject, projectUrl: e.target.value })}
+              className={errors.projectUrl ? "border-red-500" : ""}
             />
+            {errors.projectUrl && <p className="text-red-500 text-xs mt-1">{errors.projectUrl}</p>}
           </div>
 
           {/* GitHub URL */}
@@ -352,7 +387,9 @@ export default function ProjectsEditor({ content, onSave, isLoading = false }: P
               placeholder="https://github.com/yourusername/repo"
               value={currentProject.githubUrl || ''}
               onChange={(e) => setCurrentProject({ ...currentProject, githubUrl: e.target.value })}
+              className={errors.githubUrl ? "border-red-500" : ""}
             />
+            {errors.githubUrl && <p className="text-red-500 text-xs mt-1">{errors.githubUrl}</p>}
           </div>
 
           {/* Project Tags */}
@@ -417,6 +454,7 @@ export default function ProjectsEditor({ content, onSave, isLoading = false }: P
                   tags: [],
                 });
                 setEditingIndex(null);
+                setErrors({});
               }}
             >
               Cancel
@@ -424,7 +462,7 @@ export default function ProjectsEditor({ content, onSave, isLoading = false }: P
           )}
           <Button
             onClick={handleAddOrUpdateProject}
-            disabled={!currentProject.title || isLoading || uploadLoading}
+            disabled={isLoading || uploadLoading}
             className={editingIndex === null ? "ml-auto" : ""}
           >
             <Plus className="h-4 w-4 mr-1" />
