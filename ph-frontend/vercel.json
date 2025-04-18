@@ -15,8 +15,7 @@
     "NEXTAUTH_URL": "${VERCEL_URL}",
     "VERCEL_URL": "${VERCEL_URL}"
   },
-  "buildCommand": "cd ../.. && npm run build",
-  "ignoreCommand": "echo 'Building...'",
+  "buildCommand": "npm run build",
   "outputDirectory": ".next",
   "framework": "nextjs",
   "devCommand": "npm run dev",
