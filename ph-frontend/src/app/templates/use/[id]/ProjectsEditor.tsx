@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { X, Plus, Trash2, Upload, Link2, Github } from 'lucide-react';
+import apiClient from '@/lib/apiClient';
 
 // Define project item interface
 interface ProjectItem {
@@ -174,27 +175,18 @@ export default function ProjectsEditor({ content, onSave, isLoading = false }: P
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('folder', 'portfolios/projects');
-
     try {
       setUploadLoading(true);
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
+      const imageData = await apiClient.uploadImage(file, 'project');
 
-      const data = await response.json();
-
-      if (data.success) {
+      if (imageData && imageData.url) {
         setCurrentProject({
           ...currentProject,
-          imageUrl: data.url,
+          imageUrl: imageData.url,
         });
         toast.success('Image uploaded successfully');
       } else {
-        toast.error(data.error || 'Failed to upload image');
+        toast.error('Failed to upload image');
       }
     } catch (error) {
       console.error('Error uploading image:', error);

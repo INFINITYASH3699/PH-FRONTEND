@@ -1,9 +1,10 @@
 // Static template data for development
 export const templates = [
   {
-    _id: 'developer-1',
+    _id: '6450f22a4e455b87c9e5df41',
     name: 'Modern Developer',
     description: 'A clean and modern template for developers and programmers.',
+    longDescription: 'This template is perfect for developers who want to showcase their coding projects, skills, and experience. It includes sections for your bio, projects, skills, experience, education, and contact information. The clean and modern design makes it easy to navigate and highlights your work effectively.',
     previewImage: 'https://repository-images.githubusercontent.com/616351992/41fb4d77-8bcc-4f2f-a5af-56c0e41e07c4',
     isPremium: false,
     category: 'developer',
@@ -21,9 +22,10 @@ export const templates = [
     },
   },
   {
-    _id: 'designer-1',
+    _id: '6450f22a4e455b87c9e5df42',
     name: 'Creative Studio',
     description: 'Perfect for graphic designers, illustrators and creative professionals.',
+    longDescription: 'Designed with creatives in mind, this template puts your visual work front and center. The sleek gallery layouts and minimal design ensure your portfolio pieces get all the attention they deserve. Ideal for graphic designers, illustrators, photographers, and other visual artists who want to showcase their creative work.',
     previewImage: 'https://weandthecolor.com/wp-content/uploads/2020/09/A-modern-and-fresh-portfolio-template-for-Adobe-InDesign.jpg',
     isPremium: false,
     category: 'designer',
@@ -41,9 +43,10 @@ export const templates = [
     },
   },
   {
-    _id: 'photographer-1',
+    _id: '6450f22a4e455b87c9e5df43',
     name: 'Photo Gallery',
     description: 'A stunning template for photographers to display their work.',
+    longDescription: 'Designed specifically for photographers, this template allows you to showcase your photography portfolio with beautiful high-resolution galleries. The minimal design puts the focus on your images while providing intuitive navigation and a professional presentation that will impress potential clients.',
     previewImage: 'https://marketplace.canva.com/EAFwckKNjDE/2/0/1600w/canva-black-white-grayscale-portfolio-presentation-vzScEqAI__M.jpg',
     isPremium: false,
     category: 'photographer',
@@ -61,9 +64,10 @@ export const templates = [
     },
   },
   {
-    _id: 'developer-2',
+    _id: '6450f22a4e455b87c9e5df44',
     name: 'Code Craft',
     description: 'Showcase your coding projects with this sleek template.',
+    longDescription: 'This modern template is designed specifically for software developers and programmers who want to highlight their technical skills and projects. With dedicated sections for your GitHub repositories, technical skills breakdown, and a clean, code-inspired aesthetic, Code Craft will present your work professionally to potential employers and clients.',
     previewImage: 'https://marketplace.canva.com/EAGGr0aHXDg/2/0/1600w/canva-pink-bold-modern-creative-portfolio-presentation-te1AiwXONs0.jpg',
     isPremium: true,
     category: 'developer',
@@ -81,9 +85,10 @@ export const templates = [
     },
   },
   {
-    _id: 'designer-2',
+    _id: '6450f22a4e455b87c9e5df45',
     name: 'Design Lab',
     description: 'Showcase your design projects with beautiful layouts.',
+    longDescription: 'Design Lab is the perfect template for creative professionals looking to showcase their visual design work. With elegant gallery layouts, smooth animations, and thoughtful typography, this template helps your design projects stand out. Ideal for UX/UI designers, graphic designers, and visual artists.',
     previewImage: 'https://www.unsell.design/wp-content/uploads/2021/07/bd5b5164-cover-flat-lay.jpg',
     isPremium: true,
     category: 'designer',

@@ -14,98 +14,11 @@ import { NavBar } from '@/components/layout/NavBar';
 import { Footer } from '@/components/layout/Footer';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { useSession } from 'next-auth/react';
+import { useAuth } from '@/components/providers/AuthContext';
 import ProjectsEditor from './ProjectsEditor';
 import SkillsEditor from './SkillsEditor';
-
-// Same template data from the preview page
-const templates = [
-  {
-    id: 'developer-1',
-    name: 'Modern Developer',
-    category: 'developer',
-    description: 'A clean and modern template for developers and programmers.',
-    longDescription: 'This template is perfect for developers who want to showcase their coding projects, skills, and experience. It includes sections for your bio, projects, skills, experience, education, and contact information. The clean and modern design makes it easy to navigate and highlights your work effectively.',
-    image: 'https://repository-images.githubusercontent.com/616351992/41fb4d77-8bcc-4f2f-a5af-56c0e41e07c4',
-    features: [
-      'Projects showcase with GitHub integration',
-      'Skills section with proficiency indicators',
-      'Timeline for work experience and education',
-      'Dark and light mode support',
-      'Responsive design for all devices',
-      'Blog section for technical articles',
-      'Contact form with validation',
-    ],
-    layouts: 10,
-    isPremium: false,
-    sections: [
-      'header',
-      'about',
-      'projects',
-      'skills',
-      'experience',
-      'education',
-      'contact',
-      'blog'
-    ]
-  },
-  {
-    id: 'designer-1',
-    name: 'Creative Studio',
-    category: 'designer',
-    description: 'Perfect for graphic designers, illustrators and creative professionals.',
-    longDescription: 'Designed with creatives in mind, this template puts your visual work front and center. The sleek gallery layouts and minimal design ensure your portfolio pieces get all the attention they deserve. Ideal for graphic designers, illustrators, photographers, and other visual artists who want to showcase their creative work.',
-    image: 'https://weandthecolor.com/wp-content/uploads/2020/09/A-modern-and-fresh-portfolio-template-for-Adobe-InDesign.jpg',
-    features: [
-      'Fullscreen gallery with various layout options',
-      'Project case study pages',
-      'Client testimonial section',
-      'Animated transitions between pages',
-      'Instagram feed integration',
-      'Contact form with file upload',
-      'Custom cursor options',
-    ],
-    layouts: 8,
-    isPremium: false,
-    sections: [
-      'header',
-      'about',
-      'gallery',
-      'work',
-      'clients',
-      'testimonials',
-      'contact',
-    ]
-  },
-  {
-    id: 'photographer-1',
-    name: 'Photo Gallery',
-    category: 'photographer',
-    description: 'A stunning template for photographers to display their work.',
-    longDescription: 'Designed specifically for photographers, this template allows you to showcase your photography portfolio with beautiful high-resolution galleries. The minimal design puts the focus on your images while providing intuitive navigation and a professional presentation that will impress potential clients.',
-    image: 'https://marketplace.canva.com/EAFwckKNjDE/2/0/1600w/canva-black-white-grayscale-portfolio-presentation-vzScEqAI__M.jpg',
-    features: [
-      'Fullscreen photo galleries',
-      'Multiple portfolio categories',
-      'Image lightbox with zoom capability',
-      'Password-protected client galleries',
-      'Photo metadata display',
-      'Print store integration',
-      'Photo shoot booking system',
-    ],
-    layouts: 12,
-    isPremium: false,
-    sections: [
-      'header',
-      'about',
-      'galleries',
-      'categories',
-      'services',
-      'pricing',
-      'contact',
-    ]
-  },
-];
+import apiClient, { Template } from '@/lib/apiClient';
+import { templates as fallbackTemplates } from '@/data/templates'; // Use as fallback
 
 // Define the portfolio structure
 interface PortfolioSettings {
@@ -236,99 +149,155 @@ export default function PortfolioEditorPage() {
   const router = useRouter();
   const params = useParams();
   const templateId = typeof params.id === 'string' ? params.id : '';
+  const { user, isAuthenticated, isLoading } = useAuth();
 
-  // Find the template by ID
-  const template = templates.find(t => t.id === templateId);
-
-  // If template not found, return 404
-  if (!template) {
-    notFound();
-  }
+  // Template state
+  const [template, setTemplate] = useState<Template | null>(null);
+  const [templateLoading, setTemplateLoading] = useState(true);
 
   // Portfolio state
-  const [portfolio, setPortfolio] = useState<Portfolio>({
-    templateId: template.id,
-    title: 'My Portfolio',
-    subtitle: 'Web Developer',
-    subdomain: '',
-    isPublished: false,
-    settings: {
-      colors: {
-        primary: '#6366f1',
-        secondary: '#8b5cf6',
-        background: '#ffffff',
-        text: '#111827',
-      },
-      fonts: {
-        heading: 'Inter',
-        body: 'Inter',
-      },
-      layout: {
-        sections: template.sections,
-        showHeader: true,
-        showFooter: true,
-      },
-    },
-    sectionContent: {
-      about: {
-        title: 'About Me',
-        bio: 'I am a passionate developer with 5+ years of experience in building web applications. I specialize in React, Node.js, and TypeScript.',
-        profileImage: '',
-      },
-      projects: {
-        items: [],
-      },
-      skills: {
-        categories: [
-          {
-            name: 'Frontend',
-            skills: [
-              { name: 'React', proficiency: 90 },
-              { name: 'JavaScript', proficiency: 85 },
-              { name: 'CSS', proficiency: 80 },
-            ],
-          },
-        ],
-      },
-      experience: {
-        items: [],
-      },
-      education: {
-        items: [],
-      },
-      contact: {
-        email: '',
-        phone: '',
-        address: '',
-        showContactForm: true,
-      },
-      gallery: {
-        items: [],
-      },
-    },
-  });
-
+  const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<string>('about');
   const [portfolioId, setPortfolioId] = useState<string | null>(null);
-  const { data: session, status } = useSession();
 
-  // Effect to set username as subdomain if authenticated
+  // Fetch template data from API
   useEffect(() => {
-    if (status === 'authenticated' && session?.user?.username) {
-      setPortfolio(prev => ({
-        ...prev,
-        subdomain: session.user.username as string,
-      }));
+    const fetchTemplate = async () => {
+      if (!templateId) {
+        toast.error('Template ID is required');
+        router.push('/templates');
+        return;
+      }
+
+      try {
+        setTemplateLoading(true);
+        const templateData = await apiClient.getTemplateById(templateId);
+        setTemplate(templateData);
+
+        // Initialize portfolio with template data
+        initializePortfolio(templateData);
+      } catch (error) {
+        console.error('Error fetching template:', error);
+        toast.error('Failed to load template from API. Using demo data.');
+
+        // Fallback to local data
+        const fallbackTemplate = fallbackTemplates.find(t => t._id === templateId);
+
+        if (fallbackTemplate) {
+          const template = {
+            _id: fallbackTemplate._id,
+            name: fallbackTemplate.name,
+            description: fallbackTemplate.description,
+            category: fallbackTemplate.category,
+            previewImage: fallbackTemplate.previewImage,
+            defaultStructure: fallbackTemplate.settings || {},
+            isPublished: true
+          } as Template;
+
+          setTemplate(template);
+          initializePortfolio(template);
+        } else {
+          toast.error('Template not found');
+          router.push('/templates');
+        }
+      } finally {
+        setTemplateLoading(false);
+      }
+    };
+
+    fetchTemplate();
+  }, [templateId, router]);
+
+  // Initialize portfolio with template data
+  const initializePortfolio = (templateData: Template) => {
+    const sections = templateData.defaultStructure?.layout?.sections ||
+      ['header', 'about', 'projects', 'skills', 'experience', 'education', 'contact'];
+
+    const newPortfolio: Portfolio = {
+      templateId: templateData._id,
+      title: 'My Portfolio',
+      subtitle: 'Web Developer',
+      subdomain: user?.username || '',
+      isPublished: false,
+      settings: {
+        colors: {
+          primary: '#6366f1',
+          secondary: '#8b5cf6',
+          background: '#ffffff',
+          text: '#111827',
+        },
+        fonts: {
+          heading: 'Inter',
+          body: 'Inter',
+        },
+        layout: {
+          sections: sections,
+          showHeader: true,
+          showFooter: true,
+        },
+      },
+      sectionContent: {
+        about: {
+          title: 'About Me',
+          bio: 'I am a passionate developer with experience in building web applications.',
+          profileImage: '',
+        },
+        projects: {
+          items: [],
+        },
+        skills: {
+          categories: [
+            {
+              name: 'Frontend',
+              skills: [
+                { name: 'React', proficiency: 90 },
+                { name: 'JavaScript', proficiency: 85 },
+                { name: 'CSS', proficiency: 80 },
+              ],
+            },
+          ],
+        },
+        experience: {
+          items: [],
+        },
+        education: {
+          items: [],
+        },
+        contact: {
+          email: '',
+          phone: '',
+          address: '',
+          showContactForm: true,
+        },
+        gallery: {
+          items: [],
+        },
+      },
+    };
+
+    setPortfolio(newPortfolio);
+  };
+
+  // Check if user is authenticated
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      toast.error('You need to be logged in to create a portfolio');
+      router.push('/auth/signin?callbackUrl=/templates');
     }
-  }, [status, session]);
+  }, [isAuthenticated, isLoading, router]);
 
   // Handle text input changes
   const handleInputChange = (field: string, value: string) => {
-    setPortfolio(prev => ({
-      ...prev,
-      [field]: value,
-    }));
+    if (!portfolio) return;
+
+    setPortfolio(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        [field]: value,
+      };
+    });
   };
 
   // Handle nested settings changes
@@ -337,16 +306,21 @@ export default function PortfolioEditorPage() {
     field: string,
     value: string | boolean | string[]
   ) => {
-    setPortfolio(prev => ({
-      ...prev,
-      settings: {
-        ...prev.settings,
-        [category]: {
-          ...prev.settings[category],
-          [field]: value,
+    if (!portfolio) return;
+
+    setPortfolio(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        settings: {
+          ...prev.settings,
+          [category]: {
+            ...prev.settings[category],
+            [field]: value,
+          },
         },
-      },
-    }));
+      };
+    });
   };
 
   // Handle section content changes
@@ -354,13 +328,18 @@ export default function PortfolioEditorPage() {
     section: string,
     content: any
   ) => {
-    setPortfolio(prev => ({
-      ...prev,
-      sectionContent: {
-        ...prev.sectionContent,
-        [section]: content,
-      },
-    }));
+    if (!portfolio) return;
+
+    setPortfolio(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        sectionContent: {
+          ...prev.sectionContent,
+          [section]: content,
+        },
+      };
+    });
 
     // If portfolio already exists, update section content immediately
     if (portfolioId) {
@@ -370,64 +349,38 @@ export default function PortfolioEditorPage() {
 
   // Update a specific section content
   const updateSectionContent = async (section: string, content: any) => {
-    if (!portfolioId || !session?.user) return;
+    if (!portfolioId || !user) return;
 
     try {
-      const response = await fetch('/api/portfolio/content', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          portfolioId: portfolioId,
-          sectionType: section,
-          content: content,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!data.success) {
-        toast.error(data.error || `Failed to update ${section} section`);
-      }
+      await apiClient.updatePortfolioContent(
+        portfolioId,
+        { [section]: content }
+      );
     } catch (error) {
       console.error(`Error updating ${section} section:`, error);
-      toast.error('An unexpected error occurred');
+      toast.error('Failed to update section content');
     }
   };
 
   // Handle file upload for profile image
   const handleProfileImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('folder', 'portfolios/profile');
+    if (!file || !portfolio) return;
 
     try {
       setLoading(true);
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
+      const imageData = await apiClient.uploadImage(file, 'profile');
 
-      const data = await response.json();
+      const updatedAboutContent = {
+        ...portfolio.sectionContent.about,
+        profileImage: imageData.url,
+      };
 
-      if (data.success) {
-        const updatedAboutContent = {
-          ...portfolio.sectionContent.about,
-          profileImage: data.url,
-        };
-
-        handleSectionContentChange('about', updatedAboutContent);
-        toast.success('Profile image uploaded');
-      } else {
-        toast.error(data.error || 'Failed to upload image');
-      }
+      handleSectionContentChange('about', updatedAboutContent);
+      toast.success('Profile image uploaded');
     } catch (error) {
       console.error('Error uploading image:', error);
-      toast.error('An unexpected error occurred');
+      toast.error('Failed to upload image');
     } finally {
       setLoading(false);
     }
@@ -435,43 +388,48 @@ export default function PortfolioEditorPage() {
 
   // Save portfolio as draft
   const saveAsDraft = async () => {
-    if (!session?.user) {
-      toast('Please sign in to save your portfolio');
+    if (!isAuthenticated || !user || !portfolio) {
+      toast.error('Please sign in to save your portfolio');
       return;
     }
 
     setLoading(true);
 
     try {
-      const method = portfolioId ? 'PATCH' : 'POST';
-      const endpoint = '/api/portfolios';
-      const body = portfolioId
-        ? { id: portfolioId, ...portfolio, isPublished: false }
-        : { ...portfolio, isPublished: false };
+      let savedPortfolio;
 
-      const response = await fetch(endpoint, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        // If this is a new portfolio, store the ID
-        if (!portfolioId && data.portfolio?._id) {
-          setPortfolioId(data.portfolio._id);
-        }
-
-        toast.success('Portfolio saved as draft');
+      if (portfolioId) {
+        // Update existing portfolio
+        savedPortfolio = await apiClient.updatePortfolioContent(
+          portfolioId,
+          {
+            title: portfolio.title,
+            subtitle: portfolio.subtitle,
+            subdomain: portfolio.subdomain,
+            settings: portfolio.settings,
+            isPublished: false,
+            ...portfolio.sectionContent
+          }
+        );
       } else {
-        toast.error(data.error || 'Failed to save portfolio');
+        // Create new portfolio
+        savedPortfolio = await apiClient.createPortfolio({
+          title: portfolio.title,
+          subtitle: portfolio.subtitle,
+          subdomain: portfolio.subdomain,
+          templateId: portfolio.templateId,
+          content: portfolio.sectionContent,
+        });
+
+        if (savedPortfolio && savedPortfolio._id) {
+          setPortfolioId(savedPortfolio._id);
+        }
       }
+
+      toast.success('Portfolio saved as draft');
     } catch (error) {
       console.error('Error saving portfolio:', error);
-      toast.error('An unexpected error occurred');
+      toast.error('Failed to save portfolio');
     } finally {
       setLoading(false);
     }
@@ -479,57 +437,89 @@ export default function PortfolioEditorPage() {
 
   // Publish portfolio
   const publishPortfolio = async () => {
-    if (!session?.user) {
-      toast('Please sign in to publish your portfolio');
+    if (!isAuthenticated || !user || !portfolio) {
+      toast.error('Please sign in to publish your portfolio');
+      return;
+    }
+
+    // Validate subdomain
+    if (!portfolio.subdomain) {
+      toast.error('Subdomain is required');
       return;
     }
 
     setLoading(true);
 
     try {
-      const method = portfolioId ? 'PATCH' : 'POST';
-      const endpoint = '/api/portfolios';
-      const body = portfolioId
-        ? { id: portfolioId, ...portfolio, isPublished: true }
-        : { ...portfolio, isPublished: true };
+      let savedPortfolio;
 
-      const response = await fetch(endpoint, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        // If this is a new portfolio, store the ID
-        if (!portfolioId && data.portfolio?._id) {
-          setPortfolioId(data.portfolio._id);
-        }
-
-        toast.success('Portfolio published successfully');
-        router.push(`/portfolio/${portfolio.subdomain}`);
+      if (portfolioId) {
+        // Update existing portfolio
+        savedPortfolio = await apiClient.updatePortfolioContent(
+          portfolioId,
+          {
+            title: portfolio.title,
+            subtitle: portfolio.subtitle,
+            subdomain: portfolio.subdomain,
+            settings: portfolio.settings,
+            isPublished: true,
+            ...portfolio.sectionContent
+          }
+        );
       } else {
-        toast.error(data.error || 'Failed to publish portfolio');
+        // Create new portfolio
+        savedPortfolio = await apiClient.createPortfolio({
+          title: portfolio.title,
+          subtitle: portfolio.subtitle,
+          subdomain: portfolio.subdomain,
+          templateId: portfolio.templateId,
+          content: portfolio.sectionContent,
+          isPublished: true
+        });
+
+        if (savedPortfolio && savedPortfolio._id) {
+          setPortfolioId(savedPortfolio._id);
+        }
       }
+
+      toast.success('Portfolio published successfully');
+      router.push(`/portfolio/${portfolio.subdomain}`);
     } catch (error) {
       console.error('Error publishing portfolio:', error);
-      toast.error('An unexpected error occurred');
+      toast.error('Failed to publish portfolio');
     } finally {
       setLoading(false);
     }
   };
 
-  // Preview the portfolio in a new tab
+  // Preview the portfolio
   const previewPortfolio = async () => {
     // First save the portfolio as a draft
     await saveAsDraft();
 
     // Then open the preview in a new tab
-    window.open(`/portfolio/${portfolio.subdomain}`, '_blank');
+    if (portfolio?.subdomain) {
+      window.open(`/portfolio/${portfolio.subdomain}`, '_blank');
+    } else {
+      toast.error('Please set a subdomain for your portfolio');
+    }
   };
+
+  // Show loading state
+  if (templateLoading || !template || !portfolio) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <NavBar />
+        <main className="flex-grow flex items-center justify-center">
+          <div className="text-center">
+            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]"></div>
+            <p className="mt-4 text-muted-foreground">Loading template data...</p>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col">

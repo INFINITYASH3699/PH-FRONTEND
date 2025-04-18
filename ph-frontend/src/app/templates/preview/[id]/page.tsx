@@ -118,7 +118,7 @@ export default function TemplatePreviewPage() {
 
   // Show not found
   if (notFoundError || !template) {
-    notFound();
+    return notFound();
   }
 
   // Get features based on category or use default
@@ -129,6 +129,11 @@ export default function TemplatePreviewPage() {
     `${template.description} This template is designed to help you create a professional portfolio
     that showcases your work effectively. With a focus on ${template.category} projects, it includes
     all the sections you need to highlight your skills, experience, and achievements.`;
+
+  // Handle clicking "Use This Template"
+  const handleUseTemplate = () => {
+    router.push(`/templates/use/${template._id}`);
+  };
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -150,11 +155,13 @@ export default function TemplatePreviewPage() {
                   {longDescription}
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4">
-                  <Link href={`/templates/use/${template._id}`}>
-                    <Button size="lg" className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white">
-                      Use This Template
-                    </Button>
-                  </Link>
+                  <Button
+                    size="lg"
+                    className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white"
+                    onClick={handleUseTemplate}
+                  >
+                    Use This Template
+                  </Button>
                   <Link href="/templates">
                     <Button size="lg" variant="outline">
                       View All Templates
@@ -246,7 +253,7 @@ export default function TemplatePreviewPage() {
                   <Button
                     size="lg"
                     className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white"
-                    onClick={() => router.push(`/templates/use/${template._id}`)}
+                    onClick={handleUseTemplate}
                   >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
@@ -280,11 +287,13 @@ export default function TemplatePreviewPage() {
                 Use this template to showcase your work and create a stunning portfolio that stands out.
               </p>
               <div className="flex flex-col sm:flex-row justify-center gap-4">
-                <Link href={`/templates/use/${template._id}`}>
-                  <Button size="lg" className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white">
-                    Use This Template
-                  </Button>
-                </Link>
+                <Button
+                  size="lg"
+                  className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white"
+                  onClick={handleUseTemplate}
+                >
+                  Use This Template
+                </Button>
                 <Link href="/templates">
                   <Button size="lg" variant="outline">
                     View All Templates

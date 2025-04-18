@@ -375,11 +375,29 @@ async function updatePortfolioContent(
   content: Record<string, any>
 ): Promise<Portfolio> {
   try {
+    // For content updates, we need to determine if this is a full portfolio update
+    // or just updating a section
+    let endpoint = `/portfolios/${portfolioId}`;
+    let method = 'PUT';
+    let updateData: any = {};
+
+    // Check if we're updating specific section content or the entire portfolio
+    const isFullUpdate = 'title' in content || 'subtitle' in content || 'isPublished' in content;
+
+    if (isFullUpdate) {
+      // This is a full portfolio update
+      updateData = content;
+    } else {
+      // This is a section content update
+      updateData = { content };
+    }
+
     const response = await apiRequest<{ success: boolean; portfolio: Portfolio }>(
-      `/portfolios/${portfolioId}`,
-      'PUT',
-      { content }
+      endpoint,
+      method,
+      updateData
     );
+
     return response.portfolio;
   } catch (error) {
     console.error('Error updating portfolio content:', error);
@@ -400,25 +418,50 @@ async function uploadImage(
       formData.append('portfolioId', portfolioId);
     }
 
+    const token = getToken();
+    if (!token) {
+      throw new Error("Authentication required");
+    }
+
+    // Use the backend upload endpoint
     const response = await fetch(`${API_BASE_URL}/upload`, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${getToken()}`,
+        Authorization: `Bearer ${token}`,
       },
       body: formData,
+      credentials: 'include',
     });
 
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to upload image');
+    }
+
     const data = await response.json();
+
     if (!data.success) {
       throw new Error(data.message || 'Failed to upload image');
     }
 
     return {
-      url: data.url,
-      publicId: data.publicId,
+      url: data.url || data.secure_url || '',
+      publicId: data.publicId || data.public_id || '',
     };
   } catch (error) {
     console.error('Error uploading image:', error);
+
+    // Fallback for development
+    if (process.env.NODE_ENV === 'development') {
+      // Return a placeholder image URL
+      console.warn('Using placeholder image in development');
+      const placeholderUrl = `https://picsum.photos/seed/${Date.now()}/800/600`;
+      return {
+        url: placeholderUrl,
+        publicId: 'placeholder_id',
+      };
+    }
+
     throw error;
   }
 }
