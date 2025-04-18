@@ -29,6 +29,7 @@ export interface IUser extends Document {
   profilePictureId?: string; // Cloudinary public ID
   role: "user" | "admin";
   profile?: UserProfile;
+  favoriteTemplates: mongoose.Types.ObjectId[];
   createdAt: Date;
   updatedAt: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
@@ -105,6 +106,10 @@ const UserSchema = new Schema<IUser>(
       type: UserProfileSchema,
       default: {},
     },
+    favoriteTemplates: [{
+      type: Schema.Types.ObjectId,
+      ref: 'Template',
+    }],
   },
   {
     timestamps: true,

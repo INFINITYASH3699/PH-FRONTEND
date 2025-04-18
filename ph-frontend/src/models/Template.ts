@@ -12,6 +12,29 @@ export interface ITemplateSettings {
   };
 }
 
+export interface IColorScheme {
+  name: string;
+  primary: string;
+  secondary: string;
+  background: string;
+  text: string;
+}
+
+export interface IFontPairing {
+  name: string;
+  heading: string;
+  body: string;
+}
+
+export interface IReview {
+  userId: string;
+  userName?: string;
+  userAvatar?: string;
+  rating: number;
+  comment: string;
+  createdAt: Date;
+}
+
 export interface ITemplate {
   name: string;
   description: string;
@@ -22,6 +45,20 @@ export interface ITemplate {
   tags: string[];
   createdAt: Date;
   updatedAt: Date;
+  // New fields
+  isFeatured?: boolean;
+  rating?: {
+    average: number;
+    count: number;
+  };
+  reviews?: IReview[];
+  usageCount?: number;
+  previewImages?: string[];
+  customizationOptions?: {
+    colorSchemes: IColorScheme[];
+    fontPairings: IFontPairing[];
+    layouts: string[];
+  };
 }
 
 const templateSchema = new Schema<ITemplate>(
@@ -64,6 +101,67 @@ const templateSchema = new Schema<ITemplate>(
         requiredSections: { type: [String], default: ['header', 'about'] },
         optionalSections: { type: [String], default: ['skills', 'projects', 'experience', 'contact', 'footer'] },
       },
+    },
+    // New fields
+    isFeatured: {
+      type: Boolean,
+      default: false,
+    },
+    rating: {
+      average: {
+        type: Number,
+        default: 0,
+      },
+      count: {
+        type: Number,
+        default: 0,
+      },
+    },
+    reviews: [
+      {
+        userId: {
+          type: String,
+          required: true,
+        },
+        userName: String,
+        userAvatar: String,
+        rating: {
+          type: Number,
+          required: true,
+        },
+        comment: String,
+        createdAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
+    usageCount: {
+      type: Number,
+      default: 0,
+    },
+    previewImages: {
+      type: [String],
+      default: [],
+    },
+    customizationOptions: {
+      colorSchemes: [
+        {
+          name: String,
+          primary: String,
+          secondary: String,
+          background: String,
+          text: String,
+        },
+      ],
+      fontPairings: [
+        {
+          name: String,
+          heading: String,
+          body: String,
+        },
+      ],
+      layouts: [String],
     },
   },
   {

@@ -233,25 +233,38 @@ export default function PortfolioEditorPage() {
 
   // Initialize portfolio with template data
   const initializePortfolio = (templateData: Template) => {
+    // Extract sections from template data
     const sections = templateData.defaultStructure?.layout?.sections ||
+      templateData.sections ||
       ['header', 'about', 'projects', 'skills', 'experience', 'education', 'contact'];
 
+    // Extract colors from template data
+    const defaultColors = templateData.defaultStructure?.layout?.defaultColors ||
+      templateData.customizationOptions?.colorSchemes?.[0] ||
+      ['#6366f1', '#8b5cf6', '#ffffff', '#111827'];
+
+    // Extract fonts from template data
+    const defaultFonts = templateData.defaultStructure?.layout?.defaultFonts ||
+      templateData.customizationOptions?.fontPairings?.[0] ||
+      ['Inter', 'Roboto', 'Montserrat'];
+
+    // Create portfolio object with template settings
     const newPortfolio: Portfolio = {
       templateId: templateData._id,
       title: 'My Portfolio',
-      subtitle: 'Web Developer',
+      subtitle: user?.profile?.title || 'Web Developer',
       subdomain: user?.username || '',
       isPublished: false,
       settings: {
         colors: {
-          primary: '#6366f1',
-          secondary: '#8b5cf6',
-          background: '#ffffff',
-          text: '#111827',
+          primary: defaultColors[0] || '#6366f1',
+          secondary: defaultColors[1] || '#8b5cf6',
+          background: defaultColors[2] || '#ffffff',
+          text: defaultColors[3] || '#111827',
         },
         fonts: {
-          heading: 'Inter',
-          body: 'Inter',
+          heading: defaultFonts[0] || 'Inter',
+          body: defaultFonts[1] || 'Inter',
         },
         layout: {
           sections: sections,
@@ -262,8 +275,8 @@ export default function PortfolioEditorPage() {
       sectionContent: {
         about: {
           title: 'About Me',
-          bio: 'I am a passionate developer with experience in building web applications.',
-          profileImage: '',
+          bio: user?.profile?.bio || 'I am a passionate professional with experience in my field.',
+          profileImage: user?.profilePicture || '',
         },
         projects: {
           items: [],
@@ -287,9 +300,9 @@ export default function PortfolioEditorPage() {
           items: [],
         },
         contact: {
-          email: '',
+          email: user?.email || '',
           phone: '',
-          address: '',
+          address: user?.profile?.location || '',
           showContactForm: true,
         },
         gallery: {
@@ -418,6 +431,16 @@ export default function PortfolioEditorPage() {
     setLoading(true);
 
     try {
+      // Track template usage
+      if (!portfolioId && template?._id) {
+        try {
+          await apiClient.request(`/templates/${template._id}/use`, 'POST');
+        } catch (error) {
+          console.error('Error tracking template usage:', error);
+          // Continue with saving even if tracking fails
+        }
+      }
+
       let savedPortfolio;
 
       if (portfolioId) {
@@ -473,6 +496,16 @@ export default function PortfolioEditorPage() {
     setLoading(true);
 
     try {
+      // Track template usage if this is a new portfolio
+      if (!portfolioId && template?._id) {
+        try {
+          await apiClient.request(`/templates/${template._id}/use`, 'POST');
+        } catch (error) {
+          console.error('Error tracking template usage:', error);
+          // Continue with publishing even if tracking fails
+        }
+      }
+
       let savedPortfolio;
 
       if (portfolioId) {
@@ -550,36 +583,119 @@ export default function PortfolioEditorPage() {
       <main className="flex-grow py-8">
         <div className="container px-4 md:px-6">
           {/* Header */}
-          <div className="mb-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-            <div>
-              <h1 className="text-3xl font-bold">Customize Your Portfolio</h1>
-              <p className="text-muted-foreground">
-                You're using the {template.name} template. Customize it to make it your own.
-              </p>
+          <div className="mb-8 border-b pb-6">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div>
+                <h1 className="text-3xl font-bold">Customize Your Portfolio</h1>
+                <p className="text-muted-foreground">
+                  You're using the <span className="font-medium text-violet-600">{template.name}</span> template. Customize it to make it your own.
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={previewPortfolio}
+                  disabled={loading}
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="h-4 w-4 mr-2"
+                  >
+                    <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                  Preview
+                </Button>
+                <Button
+                  className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white"
+                  onClick={publishPortfolio}
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <>
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-solid border-current border-r-transparent mr-2"></div>
+                      Publishing...
+                    </>
+                  ) : (
+                    <>
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="h-4 w-4 mr-2"
+                      >
+                        <path d="M12 19V5" />
+                        <path d="m5 12 7-7 7 7" />
+                      </svg>
+                      Publish
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
-            <div className="flex gap-3">
-              <Button
-                variant="outline"
-                onClick={previewPortfolio}
-                disabled={loading}
-              >
-                Preview
-              </Button>
-              <Button
-                className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white"
-                onClick={publishPortfolio}
-                disabled={loading}
-              >
-                {loading ? 'Publishing...' : 'Publish'}
-              </Button>
-            </div>
+
+            {/* Progress indication */}
+            {portfolioId ? (
+              <div className="mt-4 p-3 bg-green-50 text-green-700 rounded-md flex items-center">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-5 w-5 mr-2 text-green-500"
+                >
+                  <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" />
+                  <path d="m9 12 2 2 4-4" />
+                </svg>
+                <span>Your portfolio is saved as a draft. Continue customizing or publish when ready.</span>
+              </div>
+            ) : (
+              <div className="mt-4 p-3 bg-blue-50 text-blue-700 rounded-md flex items-center">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-5 w-5 mr-2 text-blue-500"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="m12 8 4 4-4 4" />
+                  <path d="m8 12h8" />
+                </svg>
+                <span>Complete the sections below and click "Save as Draft" to save your progress.</span>
+              </div>
+            )}
           </div>
 
           {/* Main Editor */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Sidebar */}
             <div className="lg:col-span-1">
-              <Card className="sticky top-8">
+              <Card className="sticky top-8 shadow-md">
                 <CardHeader>
                   <CardTitle>Portfolio Settings</CardTitle>
                   <CardDescription>
@@ -622,11 +738,17 @@ export default function PortfolioEditorPage() {
                           placeholder="johndoe"
                           value={portfolio.subdomain}
                           onChange={(e) => handleInputChange('subdomain', e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                          className={!portfolio.subdomain ? "border-orange-300 focus:ring-orange-500" : ""}
                         />
                         <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none text-sm text-muted-foreground">
                           .portfoliohub.com
                         </div>
                       </div>
+                      {!portfolio.subdomain && (
+                        <p className="text-xs text-orange-500 mt-1">
+                          A subdomain is required to publish your portfolio
+                        </p>
+                      )}
                     </div>
 
                     <div className="space-y-2 pt-4 border-t">
@@ -672,21 +794,44 @@ export default function PortfolioEditorPage() {
                     <div className="space-y-2 pt-4 border-t">
                       <span className="text-sm font-medium">Template Sections</span>
                       <div className="grid grid-cols-1 gap-2">
-                        {template.sections.map((section) => (
-                          <div key={section} className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/50">
-                            <span className="capitalize">{section}</span>
+                        {template.sections && template.sections.map((section) => (
+                          <div key={section} className={`flex items-center justify-between py-2 px-3 rounded-lg ${
+                            template.defaultStructure?.config?.requiredSections?.includes(section)
+                              ? "bg-violet-50 border border-violet-100"
+                              : "bg-muted/50"
+                          }`}>
+                            <div>
+                              <span className="capitalize">{section}</span>
+                              {template.defaultStructure?.config?.requiredSections?.includes(section) && (
+                                <span className="ml-2 text-xs px-1.5 py-0.5 rounded bg-violet-100 text-violet-800">
+                                  Required
+                                </span>
+                              )}
+                            </div>
                             <div className="flex items-center space-x-2">
                               <Switch
                                 id={`section-${section}`}
                                 checked={portfolio.settings.layout?.sections?.includes(section) || false}
                                 onCheckedChange={(checked) => {
+                                  // Don't allow unchecking required sections
+                                  if (!checked && template.defaultStructure?.config?.requiredSections?.includes(section)) {
+                                    toast.error(`The ${section} section is required for this template`);
+                                    return;
+                                  }
+
                                   const currentSections = portfolio.settings.layout?.sections || [];
                                   const newSections = checked
                                     ? [...currentSections, section]
                                     : currentSections.filter(s => s !== section);
 
                                   handleSettingsChange('layout', 'sections', newSections);
+
+                                  // If newly enabled, set that section as active
+                                  if (checked) {
+                                    setActiveTab(section);
+                                  }
                                 }}
+                                disabled={template.defaultStructure?.config?.requiredSections?.includes(section)}
                               />
                             </div>
                           </div>
@@ -825,8 +970,162 @@ export default function PortfolioEditorPage() {
                       />
                     </TabsContent>
 
-                    {/* Other Sections - To be implemented */}
-                    {portfolio.settings.layout?.sections?.filter(s => !['about', 'projects', 'skills'].includes(s)).map((section) => (
+                    {/* Gallery Section - if template supports it */}
+                    {portfolio.settings.layout?.sections?.includes('gallery') && (
+                      <TabsContent value="gallery" className="space-y-4">
+                        <div className="p-6 border rounded-lg bg-muted/10">
+                          <h3 className="text-lg font-medium mb-4">Gallery Section</h3>
+                          <p className="mb-4 text-muted-foreground">
+                            This section allows you to showcase your visual work. Upload images and organize them into categories.
+                          </p>
+                          <div className="flex justify-center">
+                            <Button
+                              variant="outline"
+                              onClick={() => {
+                                // Initialize gallery if it doesn't exist
+                                if (!portfolio.sectionContent.gallery) {
+                                  handleSectionContentChange('gallery', { items: [] });
+                                }
+                                // TODO: Implement full gallery editor in a future update
+                                toast.info('Gallery editor will be available in the next update');
+                              }}
+                            >
+                              {portfolio.sectionContent.gallery?.items?.length ?
+                                `Edit Gallery (${portfolio.sectionContent.gallery.items.length} items)` :
+                                'Add Images to Gallery'}
+                            </Button>
+                          </div>
+                        </div>
+                      </TabsContent>
+                    )}
+
+                    {/* Contact Section */}
+                    {portfolio.settings.layout?.sections?.includes('contact') && (
+                      <TabsContent value="contact" className="space-y-4">
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium">Email Address</label>
+                            <Input
+                              type="email"
+                              placeholder="your@email.com"
+                              value={portfolio.sectionContent.contact?.email || ''}
+                              onChange={(e) => handleSectionContentChange('contact', {
+                                ...portfolio.sectionContent.contact,
+                                email: e.target.value
+                              })}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium">Phone Number (Optional)</label>
+                            <Input
+                              type="tel"
+                              placeholder="+1 (555) 123-4567"
+                              value={portfolio.sectionContent.contact?.phone || ''}
+                              onChange={(e) => handleSectionContentChange('contact', {
+                                ...portfolio.sectionContent.contact,
+                                phone: e.target.value
+                              })}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium">Location/Address (Optional)</label>
+                            <Input
+                              placeholder="City, Country"
+                              value={portfolio.sectionContent.contact?.address || ''}
+                              onChange={(e) => handleSectionContentChange('contact', {
+                                ...portfolio.sectionContent.contact,
+                                address: e.target.value
+                              })}
+                            />
+                          </div>
+                          <div className="flex items-center space-x-2 pt-2">
+                            <Switch
+                              id="contact-form"
+                              checked={portfolio.sectionContent.contact?.showContactForm || false}
+                              onCheckedChange={(checked) => handleSectionContentChange('contact', {
+                                ...portfolio.sectionContent.contact,
+                                showContactForm: checked
+                              })}
+                            />
+                            <Label htmlFor="contact-form">
+                              Include contact form on portfolio
+                            </Label>
+                          </div>
+                        </div>
+                      </TabsContent>
+                    )}
+
+                    {/* Experience Section */}
+                    {portfolio.settings.layout?.sections?.includes('experience') && (
+                      <TabsContent value="experience" className="space-y-4">
+                        <div className="p-6 border rounded-lg bg-muted/10">
+                          <h3 className="text-lg font-medium mb-4">Work Experience</h3>
+                          <p className="mb-4 text-muted-foreground">
+                            Add your professional experience to showcase your career journey.
+                          </p>
+
+                          {/* Simple experience editor - can be expanded later */}
+                          {portfolio.sectionContent.experience?.items && portfolio.sectionContent.experience.items.length > 0 ? (
+                            <div className="space-y-4 mb-4">
+                              {portfolio.sectionContent.experience.items.map((item, index) => (
+                                <div key={index} className="p-4 border rounded-md">
+                                  <div className="flex justify-between items-start mb-2">
+                                    <div>
+                                      <h4 className="font-medium">{item.title}</h4>
+                                      <p className="text-sm text-muted-foreground">{item.company}</p>
+                                    </div>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => {
+                                        const updatedItems = [...portfolio.sectionContent.experience!.items];
+                                        updatedItems.splice(index, 1);
+                                        handleSectionContentChange('experience', {
+                                          items: updatedItems
+                                        });
+                                      }}
+                                    >
+                                      Remove
+                                    </Button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-center text-muted-foreground mb-4">No experience added yet</p>
+                          )}
+
+                          <div className="flex justify-center">
+                            <Button
+                              onClick={() => {
+                                // Initialize with sample data for now
+                                const newItem = {
+                                  id: Date.now().toString(),
+                                  title: "Job Title",
+                                  company: "Company Name",
+                                  location: "Location",
+                                  startDate: new Date().toISOString(),
+                                  current: true,
+                                  description: "Describe your responsibilities and achievements"
+                                };
+
+                                const currentItems = portfolio.sectionContent.experience?.items || [];
+                                handleSectionContentChange('experience', {
+                                  items: [...currentItems, newItem]
+                                });
+                              }}
+                            >
+                              Add Experience
+                            </Button>
+                          </div>
+                        </div>
+                      </TabsContent>
+                    )}
+
+                    {/* Other template-specific sections */}
+                    {portfolio.settings.layout?.sections?.filter(s =>
+                      !['about', 'projects', 'skills', 'gallery', 'contact', 'experience'].includes(s)
+                    ).map((section) => (
                       <TabsContent key={section} value={section} className="h-96 flex items-center justify-center border rounded-md">
                         <div className="text-center">
                           <h3 className="text-lg font-medium capitalize mb-2">{section} Section</h3>
@@ -844,14 +1143,62 @@ export default function PortfolioEditorPage() {
                     onClick={saveAsDraft}
                     disabled={loading}
                   >
-                    {loading ? 'Saving...' : 'Save as Draft'}
+                    {loading ? (
+                      <>
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-solid border-current border-r-transparent mr-2"></div>
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="h-4 w-4 mr-2"
+                        >
+                          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                          <polyline points="17 21 17 13 7 13 7 21" />
+                          <polyline points="7 3 7 8 15 8" />
+                        </svg>
+                        Save as Draft
+                      </>
+                    )}
                   </Button>
                   <Button
                     className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white"
                     onClick={publishPortfolio}
-                    disabled={loading}
+                    disabled={loading || !portfolio.subdomain}
                   >
-                    {loading ? 'Publishing...' : 'Publish Portfolio'}
+                    {loading ? (
+                      <>
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-solid border-current border-r-transparent mr-2"></div>
+                        Publishing...
+                      </>
+                    ) : (
+                      <>
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="h-4 w-4 mr-2"
+                        >
+                          <path d="M21 2H3v16h5v4l4-4h4l5-5V2zM16 11H8V8h8v3z" />
+                        </svg>
+                        Publish Portfolio
+                      </>
+                    )}
                   </Button>
                 </CardFooter>
               </Card>

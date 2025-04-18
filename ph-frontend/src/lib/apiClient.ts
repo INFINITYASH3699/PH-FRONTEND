@@ -55,6 +55,38 @@ export interface Template {
   isPublished: boolean;
   createdAt?: string;
   updatedAt?: string;
+  // New fields
+  isFeatured?: boolean;
+  rating?: {
+    average: number;
+    count: number;
+  };
+  reviews?: Array<{
+    userId: string;
+    userName?: string;
+    userAvatar?: string;
+    rating: number;
+    comment: string;
+    createdAt: string;
+  }>;
+  tags?: string[];
+  usageCount?: number;
+  previewImages?: string[];
+  customizationOptions?: {
+    colorSchemes?: Array<{
+      name: string;
+      primary: string;
+      secondary: string;
+      background: string;
+      text: string;
+    }>;
+    fontPairings?: Array<{
+      name: string;
+      heading: string;
+      body: string;
+    }>;
+    layouts?: string[];
+  };
 }
 
 // Portfolio interface
@@ -328,9 +360,31 @@ export const uploadProfilePicture = async (file: File): Promise<string> => {
 };
 
 // Template-related functions
-async function getTemplates(category?: string): Promise<Template[]> {
+async function getTemplates(category?: string, options?: { sort?: string; tags?: string[]; featured?: boolean }): Promise<Template[]> {
   try {
-    const endpoint = category ? `/templates?category=${category}` : '/templates';
+    let endpoint = '/templates';
+    const queryParams = [];
+
+    if (category) {
+      queryParams.push(`category=${category}`);
+    }
+
+    if (options?.sort) {
+      queryParams.push(`sort=${options.sort}`);
+    }
+
+    if (options?.featured) {
+      queryParams.push('featured=true');
+    }
+
+    if (options?.tags && options.tags.length > 0) {
+      queryParams.push(`tags=${options.tags.join(',')}`);
+    }
+
+    if (queryParams.length > 0) {
+      endpoint += `?${queryParams.join('&')}`;
+    }
+
     const response = await apiRequest<{ success: boolean; templates: Template[] }>(endpoint);
     return response.templates;
   } catch (error) {
@@ -345,6 +399,59 @@ async function getTemplateById(id: string): Promise<Template> {
     return response.template;
   } catch (error) {
     console.error('Error fetching template:', error);
+    throw error;
+  }
+}
+
+// New template-related functions
+async function rateTemplate(templateId: string, rating: number, comment?: string): Promise<Template> {
+  try {
+    const response = await apiRequest<{ success: boolean; template: Template }>(
+      `/templates/${templateId}/rate`,
+      'POST',
+      { rating, comment }
+    );
+    return response.template;
+  } catch (error) {
+    console.error('Error rating template:', error);
+    throw error;
+  }
+}
+
+async function favoriteTemplate(templateId: string, isFavorite: boolean): Promise<{ success: boolean }> {
+  try {
+    const response = await apiRequest<{ success: boolean }>(
+      `/templates/${templateId}/favorite`,
+      'POST',
+      { isFavorite }
+    );
+    return response;
+  } catch (error) {
+    console.error('Error toggling template favorite:', error);
+    throw error;
+  }
+}
+
+async function getFavoriteTemplates(): Promise<Template[]> {
+  try {
+    const response = await apiRequest<{ success: boolean; templates: Template[] }>(
+      '/templates/favorites'
+    );
+    return response.templates;
+  } catch (error) {
+    console.error('Error fetching favorite templates:', error);
+    throw error;
+  }
+}
+
+async function getTemplateReviews(templateId: string): Promise<Template['reviews']> {
+  try {
+    const response = await apiRequest<{ success: boolean; reviews: Template['reviews'] }>(
+      `/templates/${templateId}/reviews`
+    );
+    return response.reviews || [];
+  } catch (error) {
+    console.error('Error fetching template reviews:', error);
     throw error;
   }
 }
@@ -484,6 +591,10 @@ const apiClient = {
   // Templates
   getTemplates,
   getTemplateById,
+  rateTemplate,
+  favoriteTemplate,
+  getFavoriteTemplates,
+  getTemplateReviews,
 
   // Portfolios
   createPortfolio,
