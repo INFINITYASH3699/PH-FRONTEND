@@ -145,6 +145,20 @@ interface Portfolio {
   sectionContent: SectionContent;
 }
 
+// Enhance the fallbackTemplates with sections information to avoid undefined access
+export interface Template {
+  _id: string;
+  name: string;
+  description: string;
+  category: string;
+  previewImage: string;
+  defaultStructure: Record<string, any>;
+  isPublished: boolean;
+  sections?: string[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export default function PortfolioEditorPage() {
   const router = useRouter();
   const params = useParams();
@@ -173,6 +187,12 @@ export default function PortfolioEditorPage() {
       try {
         setTemplateLoading(true);
         const templateData = await apiClient.getTemplateById(templateId);
+
+        // Ensure the template has sections property
+        if (!templateData.sections) {
+          templateData.sections = ['header', 'about', 'projects', 'skills', 'experience', 'education', 'contact'];
+        }
+
         setTemplate(templateData);
 
         // Initialize portfolio with template data
@@ -192,6 +212,8 @@ export default function PortfolioEditorPage() {
             category: fallbackTemplate.category,
             previewImage: fallbackTemplate.previewImage,
             defaultStructure: fallbackTemplate.settings || {},
+            // Add default sections if they don't exist
+            sections: fallbackTemplate.sections || ['header', 'about', 'projects', 'skills', 'experience', 'education', 'contact'],
             isPublished: true
           } as Template;
 

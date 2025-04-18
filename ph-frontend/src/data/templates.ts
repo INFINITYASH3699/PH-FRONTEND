@@ -9,6 +9,7 @@ export const templates = [
     isPremium: false,
     category: 'developer',
     tags: ['developer', 'programmer', 'coding', 'portfolio'],
+    sections: ['header', 'about', 'projects', 'skills', 'experience', 'education', 'contact', 'blog'],
     settings: {
       layout: {
         sections: ['header', 'about', 'projects', 'skills', 'experience', 'education', 'contact', 'blog'],
@@ -30,6 +31,7 @@ export const templates = [
     isPremium: false,
     category: 'designer',
     tags: ['designer', 'creative', 'portfolio', 'graphic'],
+    sections: ['header', 'about', 'gallery', 'work', 'clients', 'testimonials', 'contact'],
     settings: {
       layout: {
         sections: ['header', 'about', 'gallery', 'work', 'clients', 'testimonials', 'contact'],
@@ -51,6 +53,7 @@ export const templates = [
     isPremium: false,
     category: 'photographer',
     tags: ['photographer', 'portfolio', 'gallery', 'photos'],
+    sections: ['header', 'about', 'galleries', 'categories', 'services', 'pricing', 'contact'],
     settings: {
       layout: {
         sections: ['header', 'about', 'galleries', 'categories', 'services', 'pricing', 'contact'],
@@ -72,6 +75,7 @@ export const templates = [
     isPremium: true,
     category: 'developer',
     tags: ['developer', 'programmer', 'code', 'portfolio'],
+    sections: ['header', 'about', 'projects', 'technologies', 'experience', 'education', 'testimonials', 'contact'],
     settings: {
       layout: {
         sections: ['header', 'about', 'projects', 'technologies', 'experience', 'education', 'testimonials', 'contact'],
@@ -93,6 +97,7 @@ export const templates = [
     isPremium: true,
     category: 'designer',
     tags: ['designer', 'design', 'portfolio', 'creative'],
+    sections: ['header', 'about', 'portfolio', 'process', 'skills', 'clients', 'contact'],
     settings: {
       layout: {
         sections: ['header', 'about', 'portfolio', 'process', 'skills', 'clients', 'contact'],
