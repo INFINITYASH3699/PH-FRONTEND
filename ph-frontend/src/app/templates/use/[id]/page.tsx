@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Image from 'next/image'; 
+import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, notFound, useParams } from 'next/navigation';
 import { toast } from 'sonner';
@@ -19,6 +19,9 @@ import ProjectsEditor from './ProjectsEditor';
 import SkillsEditor from './SkillsEditor';
 import apiClient, { Template } from '@/lib/apiClient';
 import { templates as fallbackTemplates } from '@/data/templates'; // Use as fallback
+import { SaveDraftButton } from '@/components/ui/save-draft-button';
+import { PreviewButton } from '@/components/ui/preview-button';
+import { PublishButton } from '@/components/ui/publish-button';
 
 // Define the portfolio structure
 interface PortfolioSettings {
@@ -421,14 +424,12 @@ export default function PortfolioEditorPage() {
     }
   };
 
-  // Save portfolio as draft
-  const saveAsDraft = async () => {
+  // Save portfolio as draft - updated to work with SaveDraftButton
+  const saveAsDraft = async (): Promise<void> => {
     if (!isAuthenticated || !user || !portfolio) {
       toast.error('Please sign in to save your portfolio');
       return;
     }
-
-    setLoading(true);
 
     try {
       // Track template usage
@@ -470,30 +471,24 @@ export default function PortfolioEditorPage() {
           setPortfolioId(savedPortfolio._id);
         }
       }
-
-      toast.success('Portfolio saved as draft');
     } catch (error) {
       console.error('Error saving portfolio:', error);
-      toast.error('Failed to save portfolio');
-    } finally {
-      setLoading(false);
+      throw new Error('Failed to save portfolio');
     }
   };
 
-  // Publish portfolio
-  const publishPortfolio = async () => {
+  // Publish portfolio - updated to work with PublishButton
+  const publishPortfolio = async (): Promise<void> => {
     if (!isAuthenticated || !user || !portfolio) {
       toast.error('Please sign in to publish your portfolio');
-      return;
+      throw new Error('Authentication required');
     }
 
     // Validate subdomain
     if (!portfolio.subdomain) {
       toast.error('Subdomain is required');
-      return;
+      throw new Error('Subdomain is required');
     }
-
-    setLoading(true);
 
     try {
       // Track template usage if this is a new portfolio
@@ -502,7 +497,6 @@ export default function PortfolioEditorPage() {
           await apiClient.request(`/templates/${template._id}/use`, 'POST');
         } catch (error) {
           console.error('Error tracking template usage:', error);
-          // Continue with publishing even if tracking fails
         }
       }
 
@@ -536,28 +530,31 @@ export default function PortfolioEditorPage() {
           setPortfolioId(savedPortfolio._id);
         }
       }
-
-      toast.success('Portfolio published successfully');
-      router.push(`/portfolio/${portfolio.subdomain}`);
     } catch (error) {
       console.error('Error publishing portfolio:', error);
-      toast.error('Failed to publish portfolio');
-    } finally {
-      setLoading(false);
+      throw new Error('Failed to publish portfolio');
     }
   };
 
-  // Preview the portfolio
-  const previewPortfolio = async () => {
-    // First save the portfolio as a draft
-    await saveAsDraft();
-
-    // Then open the preview in a new tab
-    if (portfolio?.subdomain) {
-      window.open(`/portfolio/${portfolio.subdomain}`, '_blank');
-    } else {
+  // Preview the portfolio - updated to work with PreviewButton
+  const previewPortfolio = async (): Promise<string | null> => {
+    if (!portfolio?.subdomain) {
       toast.error('Please set a subdomain for your portfolio');
+      return null;
     }
+
+    // If it's not saved yet, we need to save it first
+    if (!portfolioId) {
+      try {
+        await saveAsDraft();
+      } catch (error) {
+        console.error('Error saving portfolio for preview:', error);
+        toast.error('Failed to save portfolio before preview');
+        return null;
+      }
+    }
+
+    return `/portfolio/${portfolio.subdomain}`;
   };
 
   // Show loading state
@@ -588,63 +585,30 @@ export default function PortfolioEditorPage() {
               <div>
                 <h1 className="text-3xl font-bold">Customize Your Portfolio</h1>
                 <p className="text-muted-foreground">
-                  You're using the <span className="font-medium text-violet-600">{template.name}</span> template. Customize it to make it your own.
+                  You're using the <span className="font-medium text-violet-600">{template?.name}</span> template. Customize it to make it your own.
                 </p>
               </div>
               <div className="flex gap-3">
-                <Button
+                <PreviewButton
+                  onPreview={previewPortfolio}
                   variant="outline"
-                  onClick={previewPortfolio}
-                  disabled={loading}
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="h-4 w-4 mr-2"
-                  >
-                    <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
-                    <circle cx="12" cy="12" r="3" />
-                  </svg>
-                  Preview
-                </Button>
-                <Button
-                  className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white"
-                  onClick={publishPortfolio}
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <>
-                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-solid border-current border-r-transparent mr-2"></div>
-                      Publishing...
-                    </>
-                  ) : (
-                    <>
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="h-4 w-4 mr-2"
-                      >
-                        <path d="M12 19V5" />
-                        <path d="m5 12 7-7 7 7" />
-                      </svg>
-                      Publish
-                    </>
-                  )}
-                </Button>
+                  fullscreen={true}
+                />
+                <PublishButton
+                  onPublish={publishPortfolio}
+                  requireValidation={true}
+                  validationChecks={[
+                    {
+                      condition: Boolean(portfolio?.subdomain),
+                      message: 'Subdomain is required to publish your portfolio'
+                    },
+                    {
+                      condition: Boolean(portfolio?.title),
+                      message: 'Portfolio title is required'
+                    }
+                  ]}
+                  successRedirectUrl={portfolio ? `/portfolio/${portfolio.subdomain}` : undefined}
+                />
               </div>
             </div>
 
@@ -1138,68 +1102,25 @@ export default function PortfolioEditorPage() {
                   </Tabs>
                 </CardContent>
                 <CardFooter className="flex justify-between border-t pt-6">
-                  <Button
+                  <SaveDraftButton
+                    onSave={saveAsDraft}
                     variant="outline"
-                    onClick={saveAsDraft}
-                    disabled={loading}
-                  >
-                    {loading ? (
-                      <>
-                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-solid border-current border-r-transparent mr-2"></div>
-                        Saving...
-                      </>
-                    ) : (
-                      <>
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          className="h-4 w-4 mr-2"
-                        >
-                          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-                          <polyline points="17 21 17 13 7 13 7 21" />
-                          <polyline points="7 3 7 8 15 8" />
-                        </svg>
-                        Save as Draft
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white"
-                    onClick={publishPortfolio}
-                    disabled={loading || !portfolio.subdomain}
-                  >
-                    {loading ? (
-                      <>
-                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-solid border-current border-r-transparent mr-2"></div>
-                        Publishing...
-                      </>
-                    ) : (
-                      <>
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          className="h-4 w-4 mr-2"
-                        >
-                          <path d="M21 2H3v16h5v4l4-4h4l5-5V2zM16 11H8V8h8v3z" />
-                        </svg>
-                        Publish Portfolio
-                      </>
-                    )}
-                  </Button>
+                  />
+                  <PublishButton
+                    onPublish={publishPortfolio}
+                    requireValidation={true}
+                    validationChecks={[
+                      {
+                        condition: Boolean(portfolio?.subdomain),
+                        message: 'Subdomain is required to publish your portfolio'
+                      },
+                      {
+                        condition: Boolean(portfolio?.title),
+                        message: 'Portfolio title is required'
+                      }
+                    ]}
+                    successRedirectUrl={portfolio ? `/portfolio/${portfolio.subdomain}` : undefined}
+                  />
                 </CardFooter>
               </Card>
             </div>

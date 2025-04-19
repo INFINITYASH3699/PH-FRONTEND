@@ -24,12 +24,39 @@ export const createPortfolio = async (req: Request, res: Response): Promise<Resp
       });
     }
 
-    // Check if subdomain is already taken
-    const existingPortfolio = await Portfolio.findOne({ subdomain: subdomain.toLowerCase() });
+    // Check if subdomain is already taken, but allow the user to reuse their own subdomain
+    const existingPortfolio = await Portfolio.findOne({
+      subdomain: subdomain.toLowerCase(),
+      userId: { $ne: req.user.id } // Exclude portfolios owned by the requesting user
+    });
+
     if (existingPortfolio) {
       return res.status(400).json({
         success: false,
         message: 'This subdomain is already taken'
+      });
+    }
+
+    // Look for user's existing portfolio with the same subdomain
+    const userExistingPortfolio = await Portfolio.findOne({
+      subdomain: subdomain.toLowerCase(),
+      userId: req.user.id
+    });
+
+    // If user already has a portfolio with this subdomain, update it instead of creating a new one
+    if (userExistingPortfolio) {
+      userExistingPortfolio.title = title;
+      userExistingPortfolio.subtitle = subtitle;
+      userExistingPortfolio.templateId = templateId || null;
+      userExistingPortfolio.content = content || {};
+      userExistingPortfolio.isPublished = req.body.isPublished || false;
+
+      const updatedPortfolio = await userExistingPortfolio.save();
+
+      return res.status(200).json({
+        success: true,
+        portfolio: updatedPortfolio,
+        message: 'Portfolio updated successfully'
       });
     }
 
@@ -52,7 +79,7 @@ export const createPortfolio = async (req: Request, res: Response): Promise<Resp
       userId: req.user.id,
       templateId: templateId || null,
       content: content || {},
-      isPublished: false
+      isPublished: req.body.isPublished || false
     });
 
     return res.status(201).json({

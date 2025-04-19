@@ -275,6 +275,32 @@ function EmptyState() {
 
 // Portfolio card component
 function PortfolioCard({ portfolio, onPublishToggle }: { portfolio: Portfolio, onPublishToggle: (id: string, currentState: boolean) => void }) {
+  const handleShare = (e: React.MouseEvent, subdomain: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const url = `${window.location.origin}/portfolio/${subdomain}`;
+
+    if (navigator.share) {
+      navigator.share({
+        title: portfolio.title,
+        text: `Check out my portfolio: ${portfolio.title}`,
+        url: url,
+      }).catch((error) => {
+        console.log('Error sharing:', error);
+        copyToClipboard(url);
+      });
+    } else {
+      copyToClipboard(url);
+    }
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text)
+      .then(() => toast.success("Portfolio URL copied to clipboard!"))
+      .catch(err => toast.error("Failed to copy URL"));
+  };
+
   return (
     <Card className="overflow-hidden">
       <CardHeader className="pb-0">
@@ -335,11 +361,39 @@ function PortfolioCard({ portfolio, onPublishToggle }: { portfolio: Portfolio, o
         </div>
       </CardContent>
       <CardFooter className="flex justify-between border-t pt-4">
-        <Link href={`/portfolio/${portfolio.subdomain}`} target="_blank">
-          <Button variant="outline" size="sm">
-            View
-          </Button>
-        </Link>
+        <div className="flex gap-2">
+          <Link href={`/portfolio/${portfolio.subdomain}`} target="_blank">
+            <Button variant="outline" size="sm">
+              View
+            </Button>
+          </Link>
+          {portfolio.isPublished && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={(e) => handleShare(e, portfolio.subdomain)}
+              className="text-violet-600 border-violet-200 hover:bg-violet-50"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-4 w-4 mr-1"
+              >
+                <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+                <polyline points="16 6 12 2 8 6" />
+                <line x1="12" y1="2" x2="12" y2="15" />
+              </svg>
+              Share
+            </Button>
+          )}
+        </div>
         <Link href={`/templates/use/${portfolio.templateId?._id || 'default'}`}>
           <Button variant="default" size="sm">
             Edit

@@ -573,6 +573,20 @@ async function uploadImage(
   }
 }
 
+// New function to get portfolio by subdomain
+async function getPortfolioBySubdomain(subdomain: string): Promise<Portfolio> {
+  try {
+    const response = await apiRequest<{ success: boolean; portfolio: Portfolio }>(
+      `/portfolios/subdomain/${subdomain}`,
+      'GET'
+    );
+    return response.portfolio;
+  } catch (error) {
+    console.error('Error fetching portfolio by subdomain:', error);
+    throw error;
+  }
+}
+
 // API client object
 const apiClient = {
   // Auth
@@ -600,6 +614,7 @@ const apiClient = {
   createPortfolio,
   updatePortfolioContent,
   uploadImage,
+  getPortfolioBySubdomain, // Add the new function to exports
 
   // Generic request method for other API calls
   request: apiRequest,
