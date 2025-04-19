@@ -1,6 +1,6 @@
 import { toast } from "sonner";
 
-// API base URL - use environment variable or default to the backend URL
+// API base URL - use environment variable or default to the backend URL 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ||
   (typeof window !== 'undefined' && window.location.hostname !== 'localhost'
