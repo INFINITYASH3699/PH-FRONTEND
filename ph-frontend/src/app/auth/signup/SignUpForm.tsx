@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CardContent, CardFooter } from "@/components/ui/card";
 import { toast } from "sonner";
 import { useAuth } from "@/components/providers/AuthContext";
+import apiClient from "@/lib/apiClient";
 
 export default function SignUpForm() {
   const { register } = useAuth();
@@ -19,6 +20,23 @@ export default function SignUpForm() {
     password: "",
     confirmPassword: "",
   });
+
+  // Debug auth state on component mount
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      // Check if debugAuthState function exists before calling it
+      if (apiClient.debugAuthState) {
+        try {
+          const authState = apiClient.debugAuthState();
+          console.log("SignUpForm - Auth State:", authState);
+        } catch (error) {
+          console.error("Error checking auth state:", error);
+        }
+      } else {
+        console.log("SignUpForm - Auth State: debugAuthState function not available");
+      }
+    }
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
@@ -49,6 +67,9 @@ export default function SignUpForm() {
     setIsLoading(true);
 
     try {
+      // Clear any existing auth data to ensure a clean signup
+      apiClient.logout();
+
       // Use the Auth Context register function
       await register({
         fullName: `${formData.firstName} ${formData.lastName}`,
@@ -59,7 +80,12 @@ export default function SignUpForm() {
 
       toast.success("Account created successfully!");
 
-      // The redirection is handled inside the register function
+      // Wait a moment to ensure cookies are set before redirecting
+      setTimeout(() => {
+        // Force a hard navigation to ensure middleware picks up the new auth state
+        console.log("Signup successful, redirecting to dashboard");
+        window.location.href = "/dashboard";
+      }, 100);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to create account";
@@ -70,8 +96,10 @@ export default function SignUpForm() {
     }
   };
 
+  // Rest of the form stays the same
   return (
     <>
+      {/* form content - unchanged */}
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">

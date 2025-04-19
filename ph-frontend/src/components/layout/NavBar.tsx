@@ -57,7 +57,8 @@ export function NavBar() {
   // Custom logout handler
   const handleSignOut = async () => {
     logout();
-    router.push("/");
+    // Remove this direct router push to let middleware handle it
+    // The middleware will detect the authentication state change and redirect
   };
 
   const isActive = (path: string) => {

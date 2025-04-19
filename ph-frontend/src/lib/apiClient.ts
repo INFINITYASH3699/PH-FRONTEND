@@ -142,25 +142,104 @@ export const getUser = (): User | null => {
 
 // Set auth data
 export const setAuthData = (token: string, user: User): void => {
-  localStorage.setItem(TOKEN_KEY, token);
-  localStorage.setItem(USER_KEY, JSON.stringify(user));
+  if (!token || token.trim() === '') {
+    console.error("Attempted to set empty auth token");
+    return;
+  }
 
-  // Set a cookie with the same name as localStorage for middleware to detect
-  document.cookie = `${TOKEN_KEY}=${token}; path=/; max-age=${30 * 24 * 60 * 60};`;
+  try {
+    localStorage.setItem(TOKEN_KEY, token);
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
+
+    // Set a cookie with the same name as localStorage for middleware to detect
+    // Use secure flags when in production
+    const secure = process.env.NODE_ENV === 'production' ? '; secure; samesite=strict' : '';
+    document.cookie = `${TOKEN_KEY}=${token}; path=/; max-age=${30 * 24 * 60 * 60}${secure}`;
+
+    console.log("Auth data set successfully");
+  } catch (error) {
+    console.error("Error setting auth data:", error);
+  }
 };
 
-// Clear auth data
+// Clear auth data - completely rewritten for more targeted auth cookie clearing
 export const clearAuthData = (): void => {
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(USER_KEY);
+  try {
+    // Clear localStorage
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
 
-  // Clear the cookie
-  document.cookie = `${TOKEN_KEY}=; path=/; max-age=0;`;
+    console.log("Clearing auth cookie:", TOKEN_KEY);
+
+    // Only try to clear the specific auth cookie, not all cookies
+    // This is the cookie that middleware is checking
+
+    // Get the current cookie string
+    const cookiesBeforeClear = document.cookie;
+    console.log("All cookies before clearing:", cookiesBeforeClear);
+
+    // Only focus on clearing the auth token cookie
+    const paths = ['/', '/auth', '/dashboard', '/profile', '/templates', '/auth/signin', '/auth/signup'];
+
+    // Clear the cookie from all possible paths
+    paths.forEach(path => {
+      document.cookie = `${TOKEN_KEY}=; path=${path}; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0`;
+    });
+
+    // Check if the cookie was cleared
+    const hasCookieAfterClear = document.cookie.includes(TOKEN_KEY);
+    console.log(`Auth cookie cleared: ${!hasCookieAfterClear}`);
+
+    if (hasCookieAfterClear) {
+      console.warn("Failed to clear auth cookie using standard methods");
+
+      // Try a more aggressive approach to find and remove the specific cookie
+      const cookieParts = document.cookie.split(';');
+      for (let i = 0; i < cookieParts.length; i++) {
+        const cookiePart = cookieParts[i].trim();
+        if (cookiePart.startsWith(TOKEN_KEY + '=')) {
+          console.log("Found auth cookie, attempting to clear it specifically");
+          const path = cookiePart.includes('path=') ?
+            cookiePart.split('path=')[1].split(';')[0] : '/';
+          document.cookie = `${TOKEN_KEY}=; path=${path}; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0`;
+        }
+      }
+    }
+
+    console.log("Auth data and cookies cleared");
+    return;
+  } catch (error) {
+    console.error("Error clearing auth data:", error);
+  }
 };
 
 // Check if user is authenticated
 export const isAuthenticated = (): boolean => {
-  return !!getToken();
+  const token = getToken();
+  const isAuth = !!token && token.trim() !== '';
+
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`Auth check: ${isAuth ? 'Authenticated' : 'Not authenticated'}`);
+  }
+
+  return isAuth;
+};
+
+// Debug function to inspect auth state
+export const debugAuthState = (): {
+  isAuthenticated: boolean;
+  token: string | null;
+  hasUser: boolean;
+  cookies: string;
+} => {
+  const token = getToken();
+  const user = getUser();
+  return {
+    isAuthenticated: !!token && token.trim() !== '',
+    token: token ? `${token.substring(0, 10)}...` : null,
+    hasUser: !!user,
+    cookies: document.cookie,
+  };
 };
 
 // Generic API request function with improved error handling
@@ -282,10 +361,26 @@ export const register = async (userData: {
   }
 };
 
+// Logout with additional cookie clearing safeguards
 export const logout = (): void => {
+  console.log("Logging out user...");
   clearAuthData();
+
+  // Force reload if needed to ensure state is cleared
+  if (typeof window !== 'undefined') {
+    setTimeout(() => {
+      // Check if cookies are really cleared
+      if (document.cookie.includes(TOKEN_KEY)) {
+        console.warn("Cookie still exists after logout, forcing page reload");
+        window.location.href = '/auth/signin?forceClear=true';
+      } else {
+        console.log("Logout successful, cookie cleared");
+      }
+    }, 100);
+  }
 };
 
+// Get current user
 export const getCurrentUser = async (): Promise<User> => {
   try {
     const response = await apiRequest<{ success: boolean; user: User }>(
@@ -591,6 +686,20 @@ async function getPortfolioBySubdomain(subdomain: string): Promise<Portfolio> {
   }
 }
 
+// Delete a portfolio
+async function deletePortfolio(portfolioId: string): Promise<{ success: boolean; message: string }> {
+  try {
+    const response = await apiRequest<{ success: boolean; message: string }>(
+      `/portfolios/${portfolioId}`,
+      'DELETE'
+    );
+    return response;
+  } catch (error) {
+    console.error('Error deleting portfolio:', error);
+    throw error;
+  }
+}
+
 // Increment template usage with improved error handling
 async function incrementTemplateUsage(templateId: string): Promise<boolean> {
   try {
@@ -619,6 +728,7 @@ const apiClient = {
   isAuthenticated,
   getToken,
   getUser,
+  debugAuthState, // Add the debug function to the exported object
 
   // Profile
   updateProfile,
@@ -638,6 +748,7 @@ const apiClient = {
   updatePortfolioContent,
   uploadImage,
   getPortfolioBySubdomain,
+  deletePortfolio, // Add the deletePortfolio function to the exported object
 
   // Generic request method for other API calls
   request: apiRequest,

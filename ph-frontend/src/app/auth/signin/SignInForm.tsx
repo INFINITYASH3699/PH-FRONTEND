@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { CardContent, CardFooter } from "@/components/ui/card";
 import { toast } from "sonner";
 import { useAuth } from "@/components/providers/AuthContext";
+import apiClient from "@/lib/apiClient";
 
 export default function SignInForm() {
   const { login, isAuthenticated } = useAuth();
@@ -19,6 +20,59 @@ export default function SignInForm() {
 
   // Get callbackUrl from URL if available
   const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
+
+  // Handle forced cookie clearing if specified in URL
+  useEffect(() => {
+    const forceClear = searchParams.get("forceClear");
+    if (forceClear === "true") {
+      console.log("Force clearing auth cookies and state");
+
+      // Brutally clear all auth data
+      try {
+        // Try multiple approaches to clear the auth cookie
+        const TOKEN_KEY = 'ph_auth_token';
+
+        // 1. Clear localStorage
+        localStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem('ph_user_data');
+
+        // 2. Clear cookies on all paths
+        const paths = ['/', '/auth', '/dashboard', '/profile', '/templates', '/auth/signin', '/auth/signup'];
+        paths.forEach(path => {
+          document.cookie = `${TOKEN_KEY}=; path=${path}; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0`;
+        });
+
+        // 3. Double-check by calling the API client's clearAuthData
+        apiClient.clearAuthData();
+
+        // Remove the forceClear parameter from URL to prevent repeat clearing
+        const url = new URL(window.location.href);
+        url.searchParams.delete("forceClear");
+        window.history.replaceState({}, "", url.toString());
+
+        console.log("Auth state forcibly cleared");
+      } catch (error) {
+        console.error("Error during force clear:", error);
+      }
+    }
+  }, [searchParams]);
+
+  // Debug auth state on component mount
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      // Check if debugAuthState function exists before calling it
+      if (apiClient.debugAuthState) {
+        try {
+          const authState = apiClient.debugAuthState();
+          console.log("SignInForm - Auth State:", authState);
+        } catch (error) {
+          console.error("Error checking auth state:", error);
+        }
+      } else {
+        console.log("SignInForm - Auth State: debugAuthState function not available");
+      }
+    }
+  }, []);
 
   // If already authenticated, redirect to dashboard or callback
   useEffect(() => {
@@ -33,13 +87,21 @@ export default function SignInForm() {
     setIsLoading(true);
 
     try {
+      // Clear any existing auth data to ensure a clean login
+      apiClient.logout();
+
       // Log the user in
       await login(email, password);
+
+      // Show success message
       toast.success("Signed in successfully");
 
-      // Force a hard navigation to ensure middleware picks up the new auth state
-      console.log("Login successful, redirecting to:", callbackUrl);
-      window.location.href = callbackUrl;
+      // Wait a moment to ensure cookies are set before redirecting
+      setTimeout(() => {
+        // Force a hard navigation to ensure middleware picks up the new auth state
+        console.log("Login successful, redirecting to:", callbackUrl);
+        window.location.href = callbackUrl;
+      }, 100);
     } catch (error) {
       const message =
         error instanceof Error

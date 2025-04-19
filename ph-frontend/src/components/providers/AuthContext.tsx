@@ -8,7 +8,7 @@ import React, {
   ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
-import apiClient, { User, SocialLinks, UserProfile } from "@/lib/apiClient";
+import apiClient, { User, SocialLinks } from "@/lib/apiClient";
 
 interface AuthContextType {
   user: User | null;
@@ -44,11 +44,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   // Check if user is authenticated on initial load
   useEffect(() => {
+    let isMounted = true;
+
     const initAuth = async () => {
-      await checkAuth();
+      try {
+        const isAuthed = await checkAuth();
+        if (isMounted) {
+          // Only update state if component is still mounted
+          console.log("Auth initialization completed, authenticated:", isAuthed);
+        }
+      } catch (error) {
+        console.error("Auth initialization error:", error);
+      }
     };
 
     initAuth();
+
+    // Cleanup function to prevent state updates after unmounting
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // Check authentication status
@@ -95,7 +110,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       const user = await apiClient.register(userData);
       setUser(user);
-      router.push("/dashboard");
+      console.log("Registration successful, user set in context");
     } catch (error) {
       console.error("Registration error:", error);
       throw error;
@@ -104,9 +119,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   // Logout function
   const logout = (): void => {
+    console.log("AuthContext: Starting logout process");
+
+    // First clear the auth data from the API client
     apiClient.logout();
+
+    // Clear the user state
     setUser(null);
-    router.push("/auth/signin");
+
+    // For a clean logout, redirect directly to the signin page with a special flag
+    // that forces cookie clearing
+    console.log("AuthContext: Redirecting to signin page after logout");
+    window.location.href = "/auth/signin?forceClear=true";
   };
 
   // Update profile function

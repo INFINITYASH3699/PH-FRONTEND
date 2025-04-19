@@ -10,6 +10,16 @@ import { Footer } from '@/components/layout/Footer';
 import { toast } from 'sonner';
 import apiClient, { User } from '@/lib/apiClient';
 import { useAuth } from '@/components/providers/AuthContext';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Trash2 } from 'lucide-react'; // Import the trash icon
 
 // Portfolio interface
 interface Portfolio {
@@ -30,7 +40,7 @@ interface Portfolio {
 }
 
 export default function DashboardPage() {
-  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading, logout } = useAuth();
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
   const [loading, setLoading] = useState(true);
   const [authStatus, setAuthStatus] = useState<'loading' | 'authenticated' | 'unauthenticated'>('loading');
@@ -56,10 +66,9 @@ export default function DashboardPage() {
       setAuthStatus('authenticated');
     } else {
       setAuthStatus('unauthenticated');
-      // Only redirect if not in the loading state
+      // Remove the window.location redirect - let the middleware handle it instead
       if (!authLoading) {
-        console.log('Not authenticated, redirecting to signin');
-        window.location.href = '/auth/signin';
+        console.log('Not authenticated - middleware will handle the redirect');
       }
     }
   }, [isAuthenticated, authLoading, user]);
@@ -117,10 +126,22 @@ export default function DashboardPage() {
     }
   };
 
-  // Handle logout
+  // Function to handle portfolio deletion
+  const handleDelete = async (portfolioId: string) => {
+    try {
+      await apiClient.request<{ success: boolean }>(`/portfolios/${portfolioId}`, 'DELETE');
+      setPortfolios(prevPortfolios => prevPortfolios.filter(portfolio => portfolio._id !== portfolioId));
+      toast.success('Portfolio deleted successfully');
+    } catch (error) {
+      console.error('Error deleting portfolio:', error);
+      toast.error('Failed to delete portfolio');
+    }
+  };
+
+  // Handle logout - moved to use the useAuth hook directly
   const handleLogout = () => {
-    apiClient.logout();
-    window.location.href = '/auth/signin';
+    // Use the logout function directly from the useAuth() hook
+    logout(); // This calls the logout function from the AuthContext
   };
 
   return (
@@ -169,6 +190,7 @@ export default function DashboardPage() {
                   key={portfolio._id}
                   portfolio={portfolio}
                   onPublishToggle={handlePublishToggle}
+                  onDelete={handleDelete}
                 />
               ))}
             </div>
@@ -274,7 +296,9 @@ function EmptyState() {
 }
 
 // Portfolio card component
-function PortfolioCard({ portfolio, onPublishToggle }: { portfolio: Portfolio, onPublishToggle: (id: string, currentState: boolean) => void }) {
+function PortfolioCard({ portfolio, onPublishToggle, onDelete }: { portfolio: Portfolio, onPublishToggle: (id: string, currentState: boolean) => void, onDelete: (id: string) => void }) {
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+
   const handleShare = (e: React.MouseEvent, subdomain: string) => {
     e.preventDefault();
     e.stopPropagation();
@@ -299,6 +323,11 @@ function PortfolioCard({ portfolio, onPublishToggle }: { portfolio: Portfolio, o
     navigator.clipboard.writeText(text)
       .then(() => toast.success("Portfolio URL copied to clipboard!"))
       .catch(err => toast.error("Failed to copy URL"));
+  };
+
+  const handleDelete = () => {
+    onDelete(portfolio._id);
+    setIsDeleteDialogOpen(false);
   };
 
   return (
@@ -393,6 +422,35 @@ function PortfolioCard({ portfolio, onPublishToggle }: { portfolio: Portfolio, o
               Share
             </Button>
           )}
+          <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+            <DialogTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-red-600 border-red-200 hover:bg-red-50"
+              >
+                <Trash2 className="h-4 w-4 mr-1" />
+                Delete
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Delete Portfolio</DialogTitle>
+                <DialogDescription>
+                  Are you sure you want to delete <span className="font-medium">{portfolio.title}</span>?
+                  This action cannot be undone.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button variant="destructive" onClick={handleDelete}>
+                  Delete Portfolio
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
         <Link href={`/templates/use/${portfolio.templateId?._id || 'default'}`}>
           <Button variant="default" size="sm">

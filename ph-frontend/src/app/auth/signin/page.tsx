@@ -1,30 +1,46 @@
+'use client';
+
 import Link from 'next/link';
-import { Suspense } from 'react';
+import { Suspense, useEffect } from 'react';
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { NavBar } from '@/components/layout/NavBar';
-import { Footer } from '@/components/layout/Footer';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import SignInForm from './SignInForm';
 
 export default function SignInPage() {
-  return (
-    <div className="min-h-screen flex flex-col">
-      <NavBar />
+  useEffect(() => {
+    // Check if there's any authentication remnants and clear them
+    try {
+      const TOKEN_KEY = 'ph_auth_token';
+      // Clear local storage items
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem('ph_user_data');
 
-      <main className="flex-grow flex items-center justify-center py-12">
-        <div className="container max-w-md px-4 md:px-6">
-          <Card className="shadow-lg">
-            <CardHeader className="space-y-1 text-center">
-              <CardTitle className="text-2xl font-bold">Sign in to your account</CardTitle>
-              <CardDescription>Enter your credentials to access your PortfolioHub account</CardDescription>
-            </CardHeader>
-            <Suspense fallback={<div className="p-6 text-center">Loading...</div>}>
+      // Clear cookies
+      document.cookie = `${TOKEN_KEY}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0`;
+      console.log("Signin page: Cleared any existing authentication data");
+    } catch (error) {
+      console.error("Error clearing auth data on signin page:", error);
+    }
+  }, []);
+
+  return (
+    <main className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-8">
+      <Card className="mx-auto max-w-md shadow-lg">
+        <CardHeader className="text-center space-y-1">
+          <CardTitle className="text-2xl">Welcome back</CardTitle>
+          <CardDescription>Sign in to your account</CardDescription>
+        </CardHeader>
+        <Tabs defaultValue="signin" className="w-full">
+          <TabsList className="grid grid-cols-1 mb-4 hidden">
+            <TabsTrigger value="signin">Sign In</TabsTrigger>
+          </TabsList>
+          <TabsContent value="signin">
+            <Suspense fallback={<div>Loading...</div>}>
               <SignInForm />
             </Suspense>
-          </Card>
-        </div>
-      </main>
-
-      <Footer />
-    </div>
+          </TabsContent>
+        </Tabs>
+      </Card>
+    </main>
   );
 }
