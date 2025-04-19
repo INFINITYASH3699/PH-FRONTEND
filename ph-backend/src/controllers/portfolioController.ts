@@ -172,6 +172,8 @@ export const updatePortfolio = async (req: Request, res: Response): Promise<Resp
       galleryImages
     } = req.body;
 
+    console.log('Request body in updatePortfolio:', JSON.stringify(req.body, null, 2));
+
     // Find portfolio
     const portfolio = await Portfolio.findById(req.params.id);
 
@@ -198,21 +200,35 @@ export const updatePortfolio = async (req: Request, res: Response): Promise<Resp
 
     // Handle content updates - ensure proper merging
     if (content) {
-      // If content exists, merge it with existing content
+      console.log('Processing content update:', JSON.stringify(content, null, 2));
+
+      // Initialize portfolio.content if it doesn't exist
       if (!portfolio.content) {
         portfolio.content = {};
       }
 
-      // Check if content is a section update (nested structure)
-      if (typeof content === 'object') {
-        // Loop through each section in the content update
-        Object.keys(content).forEach(key => {
-          // Update or add the section content
-          portfolio.content[key] = content[key];
-        });
+      // Deep merge the content
+      Object.keys(content).forEach(key => {
+        console.log(`Updating content section: ${key}`, JSON.stringify(content[key], null, 2));
 
-        console.log('Updated portfolio content sections:', Object.keys(content));
-      }
+        // Special handling for arrays in content to ensure they're completely replaced
+        if (content[key] && typeof content[key] === 'object') {
+          // For objects that contain arrays like 'items', we need special handling
+          if (content[key].items && Array.isArray(content[key].items)) {
+            console.log(`Processing array in section ${key}.items with ${content[key].items.length} items`);
+          }
+
+          // For objects that contain the 'categories' array property
+          if (content[key].categories && Array.isArray(content[key].categories)) {
+            console.log(`Processing array in section ${key}.categories with ${content[key].categories.length} categories`);
+          }
+        }
+
+        // Use direct assignment to completely replace the content for this section
+        portfolio.content[key] = JSON.parse(JSON.stringify(content[key]));
+      });
+
+      console.log('Portfolio content after update:', JSON.stringify(portfolio.content, null, 2));
     }
 
     // Handle header image update
@@ -248,8 +264,13 @@ export const updatePortfolio = async (req: Request, res: Response): Promise<Resp
       portfolio.galleryImages = galleryImages;
     }
 
+    // Use markModified to ensure MongoDB detects changes in the mixed Schema.Types.Mixed
+    portfolio.markModified('content');
+
     // Save updated portfolio
     const updatedPortfolio = await portfolio.save();
+
+    console.log('Portfolio saved successfully, ID:', updatedPortfolio._id);
 
     return res.status(200).json({
       success: true,

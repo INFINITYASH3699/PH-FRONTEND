@@ -234,10 +234,25 @@ export default function PortfolioEditorPage() {
                 'GET'
               );
 
+              console.log('Full portfolio data loaded:', portfolioData);
+
               if (portfolioData.success && portfolioData.portfolio) {
+                // Extract the content from the portfolio data
+                // Make sure we're getting all sections properly
                 const portfolioContent = portfolioData.portfolio.content || {};
 
-                // Create portfolio with existing data
+                console.log('Portfolio content to use:', JSON.stringify(portfolioContent, null, 2));
+
+                // Create a function to safely extract and create a deep copy of section data
+                const extractSectionData = (sectionName, defaultValue) => {
+                  if (portfolioContent[sectionName]) {
+                    // Deep clone to avoid reference issues
+                    return JSON.parse(JSON.stringify(portfolioContent[sectionName]));
+                  }
+                  return defaultValue;
+                };
+
+                // Create portfolio with existing data, safely copying all nested arrays
                 const savedPortfolio: Portfolio = {
                   id: portfolioData.portfolio._id,
                   templateId: templateId,
@@ -245,7 +260,7 @@ export default function PortfolioEditorPage() {
                   subtitle: portfolioData.portfolio.subtitle || user?.profile?.title || 'Web Developer',
                   subdomain: portfolioData.portfolio.subdomain || user?.username || '',
                   isPublished: portfolioData.portfolio.isPublished || false,
-                  settings: portfolioData.portfolio.content.settings || {
+                  settings: extractSectionData('settings', {
                     colors: {
                       primary: '#6366f1',
                       secondary: '#8b5cf6',
@@ -261,15 +276,16 @@ export default function PortfolioEditorPage() {
                       showHeader: true,
                       showFooter: true,
                     },
-                  },
+                  }),
                   sectionContent: {
-                    about: portfolioContent.about || {
+                    // Safely extract each section's content using the helper function
+                    about: extractSectionData('about', {
                       title: 'About Me',
                       bio: user?.profile?.bio || 'I am a passionate professional with experience in my field.',
                       profileImage: user?.profilePicture || '',
-                    },
-                    projects: portfolioContent.projects || { items: [] },
-                    skills: portfolioContent.skills || {
+                    }),
+                    projects: extractSectionData('projects', { items: [] }),
+                    skills: extractSectionData('skills', {
                       categories: [
                         {
                           name: 'Frontend',
@@ -280,22 +296,27 @@ export default function PortfolioEditorPage() {
                           ],
                         },
                       ],
-                    },
-                    experience: portfolioContent.experience || { items: [] },
-                    education: portfolioContent.education || { items: [] },
-                    contact: portfolioContent.contact || {
+                    }),
+                    experience: extractSectionData('experience', { items: [] }),
+                    education: extractSectionData('education', { items: [] }),
+                    contact: extractSectionData('contact', {
                       email: user?.email || '',
                       phone: '',
                       address: user?.profile?.location || '',
                       showContactForm: true,
                       socialLinks: { links: [] },
-                    },
-                    gallery: portfolioContent.gallery || { items: [] },
-                    customCSS: portfolioContent.customCSS || { styles: '' },
-                    seo: portfolioContent.seo || { metaTitle: '', metaDescription: '', keywords: '' },
+                    }),
+                    gallery: extractSectionData('gallery', { items: [] }),
+                    customCSS: extractSectionData('customCSS', { styles: '' }),
+                    seo: extractSectionData('seo', { metaTitle: '', metaDescription: '', keywords: '' }),
                   },
                 };
 
+                // Debug log to see what we're setting
+                console.log('Setting portfolio state with:', JSON.stringify(savedPortfolio, null, 2));
+                console.log('Section content being applied:', JSON.stringify(savedPortfolio.sectionContent, null, 2));
+
+                // Set portfolio state with the loaded data
                 setPortfolio(savedPortfolio);
                 setExistingPortfolioFetched(true);
                 console.log('Using existing portfolio data:', savedPortfolio);
@@ -503,21 +524,32 @@ export default function PortfolioEditorPage() {
     if (!portfolioId || !user) return;
 
     try {
-      // Create content object with the proper structure
+      // Log before update
+      console.log(`Updating ${section} section with data:`, JSON.stringify(content, null, 2));
+
+      // Deep clone the content to avoid reference issues with nested arrays
+      const safeContent = JSON.parse(JSON.stringify(content));
+
+      // Create a proper content update structure that matches what the backend expects
       const contentUpdate = {
         content: {
-          [section]: content
+          [section]: safeContent
         }
       };
 
-      // Update portfolio with properly structured content
-      await apiClient.request(
+      // Make direct API request to update only this section
+      const response = await apiClient.request(
         `/portfolios/${portfolioId}`,
         'PUT',
         contentUpdate
       );
 
-      console.log(`Updated ${section} section successfully with:`, content);
+      if (response.success) {
+        console.log(`Successfully updated ${section} section`);
+      } else {
+        console.error(`Failed to update ${section} section:`, response);
+        toast.error(`Failed to update ${section} section`);
+      }
     } catch (error) {
       console.error(`Error updating ${section} section:`, error);
       toast.error('Failed to update section content');
@@ -561,6 +593,17 @@ export default function PortfolioEditorPage() {
         await apiClient.incrementTemplateUsage(template._id);
       }
 
+      // Prepare content data structure to ensure all sections are saved
+      // Deep clone to avoid reference issues with nested arrays
+      const contentData = JSON.parse(JSON.stringify({
+        // Include settings
+        settings: portfolio.settings,
+        // Include all section content
+        ...portfolio.sectionContent
+      }));
+
+      console.log("Saving portfolio with content:", JSON.stringify(contentData, null, 2));
+
       let savedPortfolio;
 
       if (portfolioId) {
@@ -573,10 +616,7 @@ export default function PortfolioEditorPage() {
             subtitle: portfolio.subtitle,
             subdomain: portfolio.subdomain,
             isPublished: false,
-            content: {
-              settings: portfolio.settings,
-              ...portfolio.sectionContent
-            }
+            content: contentData
           }
         );
 
@@ -593,10 +633,7 @@ export default function PortfolioEditorPage() {
           subtitle: portfolio.subtitle,
           subdomain: portfolio.subdomain,
           templateId: portfolio.templateId,
-          content: {
-            settings: portfolio.settings,
-            ...portfolio.sectionContent
-          },
+          content: contentData,
         });
 
         if (savedPortfolio && savedPortfolio._id) {
@@ -632,6 +669,17 @@ export default function PortfolioEditorPage() {
         await apiClient.incrementTemplateUsage(template._id);
       }
 
+      // Prepare content data structure to ensure all sections are saved
+      // Deep clone to avoid reference issues with nested arrays
+      const contentData = JSON.parse(JSON.stringify({
+        // Include settings
+        settings: portfolio.settings,
+        // Include all section content
+        ...portfolio.sectionContent
+      }));
+
+      console.log("Publishing portfolio with content:", JSON.stringify(contentData, null, 2));
+
       let savedPortfolio;
 
       if (portfolioId) {
@@ -644,10 +692,7 @@ export default function PortfolioEditorPage() {
             subtitle: portfolio.subtitle,
             subdomain: portfolio.subdomain,
             isPublished: true,
-            content: {
-              settings: portfolio.settings,
-              ...portfolio.sectionContent
-            }
+            content: contentData
           }
         );
 
@@ -659,10 +704,7 @@ export default function PortfolioEditorPage() {
           subtitle: portfolio.subtitle,
           subdomain: portfolio.subdomain,
           templateId: portfolio.templateId,
-          content: {
-            settings: portfolio.settings,
-            ...portfolio.sectionContent
-          },
+          content: contentData,
           isPublished: true
         });
 
