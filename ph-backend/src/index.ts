@@ -14,7 +14,7 @@ import templateRoutes from './routes/templateRoutes'; // Separate router for tem
 dotenv.config();
 
 // Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/portfolio-hub')
+mongoose.connect(process.env.MONGODB_URI || 'mongodb+srv://yash3699:Yash3699@cluster0.fmpir.mongodb.net/Auth?retryWrites=true&w=majority&appName=Cluster0')
   .then(() => {
     console.log('Connected to MongoDB');
   })
@@ -35,14 +35,6 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve static files from uploads directory
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
-
-// Create uploads directory if it doesn't exist
-const uploadsDir = path.join(__dirname, '../uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
 
 // Route middleware
 app.use('/api/auth', authRoutes);
