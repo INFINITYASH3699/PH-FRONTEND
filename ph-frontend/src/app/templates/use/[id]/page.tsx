@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Image from 'next/image';
+import Image from 'next/image'; 
 import Link from 'next/link';
 import { useRouter, notFound, useParams } from 'next/navigation';
 import { toast } from 'sonner';
