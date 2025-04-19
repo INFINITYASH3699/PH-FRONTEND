@@ -256,9 +256,10 @@ export default function TemplatePreviewPage() {
     // Track template usage
     if (isAuthenticated && template._id) {
       try {
-        await apiClient.request(`/templates/${template._id}/use`, 'POST');
+        await apiClient.incrementTemplateUsage(template._id);
       } catch (error) {
-        console.error('Error tracking template usage:', error);
+        // Non-critical error, just log it
+        console.warn('Error tracking template usage:', error);
       }
     }
 

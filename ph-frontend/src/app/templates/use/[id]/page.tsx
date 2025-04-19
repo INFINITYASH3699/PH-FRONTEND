@@ -17,6 +17,12 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/components/providers/AuthContext';
 import ProjectsEditor from './ProjectsEditor';
 import SkillsEditor from './SkillsEditor';
+import ExperienceEditor from './ExperienceEditor';
+import EducationEditor from './EducationEditor';
+import GalleryEditor from './GalleryEditor';
+import ContactEditor from './ContactEditor';
+import SEOEditor from './SEOEditor';
+import CustomCSSEditor from './CustomCSSEditor';
 import apiClient, { Template } from '@/lib/apiClient';
 import { templates as fallbackTemplates } from '@/data/templates'; // Use as fallback
 import { SaveDraftButton } from '@/components/ui/save-draft-button';
@@ -111,6 +117,7 @@ interface ContactContent {
   phone?: string;
   address?: string;
   showContactForm?: boolean;
+  socialLinks?: { links: Array<{ label: string; url: string }> };
 }
 
 interface GalleryItem {
@@ -133,6 +140,8 @@ interface SectionContent {
   education?: EducationContent;
   contact?: ContactContent;
   gallery?: GalleryContent;
+  customCSS?: { styles: string };
+  seo?: { metaTitle: string; metaDescription: string; keywords: string };
   [key: string]: any;
 }
 
@@ -307,10 +316,13 @@ export default function PortfolioEditorPage() {
           phone: '',
           address: user?.profile?.location || '',
           showContactForm: true,
+          socialLinks: { links: [] },
         },
         gallery: {
           items: [],
         },
+        customCSS: { styles: '' },
+        seo: { metaTitle: '', metaDescription: '', keywords: '' },
       },
     };
 
@@ -432,14 +444,9 @@ export default function PortfolioEditorPage() {
     }
 
     try {
-      // Track template usage
+      // Track template usage - use the new method which handles errors
       if (!portfolioId && template?._id) {
-        try {
-          await apiClient.request(`/templates/${template._id}/use`, 'POST');
-        } catch (error) {
-          console.error('Error tracking template usage:', error);
-          // Continue with saving even if tracking fails
-        }
+        await apiClient.incrementTemplateUsage(template._id);
       }
 
       let savedPortfolio;
@@ -457,6 +464,13 @@ export default function PortfolioEditorPage() {
             ...portfolio.sectionContent
           }
         );
+
+        // Update local portfolioId in case it's changed
+        if (savedPortfolio && savedPortfolio._id) {
+          setPortfolioId(savedPortfolio._id);
+        }
+
+        toast.success('Portfolio draft updated successfully');
       } else {
         // Create new portfolio
         savedPortfolio = await apiClient.createPortfolio({
@@ -469,10 +483,14 @@ export default function PortfolioEditorPage() {
 
         if (savedPortfolio && savedPortfolio._id) {
           setPortfolioId(savedPortfolio._id);
+          toast.success('Portfolio draft created successfully');
         }
       }
+
+      return Promise.resolve();
     } catch (error) {
       console.error('Error saving portfolio:', error);
+      toast.error('Failed to save portfolio draft. Please try again.');
       throw new Error('Failed to save portfolio');
     }
   };
@@ -491,13 +509,9 @@ export default function PortfolioEditorPage() {
     }
 
     try {
-      // Track template usage if this is a new portfolio
+      // Track template usage if this is a new portfolio - use the new method
       if (!portfolioId && template?._id) {
-        try {
-          await apiClient.request(`/templates/${template._id}/use`, 'POST');
-        } catch (error) {
-          console.error('Error tracking template usage:', error);
-        }
+        await apiClient.incrementTemplateUsage(template._id);
       }
 
       let savedPortfolio;
@@ -515,6 +529,8 @@ export default function PortfolioEditorPage() {
             ...portfolio.sectionContent
           }
         );
+
+        toast.success('Portfolio published successfully');
       } else {
         // Create new portfolio
         savedPortfolio = await apiClient.createPortfolio({
@@ -528,10 +544,14 @@ export default function PortfolioEditorPage() {
 
         if (savedPortfolio && savedPortfolio._id) {
           setPortfolioId(savedPortfolio._id);
+          toast.success('Portfolio created and published successfully');
         }
       }
+
+      return Promise.resolve();
     } catch (error) {
       console.error('Error publishing portfolio:', error);
+      toast.error('Failed to publish portfolio. Please try again.');
       throw new Error('Failed to publish portfolio');
     }
   };
@@ -934,161 +954,79 @@ export default function PortfolioEditorPage() {
                       />
                     </TabsContent>
 
-                    {/* Gallery Section - if template supports it */}
+                    {/* Experience Section */}
+                    {portfolio.settings.layout?.sections?.includes('experience') && (
+                      <TabsContent value="experience" className="space-y-4">
+                        <ExperienceEditor
+                          content={portfolio.sectionContent.experience || { items: [] }}
+                          onSave={(content) => handleSectionContentChange('experience', content)}
+                          isLoading={loading}
+                        />
+                      </TabsContent>
+                    )}
+
+                    {/* Education Section */}
+                    {portfolio.settings.layout?.sections?.includes('education') && (
+                      <TabsContent value="education" className="space-y-4">
+                        <EducationEditor
+                          content={portfolio.sectionContent.education || { items: [] }}
+                          onSave={(content) => handleSectionContentChange('education', content)}
+                          isLoading={loading}
+                        />
+                      </TabsContent>
+                    )}
+
+                    {/* Gallery Section */}
                     {portfolio.settings.layout?.sections?.includes('gallery') && (
                       <TabsContent value="gallery" className="space-y-4">
-                        <div className="p-6 border rounded-lg bg-muted/10">
-                          <h3 className="text-lg font-medium mb-4">Gallery Section</h3>
-                          <p className="mb-4 text-muted-foreground">
-                            This section allows you to showcase your visual work. Upload images and organize them into categories.
-                          </p>
-                          <div className="flex justify-center">
-                            <Button
-                              variant="outline"
-                              onClick={() => {
-                                // Initialize gallery if it doesn't exist
-                                if (!portfolio.sectionContent.gallery) {
-                                  handleSectionContentChange('gallery', { items: [] });
-                                }
-                                // TODO: Implement full gallery editor in a future update
-                                toast.info('Gallery editor will be available in the next update');
-                              }}
-                            >
-                              {portfolio.sectionContent.gallery?.items?.length ?
-                                `Edit Gallery (${portfolio.sectionContent.gallery.items.length} items)` :
-                                'Add Images to Gallery'}
-                            </Button>
-                          </div>
-                        </div>
+                        <GalleryEditor
+                          content={portfolio.sectionContent.gallery || { items: [] }}
+                          onSave={(content) => handleSectionContentChange('gallery', content)}
+                          isLoading={loading}
+                        />
                       </TabsContent>
                     )}
 
                     {/* Contact Section */}
                     {portfolio.settings.layout?.sections?.includes('contact') && (
                       <TabsContent value="contact" className="space-y-4">
-                        <div className="space-y-4">
-                          <div className="space-y-2">
-                            <label className="text-sm font-medium">Email Address</label>
-                            <Input
-                              type="email"
-                              placeholder="your@email.com"
-                              value={portfolio.sectionContent.contact?.email || ''}
-                              onChange={(e) => handleSectionContentChange('contact', {
-                                ...portfolio.sectionContent.contact,
-                                email: e.target.value
-                              })}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <label className="text-sm font-medium">Phone Number (Optional)</label>
-                            <Input
-                              type="tel"
-                              placeholder="+1 (555) 123-4567"
-                              value={portfolio.sectionContent.contact?.phone || ''}
-                              onChange={(e) => handleSectionContentChange('contact', {
-                                ...portfolio.sectionContent.contact,
-                                phone: e.target.value
-                              })}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <label className="text-sm font-medium">Location/Address (Optional)</label>
-                            <Input
-                              placeholder="City, Country"
-                              value={portfolio.sectionContent.contact?.address || ''}
-                              onChange={(e) => handleSectionContentChange('contact', {
-                                ...portfolio.sectionContent.contact,
-                                address: e.target.value
-                              })}
-                            />
-                          </div>
-                          <div className="flex items-center space-x-2 pt-2">
-                            <Switch
-                              id="contact-form"
-                              checked={portfolio.sectionContent.contact?.showContactForm || false}
-                              onCheckedChange={(checked) => handleSectionContentChange('contact', {
-                                ...portfolio.sectionContent.contact,
-                                showContactForm: checked
-                              })}
-                            />
-                            <Label htmlFor="contact-form">
-                              Include contact form on portfolio
-                            </Label>
-                          </div>
-                        </div>
+                        <ContactEditor
+                          content={portfolio.sectionContent.contact || {}}
+                          onSave={(content) => handleSectionContentChange('contact', content)}
+                          isLoading={loading}
+                        />
                       </TabsContent>
                     )}
 
-                    {/* Experience Section */}
-                    {portfolio.settings.layout?.sections?.includes('experience') && (
-                      <TabsContent value="experience" className="space-y-4">
-                        <div className="p-6 border rounded-lg bg-muted/10">
-                          <h3 className="text-lg font-medium mb-4">Work Experience</h3>
-                          <p className="mb-4 text-muted-foreground">
-                            Add your professional experience to showcase your career journey.
-                          </p>
+                    {/* Custom CSS Section */}
+                    {portfolio.settings.layout?.sections?.includes('customCSS') && (
+                      <TabsContent value="customCSS" className="space-y-4">
+                        <CustomCSSEditor
+                          content={portfolio.sectionContent.customCSS || { styles: '' }}
+                          onSave={(content) => handleSectionContentChange('customCSS', content)}
+                          isLoading={loading}
+                        />
+                      </TabsContent>
+                    )}
 
-                          {/* Simple experience editor - can be expanded later */}
-                          {portfolio.sectionContent.experience?.items && portfolio.sectionContent.experience.items.length > 0 ? (
-                            <div className="space-y-4 mb-4">
-                              {portfolio.sectionContent.experience.items.map((item, index) => (
-                                <div key={index} className="p-4 border rounded-md">
-                                  <div className="flex justify-between items-start mb-2">
-                                    <div>
-                                      <h4 className="font-medium">{item.title}</h4>
-                                      <p className="text-sm text-muted-foreground">{item.company}</p>
-                                    </div>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => {
-                                        const updatedItems = [...portfolio.sectionContent.experience!.items];
-                                        updatedItems.splice(index, 1);
-                                        handleSectionContentChange('experience', {
-                                          items: updatedItems
-                                        });
-                                      }}
-                                    >
-                                      Remove
-                                    </Button>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <p className="text-center text-muted-foreground mb-4">No experience added yet</p>
-                          )}
-
-                          <div className="flex justify-center">
-                            <Button
-                              onClick={() => {
-                                // Initialize with sample data for now
-                                const newItem = {
-                                  id: Date.now().toString(),
-                                  title: "Job Title",
-                                  company: "Company Name",
-                                  location: "Location",
-                                  startDate: new Date().toISOString(),
-                                  current: true,
-                                  description: "Describe your responsibilities and achievements"
-                                };
-
-                                const currentItems = portfolio.sectionContent.experience?.items || [];
-                                handleSectionContentChange('experience', {
-                                  items: [...currentItems, newItem]
-                                });
-                              }}
-                            >
-                              Add Experience
-                            </Button>
-                          </div>
-                        </div>
+                    {/* SEO Settings Section */}
+                    {portfolio.settings.layout?.sections?.includes('seo') && (
+                      <TabsContent value="seo" className="space-y-4">
+                        <SEOEditor
+                          content={portfolio.sectionContent.seo || {
+                            metaTitle: '',
+                            metaDescription: '',
+                            keywords: ''
+                          }}
+                          onSave={(content) => handleSectionContentChange('seo', content)}
+                          isLoading={loading}
+                        />
                       </TabsContent>
                     )}
 
                     {/* Other template-specific sections */}
                     {portfolio.settings.layout?.sections?.filter(s =>
-                      !['about', 'projects', 'skills', 'gallery', 'contact', 'experience'].includes(s)
+                      !['about', 'projects', 'skills', 'gallery', 'contact', 'experience', 'education', 'customCSS', 'seo'].includes(s)
                     ).map((section) => (
                       <TabsContent key={section} value={section} className="h-96 flex items-center justify-center border rounded-md">
                         <div className="text-center">

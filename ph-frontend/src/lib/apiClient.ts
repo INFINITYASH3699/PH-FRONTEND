@@ -163,12 +163,13 @@ export const isAuthenticated = (): boolean => {
   return !!getToken();
 };
 
-// Generic API request function
+// Generic API request function with improved error handling
 const apiRequest = async <T>(
   endpoint: string,
   method: string = "GET",
   data?: any,
-  requiresAuth: boolean = true
+  requiresAuth: boolean = true,
+  showErrorToast: boolean = true
 ): Promise<T> => {
   try {
     const url = `${API_BASE_URL}${endpoint}`;
@@ -221,6 +222,9 @@ const apiRequest = async <T>(
     return responseData as T;
   } catch (error: any) {
     console.error(`API error (${endpoint}):`, error);
+    if (showErrorToast) {
+      toast.error(error.message || 'An error occurred');
+    }
     throw error;
   }
 };
@@ -587,6 +591,24 @@ async function getPortfolioBySubdomain(subdomain: string): Promise<Portfolio> {
   }
 }
 
+// Increment template usage with improved error handling
+async function incrementTemplateUsage(templateId: string): Promise<boolean> {
+  try {
+    await apiRequest<{ success: boolean; message: string }>(
+      `/templates/${templateId}/use`,
+      'POST',
+      undefined,
+      true,
+      false // Set to false to suppress error toast
+    );
+    return true;
+  } catch (error) {
+    console.warn('Template usage tracking failed - continuing anyway:', error);
+    // Return true since this is a non-critical operation
+    return true;
+  }
+}
+
 // API client object
 const apiClient = {
   // Auth
@@ -609,12 +631,13 @@ const apiClient = {
   favoriteTemplate,
   getFavoriteTemplates,
   getTemplateReviews,
+  incrementTemplateUsage, // Add the new method
 
   // Portfolios
   createPortfolio,
   updatePortfolioContent,
   uploadImage,
-  getPortfolioBySubdomain, // Add the new function to exports
+  getPortfolioBySubdomain,
 
   // Generic request method for other API calls
   request: apiRequest,
