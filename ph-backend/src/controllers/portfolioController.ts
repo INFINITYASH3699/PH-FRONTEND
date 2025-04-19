@@ -193,9 +193,27 @@ export const updatePortfolio = async (req: Request, res: Response): Promise<Resp
     // Update fields
     if (title) portfolio.title = title;
     if (subtitle !== undefined) portfolio.subtitle = subtitle;
-    if (content) portfolio.content = content;
     if (isPublished !== undefined) portfolio.isPublished = isPublished;
     if (customDomain !== undefined) portfolio.customDomain = customDomain;
+
+    // Handle content updates - ensure proper merging
+    if (content) {
+      // If content exists, merge it with existing content
+      if (!portfolio.content) {
+        portfolio.content = {};
+      }
+
+      // Check if content is a section update (nested structure)
+      if (typeof content === 'object') {
+        // Loop through each section in the content update
+        Object.keys(content).forEach(key => {
+          // Update or add the section content
+          portfolio.content[key] = content[key];
+        });
+
+        console.log('Updated portfolio content sections:', Object.keys(content));
+      }
+    }
 
     // Handle header image update
     if (headerImage) {

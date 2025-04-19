@@ -186,6 +186,7 @@ export default function PortfolioEditorPage() {
   const [loading, setLoading] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<string>('about');
   const [portfolioId, setPortfolioId] = useState<string | null>(null);
+  const [existingPortfolioFetched, setExistingPortfolioFetched] = useState<boolean>(false);
 
   // Fetch template data from API
   useEffect(() => {
@@ -207,7 +208,107 @@ export default function PortfolioEditorPage() {
 
         setTemplate(templateData);
 
-        // Initialize portfolio with template data
+        // If user is authenticated, check for existing portfolios using this template
+        if (isAuthenticated && user && !existingPortfolioFetched) {
+          try {
+            // Get user's portfolios
+            const userPortfolios = await apiClient.request<{ success: boolean; portfolios: Portfolio[] }>(
+              '/portfolios',
+              'GET'
+            );
+
+            // Find portfolio with this template
+            const existingPortfolio = userPortfolios.portfolios.find(
+              p => p.templateId === templateId ||
+                 (typeof p.templateId === 'object' && p.templateId._id === templateId)
+            );
+
+            if (existingPortfolio) {
+              // If portfolio exists, use it
+              console.log('Found existing portfolio with this template:', existingPortfolio);
+              setPortfolioId(existingPortfolio._id);
+
+              // Initialize with existing data
+              const portfolioData = await apiClient.request<{ success: boolean; portfolio: any }>(
+                `/portfolios/${existingPortfolio._id}`,
+                'GET'
+              );
+
+              if (portfolioData.success && portfolioData.portfolio) {
+                const portfolioContent = portfolioData.portfolio.content || {};
+
+                // Create portfolio with existing data
+                const savedPortfolio: Portfolio = {
+                  id: portfolioData.portfolio._id,
+                  templateId: templateId,
+                  title: portfolioData.portfolio.title || 'My Portfolio',
+                  subtitle: portfolioData.portfolio.subtitle || user?.profile?.title || 'Web Developer',
+                  subdomain: portfolioData.portfolio.subdomain || user?.username || '',
+                  isPublished: portfolioData.portfolio.isPublished || false,
+                  settings: portfolioData.portfolio.content.settings || {
+                    colors: {
+                      primary: '#6366f1',
+                      secondary: '#8b5cf6',
+                      background: '#ffffff',
+                      text: '#111827',
+                    },
+                    fonts: {
+                      heading: 'Inter',
+                      body: 'Inter',
+                    },
+                    layout: {
+                      sections: templateData.sections,
+                      showHeader: true,
+                      showFooter: true,
+                    },
+                  },
+                  sectionContent: {
+                    about: portfolioContent.about || {
+                      title: 'About Me',
+                      bio: user?.profile?.bio || 'I am a passionate professional with experience in my field.',
+                      profileImage: user?.profilePicture || '',
+                    },
+                    projects: portfolioContent.projects || { items: [] },
+                    skills: portfolioContent.skills || {
+                      categories: [
+                        {
+                          name: 'Frontend',
+                          skills: [
+                            { name: 'React', proficiency: 90 },
+                            { name: 'JavaScript', proficiency: 85 },
+                            { name: 'CSS', proficiency: 80 },
+                          ],
+                        },
+                      ],
+                    },
+                    experience: portfolioContent.experience || { items: [] },
+                    education: portfolioContent.education || { items: [] },
+                    contact: portfolioContent.contact || {
+                      email: user?.email || '',
+                      phone: '',
+                      address: user?.profile?.location || '',
+                      showContactForm: true,
+                      socialLinks: { links: [] },
+                    },
+                    gallery: portfolioContent.gallery || { items: [] },
+                    customCSS: portfolioContent.customCSS || { styles: '' },
+                    seo: portfolioContent.seo || { metaTitle: '', metaDescription: '', keywords: '' },
+                  },
+                };
+
+                setPortfolio(savedPortfolio);
+                setExistingPortfolioFetched(true);
+                console.log('Using existing portfolio data:', savedPortfolio);
+                return;
+              }
+            }
+          } catch (error) {
+            console.error('Error fetching user portfolios:', error);
+            // Continue with template initialization if portfolio fetch fails
+          }
+        }
+
+        // If no existing portfolio was found or fetch failed, initialize with template defaults
         initializePortfolio(templateData);
       } catch (error) {
         console.error('Error fetching template:', error);
@@ -241,7 +342,7 @@ export default function PortfolioEditorPage() {
     };
 
     fetchTemplate();
-  }, [templateId, router]);
+  }, [templateId, router, isAuthenticated, user, existingPortfolioFetched]);
 
   // Initialize portfolio with template data
   const initializePortfolio = (templateData: Template) => {
@@ -402,10 +503,21 @@ export default function PortfolioEditorPage() {
     if (!portfolioId || !user) return;
 
     try {
-      await apiClient.updatePortfolioContent(
-        portfolioId,
-        { [section]: content }
+      // Create content object with the proper structure
+      const contentUpdate = {
+        content: {
+          [section]: content
+        }
+      };
+
+      // Update portfolio with properly structured content
+      await apiClient.request(
+        `/portfolios/${portfolioId}`,
+        'PUT',
+        contentUpdate
       );
+
+      console.log(`Updated ${section} section successfully with:`, content);
     } catch (error) {
       console.error(`Error updating ${section} section:`, error);
       toast.error('Failed to update section content');
@@ -452,33 +564,39 @@ export default function PortfolioEditorPage() {
       let savedPortfolio;
 
       if (portfolioId) {
-        // Update existing portfolio
-        savedPortfolio = await apiClient.updatePortfolioContent(
-          portfolioId,
+        // Update existing portfolio with proper structure
+        savedPortfolio = await apiClient.request(
+          `/portfolios/${portfolioId}`,
+          'PUT',
           {
             title: portfolio.title,
             subtitle: portfolio.subtitle,
             subdomain: portfolio.subdomain,
-            settings: portfolio.settings,
             isPublished: false,
-            ...portfolio.sectionContent
+            content: {
+              settings: portfolio.settings,
+              ...portfolio.sectionContent
+            }
           }
         );
 
         // Update local portfolioId in case it's changed
-        if (savedPortfolio && savedPortfolio._id) {
-          setPortfolioId(savedPortfolio._id);
+        if (savedPortfolio && savedPortfolio.portfolio && savedPortfolio.portfolio._id) {
+          setPortfolioId(savedPortfolio.portfolio._id);
         }
 
         toast.success('Portfolio draft updated successfully');
       } else {
-        // Create new portfolio
+        // Create new portfolio with proper structure
         savedPortfolio = await apiClient.createPortfolio({
           title: portfolio.title,
           subtitle: portfolio.subtitle,
           subdomain: portfolio.subdomain,
           templateId: portfolio.templateId,
-          content: portfolio.sectionContent,
+          content: {
+            settings: portfolio.settings,
+            ...portfolio.sectionContent
+          },
         });
 
         if (savedPortfolio && savedPortfolio._id) {
@@ -517,28 +635,34 @@ export default function PortfolioEditorPage() {
       let savedPortfolio;
 
       if (portfolioId) {
-        // Update existing portfolio
-        savedPortfolio = await apiClient.updatePortfolioContent(
-          portfolioId,
+        // Update existing portfolio with proper structure
+        savedPortfolio = await apiClient.request(
+          `/portfolios/${portfolioId}`,
+          'PUT',
           {
             title: portfolio.title,
             subtitle: portfolio.subtitle,
             subdomain: portfolio.subdomain,
-            settings: portfolio.settings,
             isPublished: true,
-            ...portfolio.sectionContent
+            content: {
+              settings: portfolio.settings,
+              ...portfolio.sectionContent
+            }
           }
         );
 
         toast.success('Portfolio published successfully');
       } else {
-        // Create new portfolio
+        // Create new portfolio with proper structure
         savedPortfolio = await apiClient.createPortfolio({
           title: portfolio.title,
           subtitle: portfolio.subtitle,
           subdomain: portfolio.subdomain,
           templateId: portfolio.templateId,
-          content: portfolio.sectionContent,
+          content: {
+            settings: portfolio.settings,
+            ...portfolio.sectionContent
+          },
           isPublished: true
         });
 
