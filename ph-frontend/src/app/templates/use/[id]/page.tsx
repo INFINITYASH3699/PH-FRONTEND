@@ -211,11 +211,15 @@ export default function PortfolioEditorPage() {
         // If user is authenticated, check for existing portfolios using this template
         if (isAuthenticated && user && !existingPortfolioFetched) {
           try {
+            console.log('Checking for existing portfolios with template ID:', templateId);
+
             // Get user's portfolios
             const userPortfolios = await apiClient.request<{ success: boolean; portfolios: Portfolio[] }>(
               '/portfolios',
               'GET'
             );
+
+            console.log('User portfolios fetched:', userPortfolios?.portfolios?.length || 0);
 
             // Find portfolio with this template
             const existingPortfolio = userPortfolios.portfolios.find(
@@ -228,99 +232,104 @@ export default function PortfolioEditorPage() {
               console.log('Found existing portfolio with this template:', existingPortfolio);
               setPortfolioId(existingPortfolio._id);
 
-              // Initialize with existing data
-              const portfolioData = await apiClient.request<{ success: boolean; portfolio: any }>(
-                `/portfolios/${existingPortfolio._id}`,
-                'GET'
-              );
+              try {
+                // Initialize with existing data
+                const portfolioData = await apiClient.request<{ success: boolean; portfolio: any }>(
+                  `/portfolios/${existingPortfolio._id}`,
+                  'GET'
+                );
 
-              console.log('Full portfolio data loaded:', portfolioData);
+                console.log('Full portfolio data loaded:', portfolioData);
 
-              if (portfolioData.success && portfolioData.portfolio) {
-                // Extract the content from the portfolio data
-                // Make sure we're getting all sections properly
-                const portfolioContent = portfolioData.portfolio.content || {};
+                if (portfolioData.success && portfolioData.portfolio) {
+                  // Extract the content from the portfolio data
+                  // Make sure we're getting all sections properly
+                  const portfolioContent = portfolioData.portfolio.content || {};
 
-                console.log('Portfolio content to use:', JSON.stringify(portfolioContent, null, 2));
+                  console.log('Portfolio content to use:', JSON.stringify(portfolioContent, null, 2));
 
-                // Create a function to safely extract and create a deep copy of section data
-                const extractSectionData = (sectionName, defaultValue) => {
-                  if (portfolioContent[sectionName]) {
-                    // Deep clone to avoid reference issues
-                    return JSON.parse(JSON.stringify(portfolioContent[sectionName]));
-                  }
-                  return defaultValue;
-                };
+                  // Create a function to safely extract and create a deep copy of section data
+                  const extractSectionData = (sectionName, defaultValue) => {
+                    if (portfolioContent[sectionName]) {
+                      // Deep clone to avoid reference issues
+                      return JSON.parse(JSON.stringify(portfolioContent[sectionName]));
+                    }
+                    return defaultValue;
+                  };
 
-                // Create portfolio with existing data, safely copying all nested arrays
-                const savedPortfolio: Portfolio = {
-                  id: portfolioData.portfolio._id,
-                  templateId: templateId,
-                  title: portfolioData.portfolio.title || 'My Portfolio',
-                  subtitle: portfolioData.portfolio.subtitle || user?.profile?.title || 'Web Developer',
-                  subdomain: portfolioData.portfolio.subdomain || user?.username || '',
-                  isPublished: portfolioData.portfolio.isPublished || false,
-                  settings: extractSectionData('settings', {
-                    colors: {
-                      primary: '#6366f1',
-                      secondary: '#8b5cf6',
-                      background: '#ffffff',
-                      text: '#111827',
-                    },
-                    fonts: {
-                      heading: 'Inter',
-                      body: 'Inter',
-                    },
-                    layout: {
-                      sections: templateData.sections,
-                      showHeader: true,
-                      showFooter: true,
-                    },
-                  }),
-                  sectionContent: {
-                    // Safely extract each section's content using the helper function
-                    about: extractSectionData('about', {
-                      title: 'About Me',
-                      bio: user?.profile?.bio || 'I am a passionate professional with experience in my field.',
-                      profileImage: user?.profilePicture || '',
+                  // Create portfolio with existing data, safely copying all nested arrays
+                  const savedPortfolio: Portfolio = {
+                    id: portfolioData.portfolio._id,
+                    templateId: templateId,
+                    title: portfolioData.portfolio.title || 'My Portfolio',
+                    subtitle: portfolioData.portfolio.subtitle || user?.profile?.title || 'Web Developer',
+                    subdomain: portfolioData.portfolio.subdomain || user?.username || '',
+                    isPublished: portfolioData.portfolio.isPublished || false,
+                    settings: extractSectionData('settings', {
+                      colors: {
+                        primary: '#6366f1',
+                        secondary: '#8b5cf6',
+                        background: '#ffffff',
+                        text: '#111827',
+                      },
+                      fonts: {
+                        heading: 'Inter',
+                        body: 'Inter',
+                      },
+                      layout: {
+                        sections: templateData.sections,
+                        showHeader: true,
+                        showFooter: true,
+                      },
                     }),
-                    projects: extractSectionData('projects', { items: [] }),
-                    skills: extractSectionData('skills', {
-                      categories: [
-                        {
-                          name: 'Frontend',
-                          skills: [
-                            { name: 'React', proficiency: 90 },
-                            { name: 'JavaScript', proficiency: 85 },
-                            { name: 'CSS', proficiency: 80 },
-                          ],
-                        },
-                      ],
-                    }),
-                    experience: extractSectionData('experience', { items: [] }),
-                    education: extractSectionData('education', { items: [] }),
-                    contact: extractSectionData('contact', {
-                      email: user?.email || '',
-                      phone: '',
-                      address: user?.profile?.location || '',
-                      showContactForm: true,
-                      socialLinks: { links: [] },
-                    }),
-                    gallery: extractSectionData('gallery', { items: [] }),
-                    customCSS: extractSectionData('customCSS', { styles: '' }),
-                    seo: extractSectionData('seo', { metaTitle: '', metaDescription: '', keywords: '' }),
-                  },
-                };
+                    sectionContent: {
+                      // Safely extract each section's content using the helper function
+                      about: extractSectionData('about', {
+                        title: 'About Me',
+                        bio: user?.profile?.bio || 'I am a passionate professional with experience in my field.',
+                        profileImage: user?.profilePicture || '',
+                      }),
+                      projects: extractSectionData('projects', { items: [] }),
+                      skills: extractSectionData('skills', {
+                        categories: [
+                          {
+                            name: 'Frontend',
+                            skills: [
+                              { name: 'React', proficiency: 90 },
+                              { name: 'JavaScript', proficiency: 85 },
+                              { name: 'CSS', proficiency: 80 },
+                            ],
+                          },
+                        ],
+                      }),
+                      experience: extractSectionData('experience', { items: [] }),
+                      education: extractSectionData('education', { items: [] }),
+                      contact: extractSectionData('contact', {
+                        email: user?.email || '',
+                        phone: '',
+                        address: user?.profile?.location || '',
+                        showContactForm: true,
+                        socialLinks: { links: [] },
+                      }),
+                      gallery: extractSectionData('gallery', { items: [] }),
+                      customCSS: extractSectionData('customCSS', { styles: '' }),
+                      seo: extractSectionData('seo', { metaTitle: '', metaDescription: '', keywords: '' }),
+                    },
+                  };
 
-                // Debug log to see what we're setting
-                console.log('Setting portfolio state with:', JSON.stringify(savedPortfolio, null, 2));
-                console.log('Section content being applied:', JSON.stringify(savedPortfolio.sectionContent, null, 2));
+                  // Debug log to see what we're setting
+                  console.log('Setting portfolio state with:', JSON.stringify(savedPortfolio, null, 2));
+                  console.log('Section content being applied:', JSON.stringify(savedPortfolio.sectionContent, null, 2));
 
-                // Set portfolio state with the loaded data
-                setPortfolio(savedPortfolio);
-                setExistingPortfolioFetched(true);
-                console.log('Using existing portfolio data:', savedPortfolio);
-                return;
+                  // Set portfolio state with the loaded data
+                  setPortfolio(savedPortfolio);
+                  setExistingPortfolioFetched(true);
+                  console.log('Using existing portfolio data:', savedPortfolio);
+                  return;
+                }
+              } catch (innerError) {
+                console.error('Error fetching specific portfolio data:', innerError);
+                // Continue with template initialization below if specific portfolio fetch fails
               }
             }
           } catch (error) {

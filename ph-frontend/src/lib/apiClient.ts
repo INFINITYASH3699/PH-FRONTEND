@@ -2,7 +2,10 @@ import { toast } from "sonner";
 
 // API base URL - use environment variable or default to the backend URL
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"; // Updated to port 5000 based on backend code
+  process.env.NEXT_PUBLIC_API_URL ||
+  (typeof window !== 'undefined' && window.location.hostname !== 'localhost'
+    ? '/api' // In production, use the relative /api path which gets rewritten in vercel.json
+    : 'http://localhost:5000/api'); // Use localhost for development
 
 // Storage keys
 const TOKEN_KEY = "ph_auth_token";
