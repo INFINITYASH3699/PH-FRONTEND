@@ -4,7 +4,7 @@ import { toast } from "sonner";
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ||
   (typeof window !== 'undefined' && window.location.hostname !== 'localhost'
-    ? 'https://portfolio-hub-yqp0.onrender.com/api' // Use the full URL in production
+    ? 'https://portfolio-hub-yqp0.onrender.com/api' // Use the correct Render.com backend URL
     : 'http://localhost:5000/api'); // Use localhost for development
 
 // Storage keys
@@ -483,27 +483,74 @@ async function getTemplates(category?: string, options?: { sort?: string; tags?:
     }
 
     // Use direct backend URL specifically for templates to avoid rewrite issues
-    const backendUrl = 'https://ph-backend-api.vercel.app/api';
-    console.log('Fetching templates from:', `${backendUrl}${endpoint}`);
+    const backendUrl = 'https://portfolio-hub-yqp0.onrender.com/api';
+    console.log('[DEBUG] Fetching templates from:', `${backendUrl}${endpoint}`);
 
-    const response = await fetch(`${backendUrl}${endpoint}`, {
-      method: 'GET',
-      headers: {
+    // Set up a fetch with timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30-second timeout
+
+    try {
+      const token = getToken();
+      const headers: HeadersInit = {
         'Content-Type': 'application/json',
-        ...(getToken() ? { 'Authorization': `Bearer ${getToken()}` } : {})
-      },
-      credentials: 'include'
-    });
+      };
 
-    if (!response.ok) {
-      throw new Error(`Template fetch failed with status: ${response.status}`);
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+        console.log('[DEBUG] Using auth token for templates request');
+      } else {
+        console.log('[DEBUG] No auth token available for templates request');
+      }
+
+      console.log('[DEBUG] Making fetch request to templates endpoint');
+      const response = await fetch(`${backendUrl}${endpoint}`, {
+        method: 'GET',
+        headers,
+        credentials: 'omit', // Change from 'include' to 'omit' to avoid CORS preflight issues
+        mode: 'cors', // Explicitly set CORS mode
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      console.log('[DEBUG] Templates response status:', response.status);
+
+      // Try to get the response body as text first
+      const responseText = await response.text();
+      console.log('[DEBUG] Templates response text (first 200 chars):', responseText.substring(0, 200));
+
+      if (!response.ok) {
+        console.error('[DEBUG] Error response from templates endpoint:', response.status, responseText);
+        throw new Error(`Templates fetch failed with status: ${response.status}, message: ${responseText}`);
+      }
+
+      // Now parse the JSON
+      const data = JSON.parse(responseText);
+
+      console.log('[DEBUG] Templates data received:', data ? 'Success' : 'Empty data');
+      if (!data.templates || !Array.isArray(data.templates)) {
+        console.error('[DEBUG] Invalid templates data format:', data);
+        throw new Error('Invalid templates data format');
+      }
+
+      console.log('[DEBUG] Templates count:', data.templates.length);
+      return data.templates;
+    } catch (fetchError: any) {
+      clearTimeout(timeoutId);
+
+      // Special handling for abort/timeout
+      if (fetchError.name === 'AbortError') {
+        console.error('[DEBUG] Templates request timed out after 30s');
+        throw new Error('Templates request timed out after 30 seconds');
+      }
+
+      console.error('[DEBUG] Fetch error in templates request:', fetchError);
+      throw fetchError;
     }
-
-    const data = await response.json();
-    console.log('Template response received:', data);
-    return data.templates;
   } catch (error) {
-    console.error('Error fetching templates:', error);
+    console.error('[DEBUG] Error in getTemplates function:', error);
+    // Throw with more details for better debugging
     throw error;
   }
 }
@@ -511,16 +558,22 @@ async function getTemplates(category?: string, options?: { sort?: string; tags?:
 async function getTemplateById(id: string): Promise<Template> {
   try {
     // Use direct backend URL specifically for templates to avoid rewrite issues
-    const backendUrl = 'https://ph-backend-api.vercel.app/api';
+    const backendUrl = 'https://portfolio-hub-yqp0.onrender.com/api';
     console.log('Fetching template by ID from:', `${backendUrl}/templates/${id}`);
+
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    const token = getToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
 
     const response = await fetch(`${backendUrl}/templates/${id}`, {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(getToken() ? { 'Authorization': `Bearer ${getToken()}` } : {})
-      },
-      credentials: 'include'
+      headers,
+      credentials: 'omit', // Change from 'include' to 'omit' to avoid CORS preflight issues
+      mode: 'cors', // Explicitly set CORS mode
     });
 
     if (!response.ok) {
@@ -568,7 +621,7 @@ async function favoriteTemplate(templateId: string, isFavorite: boolean): Promis
 async function getFavoriteTemplates(): Promise<Template[]> {
   try {
     // Use direct backend URL specifically for templates to avoid rewrite issues
-    const backendUrl = 'https://ph-backend-api.vercel.app/api';
+    const backendUrl = 'https://portfolio-hub-yqp0.onrender.com/api';
     const token = getToken();
 
     if (!token) {
@@ -583,7 +636,8 @@ async function getFavoriteTemplates(): Promise<Template[]> {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
       },
-      credentials: 'include'
+      credentials: 'omit', // Change from 'include' to 'omit' to avoid CORS preflight issues
+      mode: 'cors', // Explicitly set CORS mode
     });
 
     if (!response.ok) {
