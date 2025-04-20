@@ -54,6 +54,7 @@ export default function TemplatesPage() {
   // Fetch templates from the API
   useEffect(() => {
     const fetchTemplates = async () => {
+      console.log("Starting template fetch...");
       try {
         setLoading(true);
         const category = filterOptions.category !== 'all' ? filterOptions.category : undefined;
@@ -63,27 +64,40 @@ export default function TemplatesPage() {
           tags: filterOptions.tags.length > 0 ? filterOptions.tags : undefined,
         };
 
+        console.log("Template fetch params:", { category, options });
+        console.log("API_BASE_URL used:", process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' && window.location.hostname !== 'localhost' ? 'https://ph-backend-api.vercel.app/api' : 'http://localhost:5000/api'));
+
         // Add a timeout to the fetch request
-        const timeoutPromise = new Promise<Template[]>((_, reject) =>
-          setTimeout(() => reject(new Error('API request timeout')), 10000)
+        const timeoutPromise = new Promise<any>((_, reject) =>
+          setTimeout(() => {
+            console.log("Template fetch timeout reached (10s)");
+            reject(new Error('API request timeout'));
+          }, 10000)
         );
 
+        console.log("Calling apiClient.getTemplates...");
         const fetchPromise = apiClient.getTemplates(category, options);
 
         // Race between the fetch and the timeout
         const fetchedTemplates = await Promise.race([fetchPromise, timeoutPromise]);
 
-        console.log('Templates fetched successfully:', fetchedTemplates.length);
+        console.log('Templates fetch successful, received:', fetchedTemplates.length, 'templates');
         setTemplates(fetchedTemplates);
       } catch (error) {
-        console.error('Error fetching templates details:', error);
+        console.error('Error details for template fetch:', error);
         // Log what type of error occurred
         if (error instanceof Error) {
-          console.error(`Error name: ${error.name}, message: ${error.message}`);
+          console.error(`Error name: ${error.name}, message: ${error.message}, stack: ${error.stack}`);
+        }
+
+        // Try to log error response if it's a network error
+        if (error instanceof Error && error.message.includes('network')) {
+          console.log('Network error - check CORS and API endpoint availability');
         }
 
         toast.error('Failed to load templates. Using demo data instead.');
 
+        console.log('Falling back to demo templates data');
         // Use fallback templates if API fails
         setTemplates(
           fallbackTemplates.map(t => ({

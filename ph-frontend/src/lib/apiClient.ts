@@ -482,8 +482,26 @@ async function getTemplates(category?: string, options?: { sort?: string; tags?:
       endpoint += `?${queryParams.join('&')}`;
     }
 
-    const response = await apiRequest<{ success: boolean; templates: Template[] }>(endpoint);
-    return response.templates;
+    // Use direct backend URL specifically for templates to avoid rewrite issues
+    const backendUrl = 'https://ph-backend-api.vercel.app/api';
+    console.log('Fetching templates from:', `${backendUrl}${endpoint}`);
+
+    const response = await fetch(`${backendUrl}${endpoint}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(getToken() ? { 'Authorization': `Bearer ${getToken()}` } : {})
+      },
+      credentials: 'include'
+    });
+
+    if (!response.ok) {
+      throw new Error(`Template fetch failed with status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log('Template response received:', data);
+    return data.templates;
   } catch (error) {
     console.error('Error fetching templates:', error);
     throw error;
@@ -492,10 +510,28 @@ async function getTemplates(category?: string, options?: { sort?: string; tags?:
 
 async function getTemplateById(id: string): Promise<Template> {
   try {
-    const response = await apiRequest<{ success: boolean; template: Template }>(`/templates/${id}`);
-    return response.template;
+    // Use direct backend URL specifically for templates to avoid rewrite issues
+    const backendUrl = 'https://ph-backend-api.vercel.app/api';
+    console.log('Fetching template by ID from:', `${backendUrl}/templates/${id}`);
+
+    const response = await fetch(`${backendUrl}/templates/${id}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(getToken() ? { 'Authorization': `Bearer ${getToken()}` } : {})
+      },
+      credentials: 'include'
+    });
+
+    if (!response.ok) {
+      throw new Error(`Template fetch failed with status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log('Template by ID response received:', data);
+    return data.template;
   } catch (error) {
-    console.error('Error fetching template:', error);
+    console.error('Error fetching template by ID:', error);
     throw error;
   }
 }
@@ -531,10 +567,32 @@ async function favoriteTemplate(templateId: string, isFavorite: boolean): Promis
 
 async function getFavoriteTemplates(): Promise<Template[]> {
   try {
-    const response = await apiRequest<{ success: boolean; templates: Template[] }>(
-      '/templates/favorites'
-    );
-    return response.templates;
+    // Use direct backend URL specifically for templates to avoid rewrite issues
+    const backendUrl = 'https://ph-backend-api.vercel.app/api';
+    const token = getToken();
+
+    if (!token) {
+      throw new Error('Authentication required to get favorite templates');
+    }
+
+    console.log('Fetching favorite templates from:', `${backendUrl}/templates/favorites`);
+
+    const response = await fetch(`${backendUrl}/templates/favorites`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      credentials: 'include'
+    });
+
+    if (!response.ok) {
+      throw new Error(`Favorite templates fetch failed with status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log('Favorite templates response received:', data);
+    return data.templates;
   } catch (error) {
     console.error('Error fetching favorite templates:', error);
     throw error;
