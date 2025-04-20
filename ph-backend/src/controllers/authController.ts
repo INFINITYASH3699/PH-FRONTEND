@@ -208,7 +208,12 @@ export const updateUserProfile = async (
       bio,
       location,
       website,
-      socialLinks
+      socialLinks,
+      // New profile fields
+      skills,
+      education,
+      experience,
+      projects
     } = req.body;
 
     // Update the basic fields if provided
@@ -241,6 +246,12 @@ export const updateUserProfile = async (
     if (location) user.profile.location = location;
     if (website) user.profile.website = website;
     if (socialLinks) user.profile.socialLinks = socialLinks;
+
+    // Add new profile fields
+    if (skills) user.profile.skills = skills;
+    if (education) user.profile.education = education;
+    if (experience) user.profile.experience = experience;
+    if (projects) user.profile.projects = projects;
 
     await user.save();
 

@@ -27,6 +27,49 @@ export interface SocialLinks {
   [key: string]: string | undefined;
 }
 
+// Skill interface
+export interface Skill {
+  name: string;
+  proficiency: number;
+}
+
+// Skill category interface
+export interface SkillCategory {
+  name: string;
+  skills: Skill[];
+}
+
+// Education interface
+export interface Education {
+  degree: string;
+  institution: string;
+  location?: string;
+  startDate: string;
+  endDate?: string;
+  description?: string;
+}
+
+// Experience interface
+export interface Experience {
+  title: string;
+  company: string;
+  location?: string;
+  startDate: string;
+  endDate?: string;
+  current: boolean;
+  description: string;
+}
+
+// Project interface
+export interface Project {
+  title: string;
+  description: string;
+  imageUrl?: string;
+  projectUrl?: string;
+  githubUrl?: string;
+  tags: string[];
+}
+
 // User profile interface
 export interface UserProfile {
   title?: string;
@@ -34,6 +77,11 @@ export interface UserProfile {
   location?: string;
   website?: string;
   socialLinks?: SocialLinks;
+  // New profile fields
+  skills?: SkillCategory[];
+  education?: Education[];
+  experience?: Experience[];
+  projects?: Project[];
 }
 
 // User interface
@@ -401,6 +449,11 @@ export const updateProfile = async (profileData: {
   location?: string;
   website?: string;
   socialLinks?: SocialLinks;
+  // New profile fields
+  skills?: SkillCategory[];
+  education?: Education[];
+  experience?: Experience[];
+  projects?: Project[];
 }): Promise<User> => {
   try {
     const response = await apiRequest<ProfileUpdateResponse>(

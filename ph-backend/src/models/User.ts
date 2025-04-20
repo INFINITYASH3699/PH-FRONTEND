@@ -11,6 +11,49 @@ interface SocialLinks {
   [key: string]: string | undefined;
 }
 
+// Interface for a skill
+interface Skill {
+  name: string;
+  proficiency: number;
+}
+
+// Interface for a skill category
+interface SkillCategory {
+  name: string;
+  skills: Skill[];
+}
+
+// Interface for an education item
+interface Education {
+  degree: string;
+  institution: string;
+  location?: string;
+  startDate: string;
+  endDate?: string;
+  description?: string;
+}
+
+// Interface for an experience item
+interface Experience {
+  title: string;
+  company: string;
+  location?: string;
+  startDate: string;
+  endDate?: string;
+  current: boolean;
+  description: string;
+}
+
+// Interface for a project
+interface Project {
+  title: string;
+  description: string;
+  imageUrl?: string;
+  projectUrl?: string;
+  githubUrl?: string;
+  tags: string[];
+}
+
 // Interface for user profile
 interface UserProfile {
   title?: string;
@@ -18,6 +61,11 @@ interface UserProfile {
   location?: string;
   website?: string;
   socialLinks?: SocialLinks;
+  // New fields
+  skills?: SkillCategory[];
+  education?: Education[];
+  experience?: Experience[];
+  projects?: Project[];
 }
 
 export interface IUser extends Document {
@@ -45,6 +93,63 @@ const SocialLinksSchema = new Schema(
   { _id: false }
 );
 
+// Define schema for skills
+const SkillSchema = new Schema(
+  {
+    name: { type: String, required: true },
+    proficiency: { type: Number, required: true, min: 0, max: 100 },
+  },
+  { _id: false }
+);
+
+const SkillCategorySchema = new Schema(
+  {
+    name: { type: String, required: true },
+    skills: [SkillSchema],
+  },
+  { _id: false }
+);
+
+// Define schema for education
+const EducationSchema = new Schema(
+  {
+    degree: { type: String, required: true },
+    institution: { type: String, required: true },
+    location: { type: String },
+    startDate: { type: String, required: true },
+    endDate: { type: String },
+    description: { type: String },
+  },
+  { _id: false }
+);
+
+// Define schema for experience
+const ExperienceSchema = new Schema(
+  {
+    title: { type: String, required: true },
+    company: { type: String, required: true },
+    location: { type: String },
+    startDate: { type: String, required: true },
+    endDate: { type: String },
+    current: { type: Boolean, default: false },
+    description: { type: String, required: true },
+  },
+  { _id: false }
+);
+
+// Define schema for project
+const ProjectSchema = new Schema(
+  {
+    title: { type: String, required: true },
+    description: { type: String, required: true },
+    imageUrl: { type: String },
+    projectUrl: { type: String },
+    githubUrl: { type: String },
+    tags: [{ type: String }],
+  },
+  { _id: false }
+);
+
 const UserProfileSchema = new Schema(
   {
     title: { type: String },
@@ -52,6 +157,11 @@ const UserProfileSchema = new Schema(
     location: { type: String },
     website: { type: String },
     socialLinks: { type: SocialLinksSchema, default: {} },
+    // Add new fields to user profile
+    skills: [SkillCategorySchema],
+    education: [EducationSchema],
+    experience: [ExperienceSchema],
+    projects: [ProjectSchema],
   },
   { _id: false }
 );

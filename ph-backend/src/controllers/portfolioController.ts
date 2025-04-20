@@ -40,6 +40,21 @@ export const createPortfolio = async (
       });
     }
 
+    // Check if user already has a portfolio with this template
+    if (templateId) {
+      const userTemplatePortfolio = await Portfolio.findOne({
+        userId: req.user.id,
+        templateId: templateId
+      });
+
+      if (userTemplatePortfolio) {
+        return res.status(400).json({
+          success: false,
+          message: "You already have a portfolio using this template. Please choose a different template.",
+        });
+      }
+    }
+
     // Look for user's existing portfolio with the same subdomain
     const userExistingPortfolio = await Portfolio.findOne({
       subdomain: subdomain.toLowerCase(),

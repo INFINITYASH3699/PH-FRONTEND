@@ -35,6 +35,7 @@ export default function TemplatesPage() {
   });
   const [availableTags, setAvailableTags] = useState<string[]>([]);
   const [favoriteTemplates, setFavoriteTemplates] = useState<string[]>([]);
+  const [usedTemplates, setUsedTemplates] = useState<string[]>([]);
   const { isAuthenticated } = useAuth();
   const router = useRouter();
 
@@ -151,6 +152,30 @@ export default function TemplatesPage() {
         }
       };
       fetchFavorites();
+    }
+  }, [isAuthenticated]);
+
+  // New effect to check which templates the user has already used
+  useEffect(() => {
+    if (isAuthenticated) {
+      const fetchUserPortfolios = async () => {
+        try {
+          const data = await apiClient.request<{ success: boolean; portfolios: any[] }>('/portfolios');
+          if (data.success && data.portfolios) {
+            // Extract template IDs from user portfolios
+            const usedTemplateIds = data.portfolios
+              .filter(p => p.templateId)
+              .map(p => typeof p.templateId === 'string' ? p.templateId : p.templateId?._id)
+              .filter(Boolean) as string[];
+
+            setUsedTemplates(usedTemplateIds);
+          }
+        } catch (error) {
+          console.error('Error fetching user portfolios:', error);
+        }
+      };
+
+      fetchUserPortfolios();
     }
   }, [isAuthenticated]);
 
@@ -413,6 +438,7 @@ export default function TemplatesPage() {
                         key={template._id}
                         template={template}
                         isFavorite={favoriteTemplates.includes(template._id)}
+                        isUsed={usedTemplates.includes(template._id)}
                         onToggleFavorite={handleToggleFavorite}
                       />
                     ))}
@@ -450,24 +476,32 @@ export default function TemplatesPage() {
 interface TemplateCardProps {
   template: Template;
   isFavorite: boolean;
+  isUsed: boolean;
   onToggleFavorite: (templateId: string, isFavorite: boolean) => void;
 }
 
-function TemplateCard({ template, isFavorite, onToggleFavorite }: TemplateCardProps) {
+function TemplateCard({ template, isFavorite, isUsed, onToggleFavorite }: TemplateCardProps) {
   return (
-    <Card className="group overflow-hidden rounded-lg border shadow-sm transition-all hover:shadow-md">
+    <Card className={`group overflow-hidden rounded-lg border shadow-sm transition-all hover:shadow-md ${isUsed ? 'opacity-75' : ''}`}>
       <div className="relative aspect-[16/9] overflow-hidden">
         <Image
           src={template.previewImage}
           alt={template.name}
           fill
-          className="object-cover transition-transform group-hover:scale-105"
+          className={`object-cover transition-transform ${isUsed ? '' : 'group-hover:scale-105'}`}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
         <div className="absolute bottom-4 left-4 right-4 translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all">
           <h3 className="text-lg font-semibold text-white">{template.name}</h3>
           <p className="text-sm text-white/80">{template.description}</p>
         </div>
+
+        {/* Already used badge */}
+        {isUsed && (
+          <div className="absolute top-4 right-4 bg-gray-800 text-white text-xs px-2 py-1 rounded-full">
+            Already Used
+          </div>
+        )}
 
         {/* Premium badge */}
         {template.isPremium && (
@@ -579,11 +613,17 @@ function TemplateCard({ template, isFavorite, onToggleFavorite }: TemplateCardPr
                 Preview
               </Button>
             </Link>
-            <Link href={`/templates/use/${template._id}`}>
-              <Button size="sm" className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white">
-                Use
+            {isUsed ? (
+              <Button size="sm" className="bg-gray-200 text-gray-600" disabled title="You've already used this template">
+                Already Used
               </Button>
-            </Link>
+            ) : (
+              <Link href={`/templates/use/${template._id}`}>
+                <Button size="sm" className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white">
+                  Use
+                </Button>
+              </Link>
+            )}
           </div>
         </div>
       </div>

@@ -184,16 +184,49 @@ export default function DashboardPage() {
           ) : portfolios.length === 0 ? (
             <EmptyState />
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {portfolios.map((portfolio) => (
-                <PortfolioCard
-                  key={portfolio._id}
-                  portfolio={portfolio}
-                  onPublishToggle={handlePublishToggle}
-                  onDelete={handleDelete}
-                />
-              ))}
-            </div>
+            <>
+              <div className="mb-8">
+                <h2 className="text-xl font-semibold mb-4">Your Portfolios</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {portfolios.map((portfolio) => (
+                    <PortfolioCard
+                      key={portfolio._id}
+                      portfolio={portfolio}
+                      onPublishToggle={handlePublishToggle}
+                      onDelete={handleDelete}
+                    />
+                  ))}
+                </div>
+              </div>
+              <div className="mt-8 pt-8 border-t">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-semibold">Add Another Portfolio</h2>
+                  <Link href="/templates">
+                    <Button variant="outline" size="sm" className="flex items-center gap-1">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="h-4 w-4"
+                      >
+                        <path d="M5 12h14" />
+                        <path d="M12 5v14" />
+                      </svg>
+                      Browse All Templates
+                    </Button>
+                  </Link>
+                </div>
+                <p className="text-muted-foreground mb-6">
+                  You can create multiple portfolios with different templates to showcase various aspects of your work
+                </p>
+              </div>
+            </>
           )}
         </div>
       </main>
@@ -333,10 +366,19 @@ function PortfolioCard({ portfolio, onPublishToggle, onDelete }: { portfolio: Po
   return (
     <Card className="overflow-hidden">
       <CardHeader className="pb-0">
-        <CardTitle className="truncate">{portfolio.title || 'Untitled Portfolio'}</CardTitle>
-        <CardDescription className="truncate">
-          {portfolio.subtitle || 'No description'}
-        </CardDescription>
+        <div className="flex justify-between items-start">
+          <div>
+            <CardTitle className="truncate">{portfolio.title || 'Untitled Portfolio'}</CardTitle>
+            <CardDescription className="truncate">
+              {portfolio.subtitle || 'No description'}
+            </CardDescription>
+          </div>
+          {portfolio.templateId && (
+            <span className="text-xs px-2 py-1 bg-violet-100 text-violet-800 rounded-full">
+              {portfolio.templateId.name || 'Custom Template'}
+            </span>
+          )}
+        </div>
       </CardHeader>
       <CardContent className="pt-4">
         <div className="aspect-video relative rounded-md overflow-hidden bg-muted mb-4">
