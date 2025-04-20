@@ -211,15 +211,11 @@ export default function PortfolioEditorPage() {
         // If user is authenticated, check for existing portfolios using this template
         if (isAuthenticated && user && !existingPortfolioFetched) {
           try {
-            console.log('Checking for existing portfolios with template ID:', templateId);
-
             // Get user's portfolios
             const userPortfolios = await apiClient.request<{ success: boolean; portfolios: Portfolio[] }>(
               '/portfolios',
               'GET'
             );
-
-            console.log('User portfolios fetched:', userPortfolios?.portfolios?.length || 0);
 
             // Find portfolio with this template
             const existingPortfolio = userPortfolios.portfolios.find(
@@ -228,8 +224,6 @@ export default function PortfolioEditorPage() {
             );
 
             if (existingPortfolio) {
-              // If portfolio exists, use it
-              console.log('Found existing portfolio with this template:', existingPortfolio);
               setPortfolioId(existingPortfolio._id);
 
               try {
@@ -239,14 +233,10 @@ export default function PortfolioEditorPage() {
                   'GET'
                 );
 
-                console.log('Full portfolio data loaded:', portfolioData);
-
                 if (portfolioData.success && portfolioData.portfolio) {
                   // Extract the content from the portfolio data
                   // Make sure we're getting all sections properly
                   const portfolioContent = portfolioData.portfolio.content || {};
-
-                  console.log('Portfolio content to use:', JSON.stringify(portfolioContent, null, 2));
 
                   // Create a function to safely extract and create a deep copy of section data
                   const extractSectionData = (sectionName, defaultValue) => {
@@ -317,14 +307,9 @@ export default function PortfolioEditorPage() {
                     },
                   };
 
-                  // Debug log to see what we're setting
-                  console.log('Setting portfolio state with:', JSON.stringify(savedPortfolio, null, 2));
-                  console.log('Section content being applied:', JSON.stringify(savedPortfolio.sectionContent, null, 2));
-
                   // Set portfolio state with the loaded data
                   setPortfolio(savedPortfolio);
                   setExistingPortfolioFetched(true);
-                  console.log('Using existing portfolio data:', savedPortfolio);
                   return;
                 }
               } catch (innerError) {
@@ -533,9 +518,6 @@ export default function PortfolioEditorPage() {
     if (!portfolioId || !user) return;
 
     try {
-      // Log before update
-      console.log(`Updating ${section} section with data:`, JSON.stringify(content, null, 2));
-
       // Deep clone the content to avoid reference issues with nested arrays
       const safeContent = JSON.parse(JSON.stringify(content));
 
@@ -554,7 +536,6 @@ export default function PortfolioEditorPage() {
       );
 
       if (response.success) {
-        console.log(`Successfully updated ${section} section`);
       } else {
         console.error(`Failed to update ${section} section:`, response);
         toast.error(`Failed to update ${section} section`);
@@ -610,8 +591,6 @@ export default function PortfolioEditorPage() {
         // Include all section content
         ...portfolio.sectionContent
       }));
-
-      console.log("Saving portfolio with content:", JSON.stringify(contentData, null, 2));
 
       let savedPortfolio;
 
@@ -686,8 +665,6 @@ export default function PortfolioEditorPage() {
         // Include all section content
         ...portfolio.sectionContent
       }));
-
-      console.log("Publishing portfolio with content:", JSON.stringify(contentData, null, 2));
 
       let savedPortfolio;
 

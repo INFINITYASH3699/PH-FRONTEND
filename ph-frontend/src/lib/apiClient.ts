@@ -159,7 +159,6 @@ export const setAuthData = (token: string, user: User): void => {
     const secure = process.env.NODE_ENV === 'production' ? '; secure; samesite=strict' : '';
     document.cookie = `${TOKEN_KEY}=${token}; path=/; max-age=${30 * 24 * 60 * 60}${secure}`;
 
-    console.log("Auth data set successfully");
   } catch (error) {
     console.error("Error setting auth data:", error);
   }
@@ -172,14 +171,12 @@ export const clearAuthData = (): void => {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
 
-    console.log("Clearing auth cookie:", TOKEN_KEY);
 
     // Only try to clear the specific auth cookie, not all cookies
     // This is the cookie that middleware is checking
 
     // Get the current cookie string
     const cookiesBeforeClear = document.cookie;
-    console.log("All cookies before clearing:", cookiesBeforeClear);
 
     // Only focus on clearing the auth token cookie
     const paths = ['/', '/auth', '/dashboard', '/profile', '/templates', '/auth/signin', '/auth/signup'];
@@ -191,7 +188,6 @@ export const clearAuthData = (): void => {
 
     // Check if the cookie was cleared
     const hasCookieAfterClear = document.cookie.includes(TOKEN_KEY);
-    console.log(`Auth cookie cleared: ${!hasCookieAfterClear}`);
 
     if (hasCookieAfterClear) {
       console.warn("Failed to clear auth cookie using standard methods");
@@ -201,7 +197,6 @@ export const clearAuthData = (): void => {
       for (let i = 0; i < cookieParts.length; i++) {
         const cookiePart = cookieParts[i].trim();
         if (cookiePart.startsWith(TOKEN_KEY + '=')) {
-          console.log("Found auth cookie, attempting to clear it specifically");
           const path = cookiePart.includes('path=') ?
             cookiePart.split('path=')[1].split(';')[0] : '/';
           document.cookie = `${TOKEN_KEY}=; path=${path}; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0`;
@@ -209,7 +204,6 @@ export const clearAuthData = (): void => {
       }
     }
 
-    console.log("Auth data and cookies cleared");
     return;
   } catch (error) {
     console.error("Error clearing auth data:", error);
@@ -221,9 +215,6 @@ export const isAuthenticated = (): boolean => {
   const token = getToken();
   const isAuth = !!token && token.trim() !== '';
 
-  if (process.env.NODE_ENV === 'development') {
-    console.log(`Auth check: ${isAuth ? 'Authenticated' : 'Not authenticated'}`);
-  }
 
   return isAuth;
 };
@@ -275,10 +266,6 @@ const apiRequest = async <T>(
       options.body = JSON.stringify(data);
     }
 
-    // For development - log API requests
-    if (process.env.NODE_ENV === "development") {
-      console.log(`API Request: ${method} ${url}`, data);
-    }
 
     const response = await fetch(url, options);
 
@@ -314,8 +301,6 @@ const apiRequest = async <T>(
 // Auth API calls
 export const login = async (email: string, password: string): Promise<User> => {
   try {
-    console.log("Attempting login with:", { email });
-
     const response = await apiRequest<LoginResponse>(
       "/auth/login",
       "POST",
@@ -325,7 +310,6 @@ export const login = async (email: string, password: string): Promise<User> => {
 
     if (response.success && response.token && response.user) {
       setAuthData(response.token, response.user);
-      console.log("Login successful, token and user set");
       return response.user;
     }
 
@@ -342,10 +326,6 @@ export const register = async (userData: {
   password: string;
 }): Promise<User> => {
   try {
-    console.log("Attempting registration with:", {
-      email: userData.email,
-    });
-
     const response = await apiRequest<RegisterResponse>(
       "/auth/register",
       "POST",
@@ -366,7 +346,6 @@ export const register = async (userData: {
 
 // Logout with additional cookie clearing safeguards
 export const logout = (): void => {
-  console.log("Logging out user...");
   clearAuthData();
 
   // Force reload if needed to ensure state is cleared
@@ -377,7 +356,6 @@ export const logout = (): void => {
         console.warn("Cookie still exists after logout, forcing page reload");
         window.location.href = '/auth/signin?forceClear=true';
       } else {
-        console.log("Logout successful, cookie cleared");
       }
     }, 100);
   }
