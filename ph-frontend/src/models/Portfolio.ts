@@ -18,6 +18,15 @@ export interface IPortfolioSettings {
   };
 }
 
+interface IHeaderContent {
+  title?: string;
+  subtitle?: string;
+  showNavigation?: boolean;
+  navItems?: { label: string; link: string }[];
+  style?: string;
+  logoUrl?: string;
+}
+
 interface IAboutContent {
   title?: string;
   bio?: string;
@@ -105,6 +114,7 @@ interface IGalleryContent {
 }
 
 export interface ISectionContent {
+  header?: IHeaderContent;
   about?: IAboutContent;
   projects?: IProjectsContent;
   skills?: ISkillsContent;
@@ -131,6 +141,26 @@ export interface IPortfolio {
 }
 
 // Schema for section content
+const headerContentSchema = new Schema({
+  title: { type: String, default: '' },
+  subtitle: { type: String, default: '' },
+  showNavigation: { type: Boolean, default: true },
+  navItems: {
+    type: [{
+      label: { type: String, required: true },
+      link: { type: String, required: true }
+    }],
+    default: [
+      { label: 'Home', link: '#home' },
+      { label: 'About', link: '#about' },
+      { label: 'Projects', link: '#projects' },
+      { label: 'Contact', link: '#contact' }
+    ]
+  },
+  style: { type: String, enum: ['default', 'centered', 'minimal'], default: 'default' },
+  logoUrl: { type: String, default: '' }
+}, { _id: false });
+
 const aboutContentSchema = new Schema({
   title: { type: String, default: 'About Me' },
   bio: { type: String, default: '' },
@@ -215,6 +245,7 @@ const galleryContentSchema = new Schema({
 
 // Main section content schema
 const sectionContentSchema = new Schema({
+  header: { type: headerContentSchema, default: () => ({}) },
   about: { type: aboutContentSchema, default: () => ({}) },
   projects: { type: projectsContentSchema, default: () => ({ items: [] }) },
   skills: { type: skillsContentSchema, default: () => ({ categories: [] }) },
