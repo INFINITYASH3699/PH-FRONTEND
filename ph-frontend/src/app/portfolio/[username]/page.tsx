@@ -733,3 +733,4 @@ export default function PublishedPortfolioPage() {
     </div>
   );
 }
+ 
