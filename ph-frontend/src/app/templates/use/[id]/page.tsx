@@ -187,6 +187,7 @@ export default function PortfolioEditorPage() {
   const [activeTab, setActiveTab] = useState<string>('about');
   const [portfolioId, setPortfolioId] = useState<string | null>(null);
   const [existingPortfolioFetched, setExistingPortfolioFetched] = useState<boolean>(false);
+  const [initializationComplete, setInitializationComplete] = useState<boolean>(false);
 
   // Fetch template data from API
   useEffect(() => {
@@ -194,6 +195,12 @@ export default function PortfolioEditorPage() {
       if (!templateId) {
         toast.error('Template ID is required');
         router.push('/templates');
+        return;
+      }
+
+      // Skip if initialization is already complete
+      if (initializationComplete) {
+        console.log('Template initialization already complete, skipping re-fetch');
         return;
       }
 
@@ -329,6 +336,7 @@ export default function PortfolioEditorPage() {
                   // Set portfolio state with the loaded data
                   setPortfolio(savedPortfolio);
                   setExistingPortfolioFetched(true);
+                  setInitializationComplete(true);
                   return;
                 } else {
                   console.warn('Portfolio data fetch succeeded but data is invalid:', portfolioData);
@@ -349,6 +357,7 @@ export default function PortfolioEditorPage() {
         // If no existing portfolio was found or fetch failed, initialize with template defaults
         console.log('Initializing new portfolio with template defaults');
         initializePortfolio(templateData);
+        setInitializationComplete(true);
       } catch (error) {
         console.error('Error fetching template:', error);
         toast.error('Failed to load template from API. Using demo data.');
@@ -371,6 +380,7 @@ export default function PortfolioEditorPage() {
 
           setTemplate(template);
           initializePortfolio(template);
+          setInitializationComplete(true);
         } else {
           toast.error('Template not found');
           router.push('/templates');
@@ -381,7 +391,7 @@ export default function PortfolioEditorPage() {
     };
 
     fetchTemplate();
-  }, [templateId, router, isAuthenticated, user, existingPortfolioFetched]);
+  }, [templateId, router, isAuthenticated, user, existingPortfolioFetched, initializationComplete]);
 
   // Initialize portfolio with template data
   const initializePortfolio = (templateData: Template) => {
@@ -602,6 +612,8 @@ export default function PortfolioEditorPage() {
     }
 
     try {
+      console.log('Saving portfolio as draft...');
+
       // Track template usage - use the new method which handles errors
       if (!portfolioId && template?._id) {
         await apiClient.incrementTemplateUsage(template._id);
@@ -616,9 +628,12 @@ export default function PortfolioEditorPage() {
         ...portfolio.sectionContent
       }));
 
+      console.log('Content data prepared for saving:', Object.keys(contentData));
+
       let savedPortfolio;
 
       if (portfolioId) {
+        console.log('Updating existing portfolio:', portfolioId);
         // Update existing portfolio with proper structure
         savedPortfolio = await apiClient.request(
           `/portfolios/${portfolioId}`,
@@ -635,10 +650,12 @@ export default function PortfolioEditorPage() {
         // Update local portfolioId in case it's changed
         if (savedPortfolio && savedPortfolio.portfolio && savedPortfolio.portfolio._id) {
           setPortfolioId(savedPortfolio.portfolio._id);
+          console.log('Portfolio updated with ID:', savedPortfolio.portfolio._id);
         }
 
         toast.success('Portfolio draft updated successfully');
       } else {
+        console.log('Creating new portfolio');
         // Create new portfolio with proper structure
         savedPortfolio = await apiClient.createPortfolio({
           title: portfolio.title,
@@ -650,6 +667,7 @@ export default function PortfolioEditorPage() {
 
         if (savedPortfolio && savedPortfolio._id) {
           setPortfolioId(savedPortfolio._id);
+          console.log('Portfolio created with ID:', savedPortfolio._id);
           toast.success('Portfolio draft created successfully');
         }
       }
@@ -752,6 +770,30 @@ export default function PortfolioEditorPage() {
 
     return `/portfolio/${portfolio.subdomain}`;
   };
+
+  // Debug useEffect to log portfolio state on change
+  useEffect(() => {
+    if (portfolio) {
+      console.log('Portfolio state updated:', {
+        id: portfolio.id || 'New Portfolio',
+        title: portfolio.title,
+        templateId: portfolio.templateId,
+        sectionCount: Object.keys(portfolio.sectionContent).length,
+        sections: Object.keys(portfolio.sectionContent)
+      });
+    }
+  }, [portfolio]);
+
+  // Debug useEffect to log template state on change
+  useEffect(() => {
+    if (template) {
+      console.log('Template state updated:', {
+        id: template._id,
+        name: template.name,
+        sections: template.sections
+      });
+    }
+  }, [template]);
 
   // Show loading state
   if (templateLoading || !template || !portfolio) {
