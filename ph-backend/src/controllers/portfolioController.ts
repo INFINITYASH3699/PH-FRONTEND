@@ -18,6 +18,7 @@ export const createPortfolio = async (
 ): Promise<Response> => {
   try {
     const { title, subtitle, subdomain, templateId, content } = req.body;
+    console.log(`Creating portfolio: title=${title}, subdomain=${subdomain}, templateId=${templateId}, userId=${req.user.id}`);
 
     // Validate required fields
     if (!title || !subdomain) {
@@ -27,7 +28,7 @@ export const createPortfolio = async (
       });
     }
 
-    // Check if subdomain is already taken, but allow the user to reuse their own subdomain
+    // Check if subdomain is already taken by another user
     const existingPortfolio = await Portfolio.findOne({
       subdomain: subdomain.toLowerCase(),
       userId: { $ne: req.user.id }, // Exclude portfolios owned by the requesting user
@@ -40,25 +41,19 @@ export const createPortfolio = async (
       });
     }
 
-    // Check if user already has a portfolio with this template
+    // Check if template exists if templateId is provided
     if (templateId) {
-      console.log(`Checking if user ${req.user.id} already has a portfolio with template ${templateId}`);
-      const userTemplatePortfolio = await Portfolio.findOne({
-        userId: req.user.id,
-        templateId: templateId
-      });
-
-      console.log(`Result of template portfolio check:`, userTemplatePortfolio ? `Found portfolio with ID ${userTemplatePortfolio._id}` : 'No existing portfolio with this template');
-
-      if (userTemplatePortfolio) {
-        return res.status(400).json({
+      const template = await Template.findById(templateId);
+      if (!template) {
+        return res.status(404).json({
           success: false,
-          message: "You already have a portfolio using this template. Please choose a different template.",
+          message: "Template not found",
         });
       }
+      console.log(`Template found: ${template.name}, proceeding with portfolio creation`);
     }
 
-    // Look for user's existing portfolio with the same subdomain
+    // Check if the user already has a portfolio with this subdomain
     const userExistingPortfolio = await Portfolio.findOne({
       subdomain: subdomain.toLowerCase(),
       userId: req.user.id,
@@ -90,17 +85,6 @@ export const createPortfolio = async (
       });
     }
 
-    // Check if template exists if templateId is provided
-    if (templateId) {
-      const template = await Template.findById(templateId);
-      if (!template) {
-        return res.status(404).json({
-          success: false,
-          message: "Template not found",
-        });
-      }
-    }
-
     // If this portfolio is being published, unpublish any other published portfolios
     if (req.body.isPublished) {
       await Portfolio.updateMany(
@@ -110,8 +94,9 @@ export const createPortfolio = async (
       console.log(`Unpublished all other portfolios for user ${req.user.id}`);
     }
 
-    // Create portfolio
-    const portfolio = await Portfolio.create({
+    // Create a completely new portfolio document
+    console.log(`Creating new portfolio for user ${req.user.id} with template ${templateId || 'none'}`);
+    const newPortfolio = new Portfolio({
       title,
       subtitle,
       subdomain: subdomain.toLowerCase(),
@@ -121,9 +106,13 @@ export const createPortfolio = async (
       isPublished: req.body.isPublished || false,
     });
 
+    // Save the new portfolio
+    const savedPortfolio = await newPortfolio.save();
+    console.log(`Portfolio created successfully with ID: ${savedPortfolio._id}`);
+
     return res.status(201).json({
       success: true,
-      portfolio,
+      portfolio: savedPortfolio,
     });
   } catch (error: any) {
     console.error("Create portfolio error:", error);

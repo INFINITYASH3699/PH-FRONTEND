@@ -192,15 +192,11 @@ export const updateUserProfile = async (
   res: Response
 ): Promise<Response> => {
   try {
-    const user = await User.findById(req.user.id);
+    console.log("Profile update request received:", JSON.stringify(req.body, null, 2));
 
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found"
-      });
-    }
+    const userId = req.user.id;
 
+    // Extract fields from request body
     const {
       fullName,
       profilePicture,
@@ -209,72 +205,93 @@ export const updateUserProfile = async (
       location,
       website,
       socialLinks,
-      // New profile fields
       skills,
       education,
       experience,
       projects
     } = req.body;
 
-    // Update the basic fields if provided
-    if (fullName) user.fullName = fullName;
+    // Create the update document for MongoDB
+    const updateFields: any = {};
 
-    // Handle profile picture update
-    if (profilePicture && profilePicture !== user.profilePicture) {
-      // If user already has a profile picture in Cloudinary, delete it
-      if (user.profilePictureId) {
-        await deleteFromCloudinary(user.profilePictureId);
+    // Update basic fields if provided
+    if (fullName !== undefined) updateFields.fullName = fullName;
+
+    // Build profile update object
+    const profileUpdate: any = {};
+
+    if (title !== undefined) profileUpdate["profile.title"] = title;
+    if (bio !== undefined) profileUpdate["profile.bio"] = bio;
+    if (location !== undefined) profileUpdate["profile.location"] = location;
+    if (website !== undefined) profileUpdate["profile.website"] = website;
+
+    // Handle arrays and nested objects directly
+    if (socialLinks !== undefined) profileUpdate["profile.socialLinks"] = socialLinks;
+    if (skills !== undefined) profileUpdate["profile.skills"] = skills;
+    if (education !== undefined) profileUpdate["profile.education"] = education;
+    if (experience !== undefined) profileUpdate["profile.experience"] = experience;
+    if (projects !== undefined) profileUpdate["profile.projects"] = projects;
+
+    // Handle profile picture update separately
+    if (profilePicture !== undefined) {
+      const user = await User.findById(userId);
+      if (user && user.profilePictureId && profilePicture !== user.profilePicture) {
+        try {
+          await deleteFromCloudinary(user.profilePictureId);
+        } catch (err) {
+          console.error("Error deleting previous profile picture:", err);
+        }
       }
-
-      // If a new profilePicture URL is provided, update it
-      user.profilePicture = profilePicture;
-
-      // If profilePictureId is provided in the request, update it too
-      if (req.body.profilePictureId) {
-        user.profilePictureId = req.body.profilePictureId;
-      }
+      updateFields.profilePicture = profilePicture;
+      if (req.body.profilePictureId) updateFields.profilePictureId = req.body.profilePictureId;
     }
 
-    // Check if we need to update additional profile fields
-    // We'll need to extend the user model to include these fields
-    if (user.profile === undefined) {
-      user.profile = {};
+    // Combine all updates
+    const finalUpdate = { ...updateFields, ...profileUpdate };
+
+    console.log("Updating user with fields:", Object.keys(finalUpdate).join(', '));
+
+    // Directly update the document in the database using MongoDB's update operators
+    const result = await User.findByIdAndUpdate(
+      userId,
+      { $set: finalUpdate },
+      {
+        new: true,                // Return the updated document
+        runValidators: true,      // Run schema validators
+        omitUndefined: true       // Don't update fields that are undefined
+      }
+    ).select("-password");
+
+    if (!result) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found"
+      });
     }
 
-    if (title) user.profile.title = title;
-    if (bio) user.profile.bio = bio;
-    if (location) user.profile.location = location;
-    if (website) user.profile.website = website;
-    if (socialLinks) user.profile.socialLinks = socialLinks;
-
-    // Add new profile fields
-    if (skills) user.profile.skills = skills;
-    if (education) user.profile.education = education;
-    if (experience) user.profile.experience = experience;
-    if (projects) user.profile.projects = projects;
-
-    await user.save();
+    console.log("User profile updated successfully with fields:", Object.keys(finalUpdate).join(', '));
 
     return res.status(200).json({
       success: true,
       message: "Profile updated successfully",
       user: {
-        id: user._id,
-        fullName: user.fullName,
-        username: user.username,
-        email: user.email,
-        role: user.role,
-        profilePicture: user.profilePicture,
-        profilePictureId: user.profilePictureId,
-        profile: user.profile,
-      },
+        id: result._id,
+        fullName: result.fullName,
+        username: result.username,
+        email: result.email,
+        role: result.role,
+        profilePicture: result.profilePicture,
+        profilePictureId: result.profilePictureId,
+        profile: result.profile
+      }
     });
+
   } catch (error: any) {
-    console.error("Update profile error:", error);
+    console.error("Profile update error:", error);
     return res.status(500).json({
       success: false,
       message: "Server error during profile update",
-      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+      error: process.env.NODE_ENV === "development" ? error.toString() : "Server error"
     });
   }
 };

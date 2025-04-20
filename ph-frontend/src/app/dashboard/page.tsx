@@ -73,43 +73,46 @@ export default function DashboardPage() {
     }
   }, [isAuthenticated, authLoading, user]);
 
-  // Fetch user portfolios when authenticated
+  // Fetch user portfolios
   useEffect(() => {
     const fetchPortfolios = async () => {
-      if (authStatus === 'authenticated') {
-        try {
-          console.log('Fetching portfolios...');
-          const data = await apiClient.request<{ success: boolean; portfolios: Portfolio[] }>('/portfolios');
-          console.log('Portfolios fetched:', data.portfolios.length);
+      try {
+        setLoading(true);
+        console.log("Fetching user portfolios...");
 
-          // Add detailed logging of each portfolio
-          data.portfolios.forEach((portfolio, index) => {
-            console.log(`Portfolio ${index + 1}:`, {
-              id: portfolio._id,
-              title: portfolio.title,
-              subdomain: portfolio.subdomain,
-              templateId: typeof portfolio.templateId === 'string'
-                ? portfolio.templateId
-                : portfolio.templateId?._id || 'No template',
-              isPublished: portfolio.isPublished
-            });
-          });
+        // Make the API request
+        const response = await apiClient.request<{
+          success: boolean;
+          portfolios: Portfolio[];
+        }>("/portfolios", "GET");
 
-          setPortfolios(data.portfolios);
-        } catch (error) {
-          console.error('Error fetching portfolios:', error);
-          toast.error('Failed to load your portfolios');
-        } finally {
-          setLoading(false);
+        if (response.success) {
+          console.log(`Fetched ${response.portfolios.length} portfolios:`,
+            response.portfolios.map(p => ({
+              id: p._id,
+              title: p.title,
+              template: typeof p.templateId === 'object' ? p.templateId.name : p.templateId,
+              subdomain: p.subdomain,
+              isPublished: p.isPublished
+            }))
+          );
+          setPortfolios(response.portfolios);
+        } else {
+          console.error("Failed to fetch portfolios:", response);
+          toast.error("Failed to fetch your portfolios");
         }
-      } else if (authStatus === 'unauthenticated') {
-        // Not logged in, no need to fetch
+      } catch (error) {
+        console.error("Error fetching portfolios:", error);
+        toast.error("An error occurred while fetching your portfolios");
+      } finally {
         setLoading(false);
       }
     };
 
-    fetchPortfolios();
-  }, [authStatus]);
+    if (isAuthenticated) {
+      fetchPortfolios();
+    }
+  }, [isAuthenticated]);
 
   // Function to handle portfolio publishing state change
   const handlePublishToggle = async (portfolioId: string, currentState: boolean) => {

@@ -762,17 +762,37 @@ async function createPortfolio(data: {
   subdomain: string;
   templateId: string;
   content?: Record<string, any>;
+  isPublished?: boolean;
 }): Promise<Portfolio> {
   try {
-    const response = await apiRequest<{ success: boolean; portfolio: Portfolio }>(
+    console.log("Creating portfolio with data:", {
+      title: data.title,
+      subtitle: data.subtitle,
+      subdomain: data.subdomain,
+      templateId: data.templateId,
+      contentKeys: data.content ? Object.keys(data.content) : 'none',
+      isPublished: data.isPublished || false
+    });
+
+    const response = await apiRequest<{ success: boolean; portfolio: Portfolio; message?: string }>(
       '/portfolios',
       'POST',
       data
     );
+
+    if (!response.success || !response.portfolio) {
+      const errorMessage = response.message || 'Failed to create portfolio';
+      console.error('Portfolio creation API returned error:', errorMessage);
+      throw new Error(errorMessage);
+    }
+
+    console.log("Portfolio created successfully:", response.portfolio._id);
     return response.portfolio;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error creating portfolio:', error);
-    throw error;
+    // Enhanced error message that includes the original error
+    const errorMessage = error.message || 'Unknown error creating portfolio';
+    throw new Error(errorMessage);
   }
 }
 

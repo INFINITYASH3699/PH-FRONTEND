@@ -819,19 +819,18 @@ export default function PortfolioEditorPage() {
             toast.success("Portfolio draft created successfully");
           }
         } catch (portfolioError: any) {
-          // Check for template already in use error
-          if (portfolioError.message && portfolioError.message.includes("already have a portfolio using this template")) {
-            console.error("Template already in use error:", portfolioError.message);
-            toast.error("You already have a portfolio using this template. Please choose a different template.");
-            // Redirect back to templates page
-            setTimeout(() => {
-              router.push("/templates");
-            }, 2000);
-            throw new Error("Template already in use");
-          } else {
-            // Re-throw other errors
-            throw portfolioError;
+          console.error("Portfolio creation error:", portfolioError);
+
+          // Show a more descriptive error message to the user
+          const errorMessage = portfolioError.message || "Failed to create portfolio";
+          toast.error(errorMessage);
+
+          // If there's a subdomain conflict, suggest a different subdomain
+          if (errorMessage.includes("subdomain is already taken")) {
+            toast.error("Please choose a different subdomain and try again");
           }
+
+          throw portfolioError;
         }
       }
 
@@ -908,19 +907,18 @@ export default function PortfolioEditorPage() {
             toast.success("Portfolio created and published successfully");
           }
         } catch (portfolioError: any) {
-          // Check for template already in use error
-          if (portfolioError.message && portfolioError.message.includes("already have a portfolio using this template")) {
-            console.error("Template already in use error:", portfolioError.message);
-            toast.error("You already have a portfolio using this template. Please choose a different template.");
-            // Redirect back to templates page
-            setTimeout(() => {
-              router.push("/templates");
-            }, 2000);
-            throw new Error("Template already in use");
-          } else {
-            // Re-throw other errors
-            throw portfolioError;
+          console.error("Portfolio creation/publication error:", portfolioError);
+
+          // Show a more descriptive error message to the user
+          const errorMessage = portfolioError.message || "Failed to create portfolio";
+          toast.error(errorMessage);
+
+          // If there's a subdomain conflict, suggest a different subdomain
+          if (errorMessage.includes("subdomain is already taken")) {
+            toast.error("Please choose a different subdomain and try again");
           }
+
+          throw portfolioError;
         }
       }
 
@@ -1062,7 +1060,7 @@ export default function PortfolioEditorPage() {
                 <path d="M12 8h.01"/>
               </svg>
               <span>
-                <strong>Note:</strong> Each template can only be used once per account. You can create multiple portfolios using different templates, but only one portfolio can be published at a time. Publishing a new portfolio will automatically unpublish any previously published portfolio.
+                <strong>Note:</strong> You can create multiple portfolios using the same template with different content and styling. Only one portfolio can be published at a time. Publishing a new portfolio will automatically unpublish any previously published portfolio.
               </span>
             </div>
 

@@ -50,17 +50,21 @@ const PortfolioSchema = new Schema<IPortfolio>(
       required: [true, 'Subdomain is required'],
       trim: true,
       lowercase: true,
-      unique: true,
+      unique: false, // Allow multiple subdomains with same name IF they're by the same user
       match: [/^[a-z0-9-]{3,30}$/, 'Subdomain can only contain lowercase letters, numbers, and hyphens'],
+      index: true, // Add index for faster lookups
     },
     userId: {
       type: Schema.Types.ObjectId,
       ref: 'User',
       required: [true, 'User ID is required'],
+      index: true, // Add index for faster lookups
     },
     templateId: {
       type: Schema.Types.ObjectId,
       ref: 'Template',
+      required: false, // Make templateId optional to allow custom portfolios
+      index: true, // Add index for faster lookups
     },
     content: {
       type: Schema.Types.Mixed,
@@ -94,10 +98,27 @@ const PortfolioSchema = new Schema<IPortfolio>(
   }
 );
 
+// Create compound index for userId + subdomain to ensure uniqueness per user
+PortfolioSchema.index({ userId: 1, subdomain: 1 }, { unique: true });
+
 // Create indexes
 PortfolioSchema.index({ userId: 1 });
-PortfolioSchema.index({ subdomain: 1 }, { unique: true });
+
+// Remove the unique index on subdomain since we're now using a compound index
+// PortfolioSchema.index({ subdomain: 1 }, { unique: true });
+
 PortfolioSchema.index({ customDomain: 1 }, { sparse: true, unique: true });
+
+// Add a pre-save hook for debugging
+PortfolioSchema.pre('save', function(next) {
+  console.log(`Saving portfolio: ${this._id}, title: ${this.title}, template: ${this.templateId || 'none'}, user: ${this.userId}`);
+  next();
+});
+
+// Add a post-save hook for debugging
+PortfolioSchema.post('save', function(doc) {
+  console.log(`Portfolio saved successfully: ${doc._id}, title: ${doc.title}`);
+});
 
 const Portfolio = mongoose.model<IPortfolio>('Portfolio', PortfolioSchema);
 

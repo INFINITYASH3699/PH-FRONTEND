@@ -238,6 +238,47 @@ UserSchema.pre("save", async function (next) {
   }
 });
 
+// Add a pre-save hook for validation and debug
+UserSchema.pre('save', async function(next) {
+  // Do nothing if password is modified - that's handled by the existing hook
+  if (this.isModified("password")) return next();
+
+  // Debug the profile update
+  if (this.isModified("profile") || this.isModified("profile.skills") ||
+      this.isModified("profile.education") || this.isModified("profile.experience") ||
+      this.isModified("profile.projects")) {
+    console.log(`User ${this._id} pre-save: Updating profile fields`,
+      Object.keys(this.profile || {}).join(', '));
+  }
+
+  next();
+});
+
+// Add a post-save hook for debugging
+UserSchema.post('save', function(doc) {
+  if (doc.profile) {
+    // Add type safety by treating the profile as a Record
+    const profile = doc.profile as Record<string, any>;
+
+    // Get all keys and filter out undefined/null values
+    const profileFields = Object.keys(profile).filter(key =>
+      profile[key] !== undefined &&
+      profile[key] !== null);
+
+    console.log(`User ${doc._id} saved with profile fields: ${profileFields.join(', ')}`);
+
+    // Log array lengths with proper type safety
+    const arrayFields = ['skills', 'education', 'experience', 'projects'];
+    arrayFields.forEach(field => {
+      if (profile[field] && Array.isArray(profile[field])) {
+        console.log(`Field ${field} has ${profile[field].length} items`);
+      }
+    });
+  } else {
+    console.log(`User ${doc._id} saved without profile data`);
+  }
+});
+
 // Compare password method
 UserSchema.methods.comparePassword = async function (
   candidatePassword: string

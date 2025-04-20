@@ -484,6 +484,14 @@ export default function ProfilePage() {
     setIsUpdating(true);
     try {
       // Prepare data for API
+      console.log("Preparing profile data for update:", {
+        skills: profileData.skills.length,
+        education: profileData.education.length,
+        experience: profileData.experience.length,
+        projects: profileData.projects.length
+      });
+
+      // Create deep copies of all array data to avoid reference issues
       const updateData = {
         fullName: profileData.fullName,
         profilePicture: profileData.avatar !== `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.fullName || '')}&background=6d28d9&color=fff` ? profileData.avatar : undefined,
@@ -491,15 +499,27 @@ export default function ProfilePage() {
         bio: profileData.bio,
         location: profileData.location,
         website: profileData.website,
-        socialLinks: profileData.socialLinks,
-        skills: profileData.skills,
-        education: profileData.education,
-        experience: profileData.experience,
-        projects: profileData.projects,
+        socialLinks: profileData.socialLinks ? JSON.parse(JSON.stringify(profileData.socialLinks)) : undefined,
+
+        // Create deep copies of these arrays to ensure they're properly sent
+        skills: profileData.skills.length > 0 ? JSON.parse(JSON.stringify(profileData.skills)) : [],
+        education: profileData.education.length > 0 ? JSON.parse(JSON.stringify(profileData.education)) : [],
+        experience: profileData.experience.length > 0 ? JSON.parse(JSON.stringify(profileData.experience)) : [],
+        projects: profileData.projects.length > 0 ? JSON.parse(JSON.stringify(profileData.projects)) : [],
       };
 
+      console.log("Sending profile update with data:", {
+        basicInfo: `${updateData.fullName}, ${updateData.title}`,
+        hasSkills: updateData.skills.length > 0,
+        hasEducation: updateData.education.length > 0,
+        hasExperience: updateData.experience.length > 0,
+        hasProjects: updateData.projects.length > 0,
+      });
+
       // Call context method to update profile
-      await updateProfile(updateData);
+      const updatedUser = await updateProfile(updateData);
+      console.log("Profile updated successfully:", updatedUser);
+
       toast.success('Profile updated successfully');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to update profile';
