@@ -65,7 +65,7 @@ export default function TemplatesPage() {
         };
 
         console.log("Template fetch params:", { category, options });
-        console.log("API_BASE_URL used:", process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' && window.location.hostname !== 'localhost' ? 'https://ph-backend-api.vercel.app/api' : 'http://localhost:5000/api'));
+        console.log("API_BASE_URL used:", process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' && window.location.hostname !== 'localhost' ? 'https://portfolio-hub-yqp0.onrender.com/api' : 'http://localhost:5000/api'));
 
         // Add a timeout to the fetch request
         const timeoutPromise = new Promise<any>((_, reject) =>

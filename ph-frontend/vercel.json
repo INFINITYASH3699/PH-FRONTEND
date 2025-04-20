@@ -14,7 +14,7 @@
     "NODE_ENV": "production",
     "NEXTAUTH_URL": "${VERCEL_URL}",
     "VERCEL_URL": "${VERCEL_URL}",
-    "NEXT_PUBLIC_API_URL": "https://ph-backend-api.vercel.app/api"
+    "NEXT_PUBLIC_API_URL": "https://portfolio-hub-yqp0.onrender.com/api"
   },
   "buildCommand": "npm run build",
   "outputDirectory": ".next",
@@ -23,7 +23,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://ph-backend-api.vercel.app/api/:path*"
+      "destination": "https://portfolio-hub-yqp0.onrender.com/api/:path*"
     }
   ],
   "functions": {
