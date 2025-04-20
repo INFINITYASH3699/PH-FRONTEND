@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { Plus, Trash2, X, Edit2 } from 'lucide-react';
+import { FetchProfileButton } from '@/components/ui/fetch-profile-button';
 
 // Define skill item interface
 interface SkillItem {
@@ -168,6 +169,17 @@ export default function SkillsEditor({ content, onSave, isLoading = false }: Ski
     setErrors({});
   };
 
+  // Handle fetching skills from profile
+  const handleFetchFromProfile = (profileData: SkillsContent) => {
+    if (profileData.categories && profileData.categories.length > 0) {
+      setCategories(profileData.categories);
+      if (profileData.categories.length > 0) {
+        setActiveCategoryIndex(0);
+      }
+      onSave(profileData);
+    }
+  };
+
   // Calculate the appropriate color for proficiency level
   const getProficiencyColor = (proficiency: number) => {
     if (proficiency >= 90) return 'bg-green-500';
@@ -179,7 +191,14 @@ export default function SkillsEditor({ content, onSave, isLoading = false }: Ski
   return (
     <div className="space-y-8">
       <div className="flex flex-col space-y-2">
-        <h3 className="text-lg font-medium">Your Skills</h3>
+        <div className="flex justify-between items-center">
+          <h3 className="text-lg font-medium">Your Skills</h3>
+          <FetchProfileButton
+            onFetch={handleFetchFromProfile}
+            section="skills"
+            disabled={isLoading}
+          />
+        </div>
         <p className="text-muted-foreground">
           Add and organize your skills into categories.
         </p>

@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/componen
 import { toast } from 'sonner';
 import { X, Plus, Trash2, Upload, Link2, Github } from 'lucide-react';
 import apiClient from '@/lib/apiClient';
+import { FetchProfileButton } from '@/components/ui/fetch-profile-button';
 
 // Define project item interface
 interface ProjectItem {
@@ -170,6 +171,20 @@ export default function ProjectsEditor({ content, onSave, isLoading = false }: P
     });
   };
 
+  // Handle fetching projects data from profile
+  const handleFetchFromProfile = (profileData: ProjectsContent) => {
+    if (profileData.items && profileData.items.length > 0) {
+      const processedProjects = profileData.items.map(project => ({
+        ...project,
+        id: project.id || `project_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        tags: project.tags || [],
+      }));
+
+      setProjects(processedProjects);
+      onSave({ items: processedProjects });
+    }
+  };
+
   // Handle image upload
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -199,7 +214,14 @@ export default function ProjectsEditor({ content, onSave, isLoading = false }: P
   return (
     <div className="space-y-8">
       <div className="flex flex-col space-y-2">
-        <h3 className="text-lg font-medium">Your Projects</h3>
+        <div className="flex justify-between items-center">
+          <h3 className="text-lg font-medium">Your Projects</h3>
+          <FetchProfileButton
+            onFetch={handleFetchFromProfile}
+            section="projects"
+            disabled={isLoading || uploadLoading}
+          />
+        </div>
         <p className="text-muted-foreground">
           Add projects to showcase your work. Include details, images, and links.
         </p>

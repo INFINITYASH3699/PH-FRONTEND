@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import Image from 'next/image';
+import { FetchProfileButton } from '@/components/ui/fetch-profile-button';
 
 // Define about content interface
 interface AboutContent {
@@ -42,10 +43,23 @@ export default function AboutEditor({ content, onSave, isLoading = false, onImag
     onSave(updatedAboutInfo);
   };
 
+  // Handle fetching about data from profile
+  const handleFetchFromProfile = (profileData: AboutContent) => {
+    setAboutInfo(profileData);
+    onSave(profileData);
+  };
+
   return (
     <div className="space-y-8">
       <div className="flex flex-col space-y-2">
-        <h3 className="text-lg font-medium">About Section</h3>
+        <div className="flex justify-between items-center">
+          <h3 className="text-lg font-medium">About Section</h3>
+          <FetchProfileButton
+            onFetch={handleFetchFromProfile}
+            section="about"
+            disabled={isLoading}
+          />
+        </div>
         <p className="text-muted-foreground">
           Tell visitors about yourself. This is typically the first section visitors will see.
         </p>

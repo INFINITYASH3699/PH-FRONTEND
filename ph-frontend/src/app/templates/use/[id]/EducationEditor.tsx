@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { Plus, Trash2, Edit2, Calendar, GraduationCap } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { FetchProfileButton } from '@/components/ui/fetch-profile-button';
 
 // Define education item interface
 interface EducationItem {
@@ -156,6 +157,45 @@ export default function EducationEditor({ content, onSave, isLoading = false }: 
     setErrors({});
   };
 
+  // Handle fetching education data from profile
+  const handleFetchFromProfile = (profileData: EducationContent) => {
+    if (profileData.items && profileData.items.length > 0) {
+      // Process fetched education to ensure dates are in correct format
+      const processedEducationItems = profileData.items.map(edu => {
+        // Make sure we have proper date formats for form compatibility
+        let startDate = edu.startDate;
+        let endDate = edu.endDate;
+
+        // Try to format dates if they're not in YYYY-MM-DD format
+        if (startDate && !startDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          try {
+            startDate = new Date(startDate).toISOString().substring(0, 10);
+          } catch (e) {
+            console.error('Error formatting start date:', e);
+          }
+        }
+
+        if (endDate && !endDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          try {
+            endDate = new Date(endDate).toISOString().substring(0, 10);
+          } catch (e) {
+            console.error('Error formatting end date:', e);
+          }
+        }
+
+        return {
+          ...edu,
+          id: edu.id || `education_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          startDate,
+          endDate,
+        };
+      });
+
+      setEducationItems(processedEducationItems);
+      onSave({ items: processedEducationItems });
+    }
+  };
+
   // Format date for display
   const formatDate = (dateString: string) => {
     if (!dateString) return '';
@@ -166,7 +206,14 @@ export default function EducationEditor({ content, onSave, isLoading = false }: 
   return (
     <div className="space-y-8">
       <div className="flex flex-col space-y-2">
-        <h3 className="text-lg font-medium">Education</h3>
+        <div className="flex justify-between items-center">
+          <h3 className="text-lg font-medium">Education</h3>
+          <FetchProfileButton
+            onFetch={handleFetchFromProfile}
+            section="education"
+            disabled={isLoading}
+          />
+        </div>
         <p className="text-muted-foreground">
           Add your educational background to highlight your academic achievements.
         </p>

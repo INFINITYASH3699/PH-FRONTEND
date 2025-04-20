@@ -254,6 +254,164 @@ export default function ProfilePage() {
     });
   };
 
+  // Education handlers
+  const handleAddEducation = () => {
+    if (!newEducation.degree.trim() || !newEducation.institution.trim()) {
+      toast.error('Degree and Institution are required');
+      return;
+    }
+
+    if (editIndex >= 0) {
+      // Update existing education
+      setProfileData(prev => {
+        const updatedEducation = [...prev.education];
+        updatedEducation[editIndex] = { ...newEducation };
+        return { ...prev, education: updatedEducation };
+      });
+      toast.success('Education updated');
+    } else {
+      // Add new education
+      setProfileData(prev => ({
+        ...prev,
+        education: [...prev.education, { ...newEducation }]
+      }));
+      toast.success('New education added');
+    }
+
+    // Reset form
+    setNewEducation({
+      degree: '',
+      institution: '',
+      location: '',
+      startDate: '',
+      endDate: '',
+      description: ''
+    });
+    setIsEducationDialogOpen(false);
+    setEditIndex(-1);
+  };
+
+  const handleEditEducation = (index: number) => {
+    setEditIndex(index);
+    setNewEducation({ ...profileData.education[index] });
+    setIsEducationDialogOpen(true);
+  };
+
+  const handleDeleteEducation = (index: number) => {
+    setProfileData(prev => {
+      const updatedEducation = [...prev.education];
+      updatedEducation.splice(index, 1);
+      return { ...prev, education: updatedEducation };
+    });
+    toast.success('Education deleted');
+  };
+
+  // Experience handlers
+  const handleAddExperience = () => {
+    if (!newExperience.title.trim() || !newExperience.company.trim()) {
+      toast.error('Job Title and Company are required');
+      return;
+    }
+
+    if (editIndex >= 0) {
+      // Update existing experience
+      setProfileData(prev => {
+        const updatedExperience = [...prev.experience];
+        updatedExperience[editIndex] = { ...newExperience };
+        return { ...prev, experience: updatedExperience };
+      });
+      toast.success('Experience updated');
+    } else {
+      // Add new experience
+      setProfileData(prev => ({
+        ...prev,
+        experience: [...prev.experience, { ...newExperience }]
+      }));
+      toast.success('New experience added');
+    }
+
+    // Reset form
+    setNewExperience({
+      title: '',
+      company: '',
+      location: '',
+      startDate: '',
+      endDate: '',
+      current: false,
+      description: ''
+    });
+    setIsExperienceDialogOpen(false);
+    setEditIndex(-1);
+  };
+
+  const handleEditExperience = (index: number) => {
+    setEditIndex(index);
+    setNewExperience({ ...profileData.experience[index] });
+    setIsExperienceDialogOpen(true);
+  };
+
+  const handleDeleteExperience = (index: number) => {
+    setProfileData(prev => {
+      const updatedExperience = [...prev.experience];
+      updatedExperience.splice(index, 1);
+      return { ...prev, experience: updatedExperience };
+    });
+    toast.success('Experience deleted');
+  };
+
+  // Project handlers
+  const handleAddProject = () => {
+    if (!newProject.title.trim()) {
+      toast.error('Project title is required');
+      return;
+    }
+
+    if (editIndex >= 0) {
+      // Update existing project
+      setProfileData(prev => {
+        const updatedProjects = [...prev.projects];
+        updatedProjects[editIndex] = { ...newProject };
+        return { ...prev, projects: updatedProjects };
+      });
+      toast.success('Project updated');
+    } else {
+      // Add new project
+      setProfileData(prev => ({
+        ...prev,
+        projects: [...prev.projects, { ...newProject }]
+      }));
+      toast.success('New project added');
+    }
+
+    // Reset form
+    setNewProject({
+      title: '',
+      description: '',
+      imageUrl: '',
+      projectUrl: '',
+      githubUrl: '',
+      tags: []
+    });
+    setNewTag('');
+    setIsProjectDialogOpen(false);
+    setEditIndex(-1);
+  };
+
+  const handleEditProject = (index: number) => {
+    setEditIndex(index);
+    setNewProject({ ...profileData.projects[index] });
+    setIsProjectDialogOpen(true);
+  };
+
+  const handleDeleteProject = (index: number) => {
+    setProfileData(prev => {
+      const updatedProjects = [...prev.projects];
+      updatedProjects.splice(index, 1);
+      return { ...prev, projects: updatedProjects };
+    });
+    toast.success('Project deleted');
+  };
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
 
@@ -855,8 +1013,564 @@ export default function ProfilePage() {
                     </CardContent>
                   </TabsContent>
 
-                  {/* Additional tabs for education, experience, projects would be implemented here */}
+                  {/* Education Section */}
+                  <TabsContent value="education" className="space-y-6">
+                    <CardHeader className="flex flex-row items-center justify-between">
+                      <div>
+                        <CardTitle>Education</CardTitle>
+                        <CardDescription>
+                          Add your educational background and qualifications.
+                        </CardDescription>
+                      </div>
+                      <Dialog open={isEducationDialogOpen} onOpenChange={setIsEducationDialogOpen}>
+                        <DialogTrigger asChild>
+                          <Button size="sm" className="ml-auto">
+                            <PlusCircle className="h-4 w-4 mr-2" />
+                            Add Education
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-[425px]">
+                          <DialogHeader>
+                            <DialogTitle>
+                              {editIndex >= 0 ? 'Edit Education' : 'Add Education'}
+                            </DialogTitle>
+                          </DialogHeader>
+                          <div className="space-y-4 py-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="degree">Degree / Certificate</Label>
+                              <Input
+                                id="degree"
+                                placeholder="e.g., Bachelor of Science in Computer Science"
+                                value={newEducation.degree}
+                                onChange={(e) => setNewEducation(prev => ({ ...prev, degree: e.target.value }))}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="institution">Institution</Label>
+                              <Input
+                                id="institution"
+                                placeholder="e.g., Stanford University"
+                                value={newEducation.institution}
+                                onChange={(e) => setNewEducation(prev => ({ ...prev, institution: e.target.value }))}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="location">Location</Label>
+                              <Input
+                                id="location"
+                                placeholder="e.g., Stanford, CA"
+                                value={newEducation.location}
+                                onChange={(e) => setNewEducation(prev => ({ ...prev, location: e.target.value }))}
+                              />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <Label htmlFor="startDate">Start Date</Label>
+                                <Input
+                                  id="startDate"
+                                  placeholder="e.g., 09/2018"
+                                  value={newEducation.startDate}
+                                  onChange={(e) => setNewEducation(prev => ({ ...prev, startDate: e.target.value }))}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label htmlFor="endDate">End Date</Label>
+                                <Input
+                                  id="endDate"
+                                  placeholder="e.g., 05/2022 or Present"
+                                  value={newEducation.endDate}
+                                  onChange={(e) => setNewEducation(prev => ({ ...prev, endDate: e.target.value }))}
+                                />
+                              </div>
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="description">Description</Label>
+                              <Textarea
+                                id="description"
+                                placeholder="Describe your studies, achievements, etc."
+                                value={newEducation.description || ''}
+                                onChange={(e) => setNewEducation(prev => ({ ...prev, description: e.target.value }))}
+                                className="min-h-[100px] resize-none"
+                              />
+                            </div>
+                          </div>
+                          <DialogFooter>
+                            <Button variant="ghost" onClick={() => {
+                              setIsEducationDialogOpen(false);
+                              setNewEducation({
+                                degree: '',
+                                institution: '',
+                                location: '',
+                                startDate: '',
+                                endDate: '',
+                                description: ''
+                              });
+                              setEditIndex(-1);
+                            }}>
+                              Cancel
+                            </Button>
+                            <Button onClick={handleAddEducation}>
+                              {editIndex >= 0 ? 'Update' : 'Add'}
+                            </Button>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
+                    </CardHeader>
+                    <CardContent>
+                      {profileData.education.length > 0 ? (
+                        <div className="space-y-4">
+                          {profileData.education.map((item, idx) => (
+                            <div key={idx} className="border rounded-lg p-4">
+                              <div className="flex justify-between items-start mb-3">
+                                <div>
+                                  <h3 className="font-semibold text-lg">{item.degree}</h3>
+                                  <p className="text-muted-foreground">{item.institution}</p>
+                                  {item.location && (
+                                    <p className="text-sm text-muted-foreground">{item.location}</p>
+                                  )}
+                                  <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
+                                    <Calendar className="h-3 w-3" />
+                                    <span>
+                                      {item.startDate}
+                                      {item.endDate ? ` - ${item.endDate}` : ' - Present'}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="flex space-x-2">
+                                  <Button size="sm" variant="ghost" onClick={() => handleEditEducation(idx)}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 mr-1">
+                                      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                                    </svg>
+                                    Edit
+                                  </Button>
+                                  <Button size="sm" variant="ghost" className="text-red-500" onClick={() => handleDeleteEducation(idx)}>
+                                    <Trash2 className="h-4 w-4 mr-1" />
+                                    Delete
+                                  </Button>
+                                </div>
+                              </div>
+                              {item.description && (
+                                <div className="mt-2 text-sm">
+                                  <p>{item.description}</p>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-12 border-2 border-dashed rounded-lg">
+                          <h3 className="text-lg font-medium text-muted-foreground mb-2">No education added yet</h3>
+                          <p className="text-sm text-muted-foreground mb-4">
+                            Add your educational background to showcase your qualifications.
+                          </p>
+                          <Button onClick={() => setIsEducationDialogOpen(true)}>
+                            <PlusCircle className="h-4 w-4 mr-2" />
+                            Add Education
+                          </Button>
+                        </div>
+                      )}
+                    </CardContent>
+                  </TabsContent>
 
+                  {/* Experience Section */}
+                  <TabsContent value="experience" className="space-y-6">
+                    <CardHeader className="flex flex-row items-center justify-between">
+                      <div>
+                        <CardTitle>Experience</CardTitle>
+                        <CardDescription>
+                          Add your work experience and professional history.
+                        </CardDescription>
+                      </div>
+                      <Dialog open={isExperienceDialogOpen} onOpenChange={setIsExperienceDialogOpen}>
+                        <DialogTrigger asChild>
+                          <Button size="sm" className="ml-auto">
+                            <PlusCircle className="h-4 w-4 mr-2" />
+                            Add Experience
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-[425px]">
+                          <DialogHeader>
+                            <DialogTitle>
+                              {editIndex >= 0 ? 'Edit Experience' : 'Add Experience'}
+                            </DialogTitle>
+                          </DialogHeader>
+                          <div className="space-y-4 py-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="job-title">Job Title</Label>
+                              <Input
+                                id="job-title"
+                                placeholder="e.g., Senior Software Engineer"
+                                value={newExperience.title}
+                                onChange={(e) => setNewExperience(prev => ({ ...prev, title: e.target.value }))}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="company">Company</Label>
+                              <Input
+                                id="company"
+                                placeholder="e.g., Google"
+                                value={newExperience.company}
+                                onChange={(e) => setNewExperience(prev => ({ ...prev, company: e.target.value }))}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="exp-location">Location</Label>
+                              <Input
+                                id="exp-location"
+                                placeholder="e.g., Mountain View, CA or Remote"
+                                value={newExperience.location}
+                                onChange={(e) => setNewExperience(prev => ({ ...prev, location: e.target.value }))}
+                              />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <Label htmlFor="exp-startDate">Start Date</Label>
+                                <Input
+                                  id="exp-startDate"
+                                  placeholder="e.g., 06/2020"
+                                  value={newExperience.startDate}
+                                  onChange={(e) => setNewExperience(prev => ({ ...prev, startDate: e.target.value }))}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label htmlFor="exp-endDate">End Date</Label>
+                                <Input
+                                  id="exp-endDate"
+                                  placeholder="e.g., 12/2022"
+                                  value={newExperience.endDate}
+                                  onChange={(e) => setNewExperience(prev => ({ ...prev, endDate: e.target.value }))}
+                                  disabled={newExperience.current}
+                                />
+                              </div>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Switch
+                                id="current-job"
+                                checked={newExperience.current}
+                                onCheckedChange={(checked) => {
+                                  setNewExperience(prev => ({
+                                    ...prev,
+                                    current: checked,
+                                    endDate: checked ? '' : prev.endDate
+                                  }));
+                                }}
+                              />
+                              <Label htmlFor="current-job">I currently work here</Label>
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="exp-description">Description</Label>
+                              <Textarea
+                                id="exp-description"
+                                placeholder="Describe your role, responsibilities, achievements, etc."
+                                value={newExperience.description}
+                                onChange={(e) => setNewExperience(prev => ({ ...prev, description: e.target.value }))}
+                                className="min-h-[100px] resize-none"
+                              />
+                            </div>
+                          </div>
+                          <DialogFooter>
+                            <Button variant="ghost" onClick={() => {
+                              setIsExperienceDialogOpen(false);
+                              setNewExperience({
+                                title: '',
+                                company: '',
+                                location: '',
+                                startDate: '',
+                                endDate: '',
+                                current: false,
+                                description: ''
+                              });
+                              setEditIndex(-1);
+                            }}>
+                              Cancel
+                            </Button>
+                            <Button onClick={handleAddExperience}>
+                              {editIndex >= 0 ? 'Update' : 'Add'}
+                            </Button>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
+                    </CardHeader>
+                    <CardContent>
+                      {profileData.experience.length > 0 ? (
+                        <div className="space-y-4">
+                          {profileData.experience.map((item, idx) => (
+                            <div key={idx} className="border rounded-lg p-4">
+                              <div className="flex justify-between items-start mb-3">
+                                <div>
+                                  <h3 className="font-semibold text-lg">{item.title}</h3>
+                                  <p className="text-muted-foreground">{item.company}</p>
+                                  {item.location && (
+                                    <p className="text-sm text-muted-foreground">{item.location}</p>
+                                  )}
+                                  <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
+                                    <Calendar className="h-3 w-3" />
+                                    <span>
+                                      {item.startDate}
+                                      {item.current ? ' - Present' : item.endDate ? ` - ${item.endDate}` : ''}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="flex space-x-2">
+                                  <Button size="sm" variant="ghost" onClick={() => handleEditExperience(idx)}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 mr-1">
+                                      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                                    </svg>
+                                    Edit
+                                  </Button>
+                                  <Button size="sm" variant="ghost" className="text-red-500" onClick={() => handleDeleteExperience(idx)}>
+                                    <Trash2 className="h-4 w-4 mr-1" />
+                                    Delete
+                                  </Button>
+                                </div>
+                              </div>
+                              <div className="mt-2 text-sm">
+                                <p>{item.description}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-12 border-2 border-dashed rounded-lg">
+                          <h3 className="text-lg font-medium text-muted-foreground mb-2">No experience added yet</h3>
+                          <p className="text-sm text-muted-foreground mb-4">
+                            Add your professional experience to showcase your career history.
+                          </p>
+                          <Button onClick={() => setIsExperienceDialogOpen(true)}>
+                            <PlusCircle className="h-4 w-4 mr-2" />
+                            Add Experience
+                          </Button>
+                        </div>
+                      )}
+                    </CardContent>
+                  </TabsContent>
+
+                  {/* Projects Section */}
+                  <TabsContent value="projects" className="space-y-6">
+                    <CardHeader className="flex flex-row items-center justify-between">
+                      <div>
+                        <CardTitle>Projects</CardTitle>
+                        <CardDescription>
+                          Add your projects, portfolio items, and creative work.
+                        </CardDescription>
+                      </div>
+                      <Dialog open={isProjectDialogOpen} onOpenChange={setIsProjectDialogOpen}>
+                        <DialogTrigger asChild>
+                          <Button size="sm" className="ml-auto">
+                            <PlusCircle className="h-4 w-4 mr-2" />
+                            Add Project
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-[425px]">
+                          <DialogHeader>
+                            <DialogTitle>
+                              {editIndex >= 0 ? 'Edit Project' : 'Add Project'}
+                            </DialogTitle>
+                          </DialogHeader>
+                          <div className="space-y-4 py-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="project-title">Project Title</Label>
+                              <Input
+                                id="project-title"
+                                placeholder="e.g., E-commerce Website"
+                                value={newProject.title}
+                                onChange={(e) => setNewProject(prev => ({ ...prev, title: e.target.value }))}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="project-description">Description</Label>
+                              <Textarea
+                                id="project-description"
+                                placeholder="Describe the project, technologies used, your role, etc."
+                                value={newProject.description}
+                                onChange={(e) => setNewProject(prev => ({ ...prev, description: e.target.value }))}
+                                className="min-h-[100px] resize-none"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="project-image">Image URL</Label>
+                              <Input
+                                id="project-image"
+                                placeholder="https://example.com/image.jpg"
+                                value={newProject.imageUrl || ''}
+                                onChange={(e) => setNewProject(prev => ({ ...prev, imageUrl: e.target.value }))}
+                              />
+                              <p className="text-xs text-muted-foreground">
+                                Provide a link to an image for your project
+                              </p>
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="project-url">Project URL</Label>
+                              <Input
+                                id="project-url"
+                                placeholder="https://example.com"
+                                value={newProject.projectUrl || ''}
+                                onChange={(e) => setNewProject(prev => ({ ...prev, projectUrl: e.target.value }))}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="github-url">GitHub URL</Label>
+                              <Input
+                                id="github-url"
+                                placeholder="https://github.com/yourusername/repo"
+                                value={newProject.githubUrl || ''}
+                                onChange={(e) => setNewProject(prev => ({ ...prev, githubUrl: e.target.value }))}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label>Tags</Label>
+                              <div className="flex flex-wrap gap-2 mb-2">
+                                {newProject.tags.map((tag, idx) => (
+                                  <div key={idx} className="flex items-center bg-muted rounded-full px-3 py-1">
+                                    <span className="text-sm">{tag}</span>
+                                    <button
+                                      type="button"
+                                      className="ml-2 text-muted-foreground hover:text-red-500"
+                                      onClick={() => {
+                                        setNewProject(prev => ({
+                                          ...prev,
+                                          tags: prev.tags.filter((_, i) => i !== idx)
+                                        }));
+                                      }}
+                                    >
+                                      <X className="h-3 w-3" />
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                              <div className="flex space-x-2">
+                                <Input
+                                  placeholder="Add a tag"
+                                  value={newTag}
+                                  onChange={(e) => setNewTag(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && newTag.trim()) {
+                                      e.preventDefault();
+                                      setNewProject(prev => ({
+                                        ...prev,
+                                        tags: [...prev.tags, newTag.trim()]
+                                      }));
+                                      setNewTag('');
+                                    }
+                                  }}
+                                />
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    if (newTag.trim()) {
+                                      setNewProject(prev => ({
+                                        ...prev,
+                                        tags: [...prev.tags, newTag.trim()]
+                                      }));
+                                      setNewTag('');
+                                    }
+                                  }}
+                                >
+                                  Add
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                          <DialogFooter>
+                            <Button variant="ghost" onClick={() => {
+                              setIsProjectDialogOpen(false);
+                              setNewProject({
+                                title: '',
+                                description: '',
+                                imageUrl: '',
+                                projectUrl: '',
+                                githubUrl: '',
+                                tags: []
+                              });
+                              setNewTag('');
+                              setEditIndex(-1);
+                            }}>
+                              Cancel
+                            </Button>
+                            <Button onClick={handleAddProject}>
+                              {editIndex >= 0 ? 'Update' : 'Add'}
+                            </Button>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
+                    </CardHeader>
+                    <CardContent>
+                      {profileData.projects.length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          {profileData.projects.map((project, idx) => (
+                            <div key={idx} className="border rounded-lg overflow-hidden">
+                              {project.imageUrl && (
+                                <div className="relative h-48">
+                                  <Image
+                                    src={project.imageUrl}
+                                    alt={project.title}
+                                    fill
+                                    className="object-cover"
+                                  />
+                                </div>
+                              )}
+                              <div className="p-4">
+                                <div className="flex justify-between items-start">
+                                  <h3 className="font-semibold text-lg">{project.title}</h3>
+                                  <div className="flex space-x-2">
+                                    <Button size="sm" variant="ghost" onClick={() => handleEditProject(idx)}>
+                                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                                        <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                                      </svg>
+                                    </Button>
+                                    <Button size="sm" variant="ghost" className="text-red-500" onClick={() => handleDeleteProject(idx)}>
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                </div>
+                                <p className="text-sm text-muted-foreground mt-2">{project.description}</p>
+
+                                {project.tags.length > 0 && (
+                                  <div className="flex flex-wrap gap-1 mt-3">
+                                    {project.tags.map((tag, tagIdx) => (
+                                      <span key={tagIdx} className="bg-muted text-xs px-2 py-1 rounded-full">
+                                        {tag}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+
+                                <div className="flex mt-4 gap-2">
+                                  {project.projectUrl && (
+                                    <Button size="sm" variant="outline" asChild>
+                                      <Link href={project.projectUrl} target="_blank" rel="noopener noreferrer">
+                                        View Project
+                                      </Link>
+                                    </Button>
+                                  )}
+                                  {project.githubUrl && (
+                                    <Button size="sm" variant="outline" asChild>
+                                      <Link href={project.githubUrl} target="_blank" rel="noopener noreferrer">
+                                        GitHub
+                                      </Link>
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-12 border-2 border-dashed rounded-lg">
+                          <h3 className="text-lg font-medium text-muted-foreground mb-2">No projects added yet</h3>
+                          <p className="text-sm text-muted-foreground mb-4">
+                            Add your projects to showcase your work and accomplishments.
+                          </p>
+                          <Button onClick={() => setIsProjectDialogOpen(true)}>
+                            <PlusCircle className="h-4 w-4 mr-2" />
+                            Add Project
+                          </Button>
+                        </div>
+                      )}
+                    </CardContent>
+                  </TabsContent>
                 </Tabs>
                 <CardFooter className="flex justify-end space-x-4 border-t mt-4 pt-6">
                   <Button variant="outline">Cancel</Button>

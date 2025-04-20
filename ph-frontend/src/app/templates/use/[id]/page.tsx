@@ -37,6 +37,7 @@ import { templates as fallbackTemplates } from "@/data/templates"; // Use as fal
 import { SaveDraftButton } from "@/components/ui/save-draft-button";
 import { PreviewButton } from "@/components/ui/preview-button";
 import { PublishButton } from "@/components/ui/publish-button";
+import { FetchProfileButton } from "@/components/ui/fetch-profile-button";
 
 // Define the portfolio structure
 interface PortfolioSettings {
@@ -499,7 +500,8 @@ export default function PortfolioEditorPage() {
   // Initialize portfolio with template data
   const initializePortfolio = (templateData: Template) => {
     // Extract sections from template data
-    const sections = templateData.defaultStructure?.layout?.sections ||
+    const sections =
+      templateData.defaultStructure?.layout?.sections ||
       templateData.sections || [
         "header",
         "about",
@@ -511,8 +513,8 @@ export default function PortfolioEditorPage() {
       ];
 
     // Extract colors from template data
-    const defaultColors = templateData.defaultStructure?.layout
-      ?.defaultColors ||
+    const defaultColors =
+      templateData.defaultStructure?.layout?.defaultColors ||
       templateData.customizationOptions?.colorSchemes?.[0] || [
         "#6366f1",
         "#8b5cf6",
@@ -521,7 +523,8 @@ export default function PortfolioEditorPage() {
       ];
 
     // Extract fonts from template data
-    const defaultFonts = templateData.defaultStructure?.layout?.defaultFonts ||
+    const defaultFonts =
+      templateData.defaultStructure?.layout?.defaultFonts ||
       templateData.customizationOptions?.fontPairings?.[0] || [
         "Inter",
         "Roboto",
@@ -1132,6 +1135,58 @@ export default function PortfolioEditorPage() {
                           A subdomain is required to publish your portfolio
                         </p>
                       )}
+                    </div>
+
+                    <div className="space-y-2 border-t pt-4">
+                      <span className="text-sm font-medium">Fetch Profile Data</span>
+                      <FetchProfileButton
+                        onFetch={(profileData) => {
+                          if (!portfolio) return;
+
+                          // Create a deep copy of the current portfolio to avoid reference issues
+                          const updatedPortfolio = JSON.parse(JSON.stringify(portfolio));
+
+                          // Update sections with profile data
+                          if (profileData.about) {
+                            updatedPortfolio.sectionContent.about = profileData.about;
+                          }
+
+                          if (profileData.skills) {
+                            updatedPortfolio.sectionContent.skills = profileData.skills;
+                          }
+
+                          if (profileData.experience) {
+                            updatedPortfolio.sectionContent.experience = profileData.experience;
+                          }
+
+                          if (profileData.education) {
+                            updatedPortfolio.sectionContent.education = profileData.education;
+                          }
+
+                          if (profileData.projects) {
+                            updatedPortfolio.sectionContent.projects = profileData.projects;
+                          }
+
+                          setPortfolio(updatedPortfolio);
+
+                          // If portfolio already exists, update content for each section
+                          if (portfolioId) {
+                            Object.keys(profileData).forEach(section => {
+                              if (profileData[section]) {
+                                updateSectionContent(section, profileData[section]);
+                              }
+                            });
+                          }
+
+                          toast.success("Profile data imported successfully to your template.");
+                        }}
+                        section="all"
+                        variant="default"
+                        disabled={loading}
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Import all your profile data at once to quickly populate your portfolio.
+                      </p>
                     </div>
 
                     <div className="space-y-2 pt-4 border-t">

@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { Plus, Trash2, X, Edit2, Calendar } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { FetchProfileButton } from '@/components/ui/fetch-profile-button';
 
 // Define experience item interface
 interface ExperienceItem {
@@ -160,6 +161,45 @@ export default function ExperienceEditor({ content, onSave, isLoading = false }:
     setErrors({});
   };
 
+  // Handle fetching experience data from profile
+  const handleFetchFromProfile = (profileData: ExperienceContent) => {
+    if (profileData.items && profileData.items.length > 0) {
+      // Process fetched experiences to ensure dates are in correct format
+      const processedExperiences = profileData.items.map(exp => {
+        // Make sure we have proper date formats for form compatibility
+        let startDate = exp.startDate;
+        let endDate = exp.endDate;
+
+        // Try to format dates if they're not in YYYY-MM-DD format
+        if (startDate && !startDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          try {
+            startDate = new Date(startDate).toISOString().substring(0, 10);
+          } catch (e) {
+            console.error('Error formatting start date:', e);
+          }
+        }
+
+        if (endDate && !endDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          try {
+            endDate = new Date(endDate).toISOString().substring(0, 10);
+          } catch (e) {
+            console.error('Error formatting end date:', e);
+          }
+        }
+
+        return {
+          ...exp,
+          id: exp.id || `experience_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          startDate,
+          endDate,
+        };
+      });
+
+      setExperiences(processedExperiences);
+      onSave({ items: processedExperiences });
+    }
+  };
+
   // Format date for display
   const formatDate = (dateString: string) => {
     if (!dateString) return '';
@@ -170,7 +210,14 @@ export default function ExperienceEditor({ content, onSave, isLoading = false }:
   return (
     <div className="space-y-8">
       <div className="flex flex-col space-y-2">
-        <h3 className="text-lg font-medium">Work Experience</h3>
+        <div className="flex justify-between items-center">
+          <h3 className="text-lg font-medium">Work Experience</h3>
+          <FetchProfileButton
+            onFetch={handleFetchFromProfile}
+            section="experience"
+            disabled={isLoading}
+          />
+        </div>
         <p className="text-muted-foreground">
           Add your professional experience to showcase your career journey.
         </p>
