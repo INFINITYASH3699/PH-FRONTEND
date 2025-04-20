@@ -4,7 +4,7 @@ import { toast } from "sonner";
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ||
   (typeof window !== 'undefined' && window.location.hostname !== 'localhost'
-    ? 'https://ph-backend-api.vercel.app/api' // Use the full URL in production
+    ? 'https://portfolio-hub-yqp0.onrender.com/api' // Use the full URL in production
     : 'http://localhost:5000/api'); // Use localhost for development
 
 // Storage keys
