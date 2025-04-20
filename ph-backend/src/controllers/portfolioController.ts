@@ -42,10 +42,13 @@ export const createPortfolio = async (
 
     // Check if user already has a portfolio with this template
     if (templateId) {
+      console.log(`Checking if user ${req.user.id} already has a portfolio with template ${templateId}`);
       const userTemplatePortfolio = await Portfolio.findOne({
         userId: req.user.id,
         templateId: templateId
       });
+
+      console.log(`Result of template portfolio check:`, userTemplatePortfolio ? `Found portfolio with ID ${userTemplatePortfolio._id}` : 'No existing portfolio with this template');
 
       if (userTemplatePortfolio) {
         return res.status(400).json({

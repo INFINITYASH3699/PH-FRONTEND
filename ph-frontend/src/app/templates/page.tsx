@@ -300,6 +300,36 @@ export default function TemplatesPage() {
           </div>
         </section>
 
+        {/* Template Usage Policy Info Banner */}
+        <section className="py-3 bg-blue-50 border-y border-blue-100">
+          <div className="container px-4 md:px-6">
+            <div className="flex items-center gap-3 text-blue-800">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-5 w-5"
+              >
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M12 16v-4"/>
+                <path d="M12 8h.01"/>
+              </svg>
+              <div>
+                <p className="text-sm">
+                  <strong>Template Policy:</strong> You can create multiple portfolios with different templates, but each template can only be used once per account to avoid redundancy.
+                  <Link href="/features" className="ml-2 underline">Learn more</Link>
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* Filter Bar */}
         <section className="py-6 border-b">
           <div className="container px-4 md:px-6">
@@ -496,10 +526,10 @@ function TemplateCard({ template, isFavorite, isUsed, onToggleFavorite }: Templa
           <p className="text-sm text-white/80">{template.description}</p>
         </div>
 
-        {/* Already used badge */}
+        {/* Already used badge - update wording */}
         {isUsed && (
           <div className="absolute top-4 right-4 bg-gray-800 text-white text-xs px-2 py-1 rounded-full">
-            Already Used
+            In Use
           </div>
         )}
 
@@ -614,13 +644,16 @@ function TemplateCard({ template, isFavorite, isUsed, onToggleFavorite }: Templa
               </Button>
             </Link>
             {isUsed ? (
-              <Button size="sm" className="bg-gray-200 text-gray-600" disabled title="You've already used this template">
-                Already Used
-              </Button>
+              <div className="flex flex-col items-end">
+                <Button size="sm" className="bg-gray-200 text-gray-600" disabled title="You're already using this template">
+                  Already In Use
+                </Button>
+                <span className="text-xs text-muted-foreground mt-1">Each template can only be used once</span>
+              </div>
             ) : (
               <Link href={`/templates/use/${template._id}`}>
                 <Button size="sm" className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white">
-                  Use
+                  Create Portfolio
                 </Button>
               </Link>
             )}

@@ -81,6 +81,20 @@ export default function DashboardPage() {
           console.log('Fetching portfolios...');
           const data = await apiClient.request<{ success: boolean; portfolios: Portfolio[] }>('/portfolios');
           console.log('Portfolios fetched:', data.portfolios.length);
+
+          // Add detailed logging of each portfolio
+          data.portfolios.forEach((portfolio, index) => {
+            console.log(`Portfolio ${index + 1}:`, {
+              id: portfolio._id,
+              title: portfolio.title,
+              subdomain: portfolio.subdomain,
+              templateId: typeof portfolio.templateId === 'string'
+                ? portfolio.templateId
+                : portfolio.templateId?._id || 'No template',
+              isPublished: portfolio.isPublished
+            });
+          });
+
           setPortfolios(data.portfolios);
         } catch (error) {
           console.error('Error fetching portfolios:', error);
@@ -174,6 +188,31 @@ export default function DashboardPage() {
               >
                 Logout
               </Button>
+            </div>
+          </div>
+
+          {/* Portfolio Policy Banner */}
+          <div className="mb-6 p-3 bg-blue-50 border border-blue-100 rounded-md flex items-center gap-3 text-blue-800">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-5 w-5 flex-shrink-0"
+            >
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M12 16v-4"/>
+              <path d="M12 8h.01"/>
+            </svg>
+            <div>
+              <p className="text-sm">
+                <strong>Multiple Portfolios:</strong> You can create different portfolios using different templates (one portfolio per template) to showcase various aspects of your work.
+              </p>
             </div>
           </div>
 
@@ -410,6 +449,18 @@ function PortfolioCard({ portfolio, onPublishToggle, onDelete }: { portfolio: Po
             </div>
           )}
         </div>
+
+        {/* Add Last Updated timestamp */}
+        <div className="text-xs text-muted-foreground mb-2">
+          Last updated: {new Date(portfolio.updatedAt).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          })}
+        </div>
+
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className={`w-3 h-3 rounded-full ${portfolio.isPublished ? 'bg-green-500' : 'bg-yellow-500'}`} />
@@ -494,7 +545,8 @@ function PortfolioCard({ portfolio, onPublishToggle, onDelete }: { portfolio: Po
             </DialogContent>
           </Dialog>
         </div>
-        <Link href={`/templates/use/${portfolio.templateId?._id || 'default'}`}>
+        {/* Fix the Edit button link to direct to the portfolio editor based on portfolio ID */}
+        <Link href={`/portfolio/preview/${portfolio._id}`}>
           <Button variant="default" size="sm">
             Edit
           </Button>
