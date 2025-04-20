@@ -199,7 +199,9 @@ export default function PortfolioEditorPage() {
 
       try {
         setTemplateLoading(true);
+        console.log('Fetching template data for ID:', templateId);
         const templateData = await apiClient.getTemplateById(templateId);
+        console.log('Template data fetched successfully:', templateData.name);
 
         // Ensure the template has sections property
         if (!templateData.sections) {
@@ -211,11 +213,14 @@ export default function PortfolioEditorPage() {
         // If user is authenticated, check for existing portfolios using this template
         if (isAuthenticated && user && !existingPortfolioFetched) {
           try {
+            console.log('User authenticated, checking for existing portfolios');
             // Get user's portfolios
             const userPortfolios = await apiClient.request<{ success: boolean; portfolios: Portfolio[] }>(
               '/portfolios',
               'GET'
             );
+
+            console.log(`Found ${userPortfolios.portfolios.length} portfolios for user`);
 
             // Find portfolio with this template
             const existingPortfolio = userPortfolios.portfolios.find(
@@ -224,27 +229,40 @@ export default function PortfolioEditorPage() {
             );
 
             if (existingPortfolio) {
+              console.log('Found existing portfolio for template:', existingPortfolio._id);
               setPortfolioId(existingPortfolio._id);
 
               try {
                 // Initialize with existing data
+                console.log('Fetching detailed portfolio data...');
                 const portfolioData = await apiClient.request<{ success: boolean; portfolio: any }>(
                   `/portfolios/${existingPortfolio._id}`,
                   'GET'
                 );
 
                 if (portfolioData.success && portfolioData.portfolio) {
+                  console.log('Portfolio data fetched successfully');
+
                   // Extract the content from the portfolio data
                   // Make sure we're getting all sections properly
                   const portfolioContent = portfolioData.portfolio.content || {};
+                  console.log('Portfolio content keys:', Object.keys(portfolioContent));
 
                   // Create a function to safely extract and create a deep copy of section data
                   const extractSectionData = (sectionName, defaultValue) => {
-                    if (portfolioContent[sectionName]) {
-                      // Deep clone to avoid reference issues
-                      return JSON.parse(JSON.stringify(portfolioContent[sectionName]));
+                    try {
+                      if (portfolioContent[sectionName]) {
+                        // Log that we found this section data
+                        console.log(`Found existing data for section: ${sectionName}`);
+                        // Deep clone to avoid reference issues
+                        return JSON.parse(JSON.stringify(portfolioContent[sectionName]));
+                      }
+                      console.log(`No existing data for section: ${sectionName}, using default`);
+                      return defaultValue;
+                    } catch (err) {
+                      console.error(`Error extracting section data for ${sectionName}:`, err);
+                      return defaultValue;
                     }
-                    return defaultValue;
                   };
 
                   // Create portfolio with existing data, safely copying all nested arrays
@@ -307,15 +325,20 @@ export default function PortfolioEditorPage() {
                     },
                   };
 
+                  console.log('Setting up portfolio state with existing data');
                   // Set portfolio state with the loaded data
                   setPortfolio(savedPortfolio);
                   setExistingPortfolioFetched(true);
                   return;
+                } else {
+                  console.warn('Portfolio data fetch succeeded but data is invalid:', portfolioData);
                 }
               } catch (innerError) {
                 console.error('Error fetching specific portfolio data:', innerError);
                 // Continue with template initialization below if specific portfolio fetch fails
               }
+            } else {
+              console.log('No existing portfolio found for this template, initializing new one');
             }
           } catch (error) {
             console.error('Error fetching user portfolios:', error);
@@ -324,6 +347,7 @@ export default function PortfolioEditorPage() {
         }
 
         // If no existing portfolio was found or fetch failed, initialize with template defaults
+        console.log('Initializing new portfolio with template defaults');
         initializePortfolio(templateData);
       } catch (error) {
         console.error('Error fetching template:', error);

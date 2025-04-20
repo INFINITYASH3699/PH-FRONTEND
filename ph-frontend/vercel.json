@@ -1,35 +1,45 @@
 {
   "headers": [
     {
-      "source": "/api/(.*)",
+      "source": "/(.*)",
       "headers": [
-        { "key": "Access-Control-Allow-Credentials", "value": "true" },
-        { "key": "Access-Control-Allow-Origin", "value": "*" },
-        { "key": "Access-Control-Allow-Methods", "value": "GET,OPTIONS,PATCH,DELETE,POST,PUT" },
-        { "key": "Access-Control-Allow-Headers", "value": "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization" }
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "X-XSS-Protection",
+          "value": "1; mode=block"
+        },
+        {
+          "key": "Access-Control-Allow-Credentials",
+          "value": "true"
+        },
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "https://portfolio-hub-yqp0.onrender.com"
+        },
+        {
+          "key": "Access-Control-Allow-Methods",
+          "value": "GET,OPTIONS,PATCH,DELETE,POST,PUT"
+        },
+        {
+          "key": "Access-Control-Allow-Headers",
+          "value": "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization"
+        }
       ]
     }
   ],
   "env": {
-    "NODE_ENV": "production",
-    "NEXTAUTH_URL": "${VERCEL_URL}",
-    "VERCEL_URL": "${VERCEL_URL}",
     "NEXT_PUBLIC_API_URL": "https://portfolio-hub-yqp0.onrender.com/api"
   },
-  "buildCommand": "npm run build",
-  "outputDirectory": ".next",
-  "framework": "nextjs",
-  "devCommand": "npm run dev",
-  "rewrites": [
-    {
-      "source": "/api/:path*",
-      "destination": "https://portfolio-hub-yqp0.onrender.com/api/:path*"
-    }
-  ],
-  "functions": {
-    "pages/api/**/*.js": {
-      "memory": 1024,
-      "maxDuration": 10
+  "build": {
+    "env": {
+      "NEXT_PUBLIC_API_URL": "https://portfolio-hub-yqp0.onrender.com/api"
     }
   }
 }

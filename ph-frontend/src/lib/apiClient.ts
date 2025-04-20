@@ -482,9 +482,8 @@ async function getTemplates(category?: string, options?: { sort?: string; tags?:
       endpoint += `?${queryParams.join('&')}`;
     }
 
-    // Use direct backend URL specifically for templates to avoid rewrite issues
-    const backendUrl = 'https://portfolio-hub-yqp0.onrender.com/api';
-    console.log('[DEBUG] Fetching templates from:', `${backendUrl}${endpoint}`);
+    // Use the configured API base URL
+    console.log('[DEBUG] Fetching templates from:', `${API_BASE_URL}${endpoint}`);
 
     // Set up a fetch with timeout
     const controller = new AbortController();
@@ -504,11 +503,10 @@ async function getTemplates(category?: string, options?: { sort?: string; tags?:
       }
 
       console.log('[DEBUG] Making fetch request to templates endpoint');
-      const response = await fetch(`${backendUrl}${endpoint}`, {
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
         method: 'GET',
         headers,
-        credentials: 'omit', // Change from 'include' to 'omit' to avoid CORS preflight issues
-        mode: 'cors', // Explicitly set CORS mode
+        credentials: 'include', // Match other API calls for consistency
         signal: controller.signal
       });
 
@@ -557,9 +555,9 @@ async function getTemplates(category?: string, options?: { sort?: string; tags?:
 
 async function getTemplateById(id: string): Promise<Template> {
   try {
-    // Use direct backend URL specifically for templates to avoid rewrite issues
-    const backendUrl = 'https://portfolio-hub-yqp0.onrender.com/api';
-    console.log('Fetching template by ID from:', `${backendUrl}/templates/${id}`);
+    // Use the configured base URL instead of hardcoding it
+    // This ensures consistency between environments
+    console.log('Fetching template by ID from:', `${API_BASE_URL}/templates/${id}`);
 
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
@@ -569,20 +567,44 @@ async function getTemplateById(id: string): Promise<Template> {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    const response = await fetch(`${backendUrl}/templates/${id}`, {
-      method: 'GET',
-      headers,
-      credentials: 'omit', // Change from 'include' to 'omit' to avoid CORS preflight issues
-      mode: 'cors', // Explicitly set CORS mode
-    });
+    // Add a timeout mechanism for better error handling
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30-second timeout
 
-    if (!response.ok) {
-      throw new Error(`Template fetch failed with status: ${response.status}`);
+    try {
+      const response = await fetch(`${API_BASE_URL}/templates/${id}`, {
+        method: 'GET',
+        headers,
+        credentials: 'include', // Use 'include' to match other API calls
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error(`Template fetch failed with status: ${response.status}`);
+      }
+
+      // Get response as text first for debugging
+      const responseText = await response.text();
+      console.log('Template by ID response text (first 200 chars):', responseText.substring(0, 200));
+
+      // Parse JSON after ensuring we have valid content
+      const data = JSON.parse(responseText);
+      console.log('Template by ID response received:', data.success ? 'Success' : 'Failure');
+
+      return data.template;
+    } catch (fetchError: any) {
+      clearTimeout(timeoutId);
+
+      // Special handling for abort/timeout
+      if (fetchError.name === 'AbortError') {
+        console.error('Template request timed out after 30s');
+        throw new Error('Template request timed out after 30 seconds');
+      }
+
+      throw fetchError;
     }
-
-    const data = await response.json();
-    console.log('Template by ID response received:', data);
-    return data.template;
   } catch (error) {
     console.error('Error fetching template by ID:', error);
     throw error;
@@ -620,33 +642,48 @@ async function favoriteTemplate(templateId: string, isFavorite: boolean): Promis
 
 async function getFavoriteTemplates(): Promise<Template[]> {
   try {
-    // Use direct backend URL specifically for templates to avoid rewrite issues
-    const backendUrl = 'https://portfolio-hub-yqp0.onrender.com/api';
+    // Use the configured API base URL
     const token = getToken();
 
     if (!token) {
       throw new Error('Authentication required to get favorite templates');
     }
 
-    console.log('Fetching favorite templates from:', `${backendUrl}/templates/favorites`);
+    console.log('Fetching favorite templates from:', `${API_BASE_URL}/templates/favorites`);
 
-    const response = await fetch(`${backendUrl}/templates/favorites`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      credentials: 'omit', // Change from 'include' to 'omit' to avoid CORS preflight issues
-      mode: 'cors', // Explicitly set CORS mode
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30-second timeout
 
-    if (!response.ok) {
-      throw new Error(`Favorite templates fetch failed with status: ${response.status}`);
+    try {
+      const response = await fetch(`${API_BASE_URL}/templates/favorites`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        credentials: 'include', // Match other API calls for consistency
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error(`Favorite templates fetch failed with status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('Favorite templates response received:', data);
+      return data.templates;
+    } catch (fetchError: any) {
+      clearTimeout(timeoutId);
+
+      if (fetchError.name === 'AbortError') {
+        console.error('Favorite templates request timed out after 30s');
+        throw new Error('Favorite templates request timed out after 30 seconds');
+      }
+
+      throw fetchError;
     }
-
-    const data = await response.json();
-    console.log('Favorite templates response received:', data);
-    return data.templates;
   } catch (error) {
     console.error('Error fetching favorite templates:', error);
     throw error;

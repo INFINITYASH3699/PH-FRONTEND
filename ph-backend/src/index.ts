@@ -29,12 +29,40 @@ const PORT = process.env.PORT || 5000;
 
 // Middleware
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:3000',
+  // Allow multiple origins - development, deployed Vercel, and any portfolio subdomains
+  origin: function(origin, callback) {
+    // List of allowed origins
+    const allowedOrigins = [
+      'http://localhost:3000',                 // Local development frontend
+      'http://localhost:3001',                 // Alt local development frontend
+      'https://portfolio-hub-client.vercel.app', // Vercel deployment
+      'https://portfolio-hub.vercel.app'       // Another possible Vercel deployment
+    ];
+
+    // Allow any subdomain of vercel.app
+    if (origin && (origin.includes('.vercel.app') ||
+        origin.includes('localhost') ||
+        origin.includes('portfoliohub.com'))) {
+      callback(null, true);
+      return;
+    }
+
+    // Check against explicit allowed origins
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      // Log the blocked origin for debugging
+      console.log('CORS blocked request from origin:', origin);
+      callback(new Error('CORS not allowed for this origin'));
+    }
+  },
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Content-Length', 'X-Total-Count']
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
 
 // Route middleware
 app.use('/api/auth', authRoutes);
