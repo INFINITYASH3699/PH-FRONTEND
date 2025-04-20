@@ -1,10 +1,10 @@
 import { toast } from "sonner";
 
-// API base URL - use environment variable or default to the backend URL 
+// API base URL - use environment variable or default to the backend URL
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ||
   (typeof window !== 'undefined' && window.location.hostname !== 'localhost'
-    ? '/api' // In production, use the relative /api path which gets rewritten in vercel.json
+    ? 'https://ph-backend-api.vercel.app/api' // Use the full URL in production
     : 'http://localhost:5000/api'); // Use localhost for development
 
 // Storage keys
@@ -260,35 +260,52 @@ const apiRequest = async <T>(
       method,
       headers,
       credentials: "include", // Important for cookie handling
+      // Add a longer timeout (browsers don't directly support this, but we can handle it with AbortController)
     };
 
     if (data && (method === "POST" || method === "PUT" || method === "PATCH")) {
       options.body = JSON.stringify(data);
     }
 
-
-    const response = await fetch(url, options);
-
-    // Handle no response or network error
-    if (!response) {
-      throw new Error("No response from server");
-    }
-
-    let responseData;
-    const responseText = await response.text();
+    // Set up AbortController with a timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+    options.signal = controller.signal;
 
     try {
-      responseData = responseText ? JSON.parse(responseText) : {};
-    } catch (error) {
-      console.error("Error parsing JSON response:", error);
-      throw new Error("Invalid response format");
-    }
+      const response = await fetch(url, options);
+      clearTimeout(timeoutId); // Clear the timeout if fetch completes
 
-    if (!response.ok) {
-      throw new Error(responseData.message || "Request failed");
-    }
+      // Handle no response or network error
+      if (!response) {
+        throw new Error("No response from server");
+      }
 
-    return responseData as T;
+      let responseData;
+      const responseText = await response.text();
+
+      try {
+        responseData = responseText ? JSON.parse(responseText) : {};
+      } catch (error) {
+        console.error("Error parsing JSON response:", error);
+        throw new Error("Invalid response format");
+      }
+
+      if (!response.ok) {
+        throw new Error(responseData.message || "Request failed");
+      }
+
+      return responseData as T;
+    } catch (error: any) {
+      clearTimeout(timeoutId); // Ensure timeout is cleared on error
+
+      // Handle abort error specifically
+      if (error.name === 'AbortError') {
+        throw new Error("Request timed out after 15 seconds");
+      }
+
+      throw error;
+    }
   } catch (error: any) {
     console.error(`API error (${endpoint}):`, error);
     if (showErrorToast) {

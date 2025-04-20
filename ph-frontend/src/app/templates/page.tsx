@@ -55,6 +55,7 @@ export default function TemplatesPage() {
   useEffect(() => {
     const fetchTemplates = async () => {
       try {
+        setLoading(true);
         const category = filterOptions.category !== 'all' ? filterOptions.category : undefined;
         const options = {
           sort: filterOptions.sort,
@@ -62,26 +63,44 @@ export default function TemplatesPage() {
           tags: filterOptions.tags.length > 0 ? filterOptions.tags : undefined,
         };
 
-        const fetchedTemplates = await apiClient.getTemplates(category, options);
+        // Add a timeout to the fetch request
+        const timeoutPromise = new Promise<Template[]>((_, reject) =>
+          setTimeout(() => reject(new Error('API request timeout')), 10000)
+        );
+
+        const fetchPromise = apiClient.getTemplates(category, options);
+
+        // Race between the fetch and the timeout
+        const fetchedTemplates = await Promise.race([fetchPromise, timeoutPromise]);
+
+        console.log('Templates fetched successfully:', fetchedTemplates.length);
         setTemplates(fetchedTemplates);
       } catch (error) {
-        console.error('Error fetching templates:', error);
+        console.error('Error fetching templates details:', error);
+        // Log what type of error occurred
+        if (error instanceof Error) {
+          console.error(`Error name: ${error.name}, message: ${error.message}`);
+        }
+
         toast.error('Failed to load templates. Using demo data instead.');
+
         // Use fallback templates if API fails
-        setTemplates(fallbackTemplates.map(t => ({
-          _id: t._id,
-          name: t.name,
-          description: t.description,
-          category: t.category,
-          previewImage: t.previewImage,
-          defaultStructure: t.settings || {},
-          isPublished: true,
-          tags: t.tags || [],
-          rating: {
-            average: 4.5,
-            count: 10
-          }
-        })));
+        setTemplates(
+          fallbackTemplates.map(t => ({
+            _id: t._id,
+            name: t.name,
+            description: t.description,
+            category: t.category,
+            previewImage: t.previewImage,
+            defaultStructure: t.settings || {},
+            isPublished: true,
+            tags: t.tags || [],
+            rating: {
+              average: 4.5,
+              count: 10,
+            },
+          }))
+        );
       } finally {
         setLoading(false);
       }
@@ -126,7 +145,7 @@ export default function TemplatesPage() {
   const handleCategoryChange = (category: string) => {
     setFilterOptions(prev => ({
       ...prev,
-      category
+      category,
     }));
   };
 
@@ -134,7 +153,7 @@ export default function TemplatesPage() {
   const handleSortChange = (sort: string) => {
     setFilterOptions(prev => ({
       ...prev,
-      sort
+      sort,
     }));
   };
 
@@ -142,7 +161,7 @@ export default function TemplatesPage() {
   const handleFeaturedChange = (featured: boolean) => {
     setFilterOptions(prev => ({
       ...prev,
-      featured
+      featured,
     }));
   };
 
@@ -155,7 +174,7 @@ export default function TemplatesPage() {
 
       return {
         ...prev,
-        tags: updatedTags
+        tags: updatedTags,
       };
     });
   };
@@ -172,15 +191,11 @@ export default function TemplatesPage() {
       await apiClient.favoriteTemplate(templateId, isFavorite);
 
       setFavoriteTemplates(prev =>
-        isFavorite
-          ? [...prev, templateId]
-          : prev.filter(id => id !== templateId)
+        isFavorite ? [...prev, templateId] : prev.filter(id => id !== templateId)
       );
 
       toast.success(
-        isFavorite
-          ? 'Template added to favorites'
-          : 'Template removed from favorites'
+        isFavorite ? 'Template added to favorites' : 'Template removed from favorites'
       );
     } catch (error) {
       console.error('Error toggling favorite:', error);
@@ -270,18 +285,42 @@ export default function TemplatesPage() {
                 >
                   {filterOptions.featured ? (
                     <span className="flex items-center gap-1">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="h-4 w-4"
+                      >
                         <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
                       </svg>
                       Featured Only
                     </span>
-                  ) : 'Show Featured'}
+                  ) : (
+                    'Show Featured'
+                  )}
                 </Button>
 
                 {isAuthenticated && (
                   <Link href="/templates/favorites">
                     <Button variant="outline" size="sm" className="flex items-center gap-1">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="h-4 w-4"
+                      >
                         <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
                       </svg>
                       My Favorites
@@ -339,7 +378,7 @@ export default function TemplatesPage() {
                   </div>
                 ) : filteredTemplates.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {filteredTemplates.map((template) => (
+                    {filteredTemplates.map(template => (
                       <TemplateCard
                         key={template._id}
                         template={template}
@@ -359,7 +398,7 @@ export default function TemplatesPage() {
                           category: 'all',
                           sort: 'newest',
                           featured: false,
-                          tags: []
+                          tags: [],
                         });
                       }}
                     >
@@ -410,7 +449,18 @@ function TemplateCard({ template, isFavorite, onToggleFavorite }: TemplateCardPr
         {/* Featured badge */}
         {template.isFeatured && (
           <div className="absolute top-4 left-4 bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1">
-            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-3 w-3"
+            >
               <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
             </svg>
             Featured
@@ -419,35 +469,33 @@ function TemplateCard({ template, isFavorite, onToggleFavorite }: TemplateCardPr
       </div>
       <div className="p-4">
         <div className="flex justify-between items-center mb-2">
-          <span className="text-sm font-medium capitalize">
-            {template.category}
-          </span>
+          <span className="text-sm font-medium capitalize">{template.category}</span>
 
           {/* Rating stars */}
           {template.rating && (
             <div className="flex items-center gap-1">
               <div className="flex">
-                {[1, 2, 3, 4, 5].map((star) => (
+                {[1, 2, 3, 4, 5].map(star => (
                   <svg
                     key={star}
                     xmlns="http://www.w3.org/2000/svg"
                     width="12"
                     height="12"
                     viewBox="0 0 24 24"
-                    fill={star <= Math.round(template.rating.average) ? "currentColor" : "none"}
+                    fill={star <= Math.round(template.rating.average) ? 'currentColor' : 'none'}
                     stroke="currentColor"
                     strokeWidth="2"
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    className={`h-4 w-4 ${star <= Math.round(template.rating.average) ? "text-amber-500" : "text-gray-300"}`}
+                    className={`h-4 w-4 ${
+                      star <= Math.round(template.rating.average) ? 'text-amber-500' : 'text-gray-300'
+                    }`}
                   >
                     <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
                   </svg>
                 ))}
               </div>
-              <span className="text-xs text-muted-foreground">
-                ({template.rating.count})
-              </span>
+              <span className="text-xs text-muted-foreground">({template.rating.count})</span>
             </div>
           )}
         </div>
@@ -471,7 +519,7 @@ function TemplateCard({ template, isFavorite, onToggleFavorite }: TemplateCardPr
         <div className="flex justify-between items-center">
           <button
             type="button"
-            onClick={(e) => {
+            onClick={e => {
               e.preventDefault();
               e.stopPropagation();
               onToggleFavorite(template._id, !isFavorite);
@@ -483,12 +531,12 @@ function TemplateCard({ template, isFavorite, onToggleFavorite }: TemplateCardPr
               width="16"
               height="16"
               viewBox="0 0 24 24"
-              fill={isFavorite ? "currentColor" : "none"}
+              fill={isFavorite ? 'currentColor' : 'none'}
               stroke="currentColor"
               strokeWidth="2"
               strokeLinecap="round"
               strokeLinejoin="round"
-              className={`h-4 w-4 mr-1 ${isFavorite ? "text-red-500" : ""}`}
+              className={`h-4 w-4 mr-1 ${isFavorite ? 'text-red-500' : ''}`}
             >
               <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
             </svg>
@@ -497,7 +545,9 @@ function TemplateCard({ template, isFavorite, onToggleFavorite }: TemplateCardPr
 
           <div className="flex gap-2">
             <Link href={`/templates/preview/${template._id}`}>
-              <Button variant="ghost" size="sm">Preview</Button>
+              <Button variant="ghost" size="sm">
+                Preview
+              </Button>
             </Link>
             <Link href={`/templates/use/${template._id}`}>
               <Button size="sm" className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white">
