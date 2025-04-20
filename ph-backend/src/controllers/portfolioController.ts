@@ -72,6 +72,15 @@ export const createPortfolio = async (
       userExistingPortfolio.content = content || {};
       userExistingPortfolio.isPublished = req.body.isPublished || false;
 
+      // If this portfolio is being published, unpublish any other published portfolios
+      if (userExistingPortfolio.isPublished) {
+        await Portfolio.updateMany(
+          { userId: req.user.id, isPublished: true, _id: { $ne: userExistingPortfolio._id } },
+          { $set: { isPublished: false } }
+        );
+        console.log(`Unpublished all other portfolios for user ${req.user.id}`);
+      }
+
       const updatedPortfolio = await userExistingPortfolio.save();
 
       return res.status(200).json({
@@ -90,6 +99,15 @@ export const createPortfolio = async (
           message: "Template not found",
         });
       }
+    }
+
+    // If this portfolio is being published, unpublish any other published portfolios
+    if (req.body.isPublished) {
+      await Portfolio.updateMany(
+        { userId: req.user.id, isPublished: true },
+        { $set: { isPublished: false } }
+      );
+      console.log(`Unpublished all other portfolios for user ${req.user.id}`);
     }
 
     // Create portfolio
@@ -223,6 +241,15 @@ export const updatePortfolio = async (
         success: false,
         message: "Not authorized to update this portfolio",
       });
+    }
+
+    // If this portfolio is being published, unpublish any other published portfolios
+    if (isPublished && !portfolio.isPublished) {
+      await Portfolio.updateMany(
+        { userId: req.user.id, isPublished: true, _id: { $ne: portfolio._id } },
+        { $set: { isPublished: false } }
+      );
+      console.log(`Unpublished all other portfolios for user ${req.user.id}`);
     }
 
     // Update fields

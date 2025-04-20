@@ -211,7 +211,7 @@ export default function DashboardPage() {
             </svg>
             <div>
               <p className="text-sm">
-                <strong>Multiple Portfolios:</strong> You can create different portfolios using different templates (one portfolio per template) to showcase various aspects of your work.
+                <strong>Multiple Portfolios:</strong> You can create different portfolios using different templates (one portfolio per template) to showcase various aspects of your work. However, only one portfolio can be published at a time. Publishing a new portfolio will automatically unpublish any previously published portfolio.
               </p>
             </div>
           </div>

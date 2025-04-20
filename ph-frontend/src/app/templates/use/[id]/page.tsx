@@ -1062,7 +1062,7 @@ export default function PortfolioEditorPage() {
                 <path d="M12 8h.01"/>
               </svg>
               <span>
-                <strong>Note:</strong> Each template can only be used once per account. If you want to create a new portfolio, please choose a different template.
+                <strong>Note:</strong> Each template can only be used once per account. You can create multiple portfolios using different templates, but only one portfolio can be published at a time. Publishing a new portfolio will automatically unpublish any previously published portfolio.
               </span>
             </div>
 
