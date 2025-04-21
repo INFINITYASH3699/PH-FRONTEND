@@ -1,4 +1,3 @@
-// src/controllers/authController.ts
 import { Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import fs from "fs";
@@ -134,6 +133,7 @@ export const login = async (req: Request, res: Response): Promise<Response> => {
         email: user.email,
         role: user.role,
         profilePicture: user.profilePicture,
+        profile: user.profile || {}, // Include full profile data
       },
     });
   } catch (error: any) {
@@ -172,6 +172,7 @@ export const getCurrentUser = async (
         role: user.role,
         profilePicture: user.profilePicture,
         createdAt: user.createdAt,
+        profile: user.profile || {}, // Include full profile data
       },
     });
   } catch (error: any) {

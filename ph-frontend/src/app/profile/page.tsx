@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/components/providers/AuthContext';
 import apiClient, { SocialLinks, User, UserProfile, SkillCategory, Experience, Education, Project, Skill } from '@/lib/apiClient';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { PlusCircle, Trash2, X, ArrowUpDown, Calendar } from 'lucide-react';
+import { PlusCircle, Trash2, X, ArrowUpDown, Calendar, Edit, Lock, Save } from 'lucide-react';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -45,6 +45,7 @@ export default function ProfilePage() {
     projects: [] as Project[],
   });
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isEditing, setIsEditing] = useState(false); // New state to track editing mode
   const [charCount, setCharCount] = useState(0);
   const [activeTab, setActiveTab] = useState('basic');
 
@@ -87,6 +88,15 @@ export default function ProfilePage() {
   // Editing states
   const [editIndex, setEditIndex] = useState(-1);
   const [editCategoryIndex, setEditCategoryIndex] = useState(-1);
+
+  // Toggle editing mode
+  const toggleEditMode = () => {
+    if (isEditing) {
+      // If switching from editing to view mode, save changes
+      handleSaveProfile();
+    }
+    setIsEditing(!isEditing);
+  };
 
   useEffect(() => {
     if (user) {
@@ -484,12 +494,12 @@ export default function ProfilePage() {
     setIsUpdating(true);
     try {
       // Prepare data for API
-      console.log("Preparing profile data for update:", {
-        skills: profileData.skills.length,
-        education: profileData.education.length,
-        experience: profileData.experience.length,
-        projects: profileData.projects.length
-      });
+      // console.log("Preparing profile data for update:", {
+      //   skills: profileData.skills.length,
+      //   education: profileData.education.length,
+      //   experience: profileData.experience.length,
+      //   projects: profileData.projects.length
+      // });
 
       // Create deep copies of all array data to avoid reference issues
       const updateData = {
@@ -508,23 +518,23 @@ export default function ProfilePage() {
         projects: profileData.projects.length > 0 ? JSON.parse(JSON.stringify(profileData.projects)) : [],
       };
 
-      console.log("Sending profile update with data:", {
-        basicInfo: `${updateData.fullName}, ${updateData.title}`,
-        hasSkills: updateData.skills.length > 0,
-        hasEducation: updateData.education.length > 0,
-        hasExperience: updateData.experience.length > 0,
-        hasProjects: updateData.projects.length > 0,
-      });
+      // console.log("Sending profile update with data:", {
+      //   basicInfo: `${updateData.fullName}, ${updateData.title}`,
+      //   hasSkills: updateData.skills.length > 0,
+      //   hasEducation: updateData.education.length > 0,
+      //   hasExperience: updateData.experience.length > 0,
+      //   hasProjects: updateData.projects.length > 0,
+      // });
 
       // Call context method to update profile
       const updatedUser = await updateProfile(updateData);
-      console.log("Profile updated successfully:", updatedUser);
+      // console.log("Profile updated successfully:", updatedUser);
 
       toast.success('Profile updated successfully');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to update profile';
       toast.error(message);
-      console.error('Profile update error:', error);
+      // console.error('Profile update error:', error);
     } finally {
       setIsUpdating(false);
     }
@@ -569,11 +579,75 @@ export default function ProfilePage() {
 
       <main className="flex-grow py-12">
         <div className="container px-4 md:px-6">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold">Edit Profile</h1>
-            <p className="text-muted-foreground">
-              Update your personal information and how you present yourself on PortfolioHub.
-            </p>
+          <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-bold">Profile</h1>
+              <p className="text-muted-foreground">
+                Update your personal information and how you present yourself on PortfolioHub.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant={isEditing ? "default" : "outline"}
+                onClick={toggleEditMode}
+                disabled={isUpdating}
+                className="flex items-center"
+              >
+                {isEditing ? (
+                  <>
+                    <Save className="h-4 w-4 mr-2" />
+                    Save Changes
+                  </>
+                ) : (
+                  <>
+                    <Edit className="h-4 w-4 mr-2" />
+                    Edit Profile
+                  </>
+                )}
+              </Button>
+              {isEditing && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    // Reset to user data, discard changes
+                    if (user) {
+                      const nameParts = user.fullName.split(' ');
+                      const firstName = nameParts[0] || '';
+                      const lastName = nameParts.slice(1).join(' ') || '';
+                      setProfileData({
+                        fullName: user.fullName,
+                        firstName,
+                        lastName,
+                        email: user.email,
+                        username: user.username,
+                        avatar: user.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.fullName)}&background=6d28d9&color=fff`,
+                        title: user.profile?.title || '',
+                        bio: user.profile?.bio || '',
+                        location: user.profile?.location || '',
+                        website: user.profile?.website || '',
+                        socialLinks: {
+                          github: user.profile?.socialLinks?.github || '',
+                          twitter: user.profile?.socialLinks?.twitter || '',
+                          linkedin: user.profile?.socialLinks?.linkedin || '',
+                          instagram: user.profile?.socialLinks?.instagram || '',
+                        },
+                        skills: user.profile?.skills || [],
+                        education: user.profile?.education || [],
+                        experience: user.profile?.experience || [],
+                        projects: user.profile?.projects || [],
+                      });
+                      setCharCount(user.profile?.bio?.length || 0);
+                    }
+                    setIsEditing(false);
+                  }}
+                  className="flex items-center"
+                  disabled={isUpdating}
+                >
+                  <Lock className="h-4 w-4 mr-2" />
+                  Cancel
+                </Button>
+              )}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -594,22 +668,24 @@ export default function ProfilePage() {
                       fill
                       className="rounded-full object-cover"
                     />
-                    <button className="absolute -bottom-2 -right-2 bg-primary text-white rounded-full p-2 shadow-md" onClick={triggerFileUpload}>
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="24"
-                        height="24"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="h-4 w-4"
-                      >
-                        <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-                      </svg>
-                    </button>
+                    {isEditing && (
+                      <button className="absolute -bottom-2 -right-2 bg-primary text-white rounded-full p-2 shadow-md" onClick={triggerFileUpload}>
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="24"
+                          height="24"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="h-4 w-4"
+                        >
+                          <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                        </svg>
+                      </button>
+                    )}
                   </div>
                   <div className="flex flex-col gap-2 w-full">
                     <input
@@ -618,15 +694,16 @@ export default function ProfilePage() {
                       className="hidden"
                       accept="image/*"
                       onChange={handleFileUpload}
+                      disabled={!isEditing}
                     />
-                    <Button variant="outline" size="sm" onClick={triggerFileUpload}>
+                    <Button variant="outline" size="sm" onClick={triggerFileUpload} disabled={!isEditing}>
                       Upload New Picture
                     </Button>
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={handleRemoveProfilePicture}
-                      disabled={!user?.profilePicture || profileData.avatar === `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.fullName || '')}&background=6d28d9&color=fff`}
+                      disabled={!isEditing || !user?.profilePicture || profileData.avatar === `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.fullName || '')}&background=6d28d9&color=fff`}
                     >
                       Remove Picture
                     </Button>
@@ -684,6 +761,7 @@ export default function ProfilePage() {
                             id="first-name"
                             value={profileData.firstName}
                             onChange={handleInputChange}
+                            disabled={!isEditing}
                           />
                         </div>
                         <div className="space-y-2">
@@ -694,6 +772,7 @@ export default function ProfilePage() {
                             id="last-name"
                             value={profileData.lastName}
                             onChange={handleInputChange}
+                            disabled={!isEditing}
                           />
                         </div>
                       </div>
@@ -706,6 +785,7 @@ export default function ProfilePage() {
                           id="title"
                           value={profileData.title}
                           onChange={handleInputChange}
+                          disabled={!isEditing}
                         />
                         <p className="text-xs text-muted-foreground">
                           For example: Full Stack Developer, UX Designer, Photographer
@@ -724,6 +804,7 @@ export default function ProfilePage() {
                             onChange={handleInputChange}
                             className="min-h-32 resize-none"
                             maxLength={500}
+                            disabled={!isEditing}
                           />
                           <div className="absolute bottom-2 right-2 text-xs text-muted-foreground">
                             {charCount} / 500
@@ -742,6 +823,7 @@ export default function ProfilePage() {
                           id="location"
                           value={profileData.location}
                           onChange={handleInputChange}
+                          disabled={!isEditing}
                         />
                         <p className="text-xs text-muted-foreground">
                           City, Country or Remote
@@ -757,6 +839,7 @@ export default function ProfilePage() {
                           type="url"
                           value={profileData.website}
                           onChange={handleInputChange}
+                          disabled={!isEditing}
                         />
                       </div>
                     </CardContent>
@@ -793,6 +876,7 @@ export default function ProfilePage() {
                             className="pl-24"
                             value={profileData.socialLinks.github}
                             onChange={handleInputChange}
+                            disabled={!isEditing}
                           />
                         </div>
                       </div>
@@ -820,6 +904,7 @@ export default function ProfilePage() {
                             className="pl-24"
                             value={profileData.socialLinks.twitter}
                             onChange={handleInputChange}
+                            disabled={!isEditing}
                           />
                         </div>
                       </div>
@@ -847,6 +932,7 @@ export default function ProfilePage() {
                             className="pl-28"
                             value={profileData.socialLinks.linkedin}
                             onChange={handleInputChange}
+                            disabled={!isEditing}
                           />
                         </div>
                       </div>
@@ -874,6 +960,7 @@ export default function ProfilePage() {
                             className="pl-28"
                             value={profileData.socialLinks.instagram}
                             onChange={handleInputChange}
+                            disabled={!isEditing}
                           />
                         </div>
                       </div>
@@ -890,7 +977,7 @@ export default function ProfilePage() {
                       </div>
                       <Dialog open={isSkillsDialogOpen} onOpenChange={setIsSkillsDialogOpen}>
                         <DialogTrigger asChild>
-                          <Button size="sm" className="ml-auto">
+                          <Button size="sm" className="ml-auto" disabled={!isEditing}>
                             <PlusCircle className="h-4 w-4 mr-2" />
                             Add Skill Category
                           </Button>
@@ -987,13 +1074,11 @@ export default function ProfilePage() {
                               <div className="flex justify-between items-center mb-4">
                                 <h3 className="text-lg font-semibold">{category.name}</h3>
                                 <div className="flex space-x-2">
-                                  <Button size="sm" variant="ghost" onClick={() => handleEditSkillCategory(idx)}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 mr-1">
-                                      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-                                    </svg>
+                                  <Button size="sm" variant="ghost" onClick={() => handleEditSkillCategory(idx)} disabled={!isEditing}>
+                                    <Edit className="h-4 w-4 mr-1" />
                                     Edit
                                   </Button>
-                                  <Button size="sm" variant="ghost" className="text-red-500" onClick={() => handleDeleteSkillCategory(idx)}>
+                                  <Button size="sm" variant="ghost" className="text-red-500" onClick={() => handleDeleteSkillCategory(idx)} disabled={!isEditing}>
                                     <Trash2 className="h-4 w-4 mr-1" />
                                     Delete
                                   </Button>
@@ -1024,7 +1109,7 @@ export default function ProfilePage() {
                           <p className="text-sm text-muted-foreground mb-4">
                             Add your professional skills and rate your proficiency to showcase your expertise.
                           </p>
-                          <Button onClick={() => setIsSkillsDialogOpen(true)}>
+                          <Button onClick={() => setIsSkillsDialogOpen(true)} disabled={!isEditing}>
                             <PlusCircle className="h-4 w-4 mr-2" />
                             Add Skills
                           </Button>
@@ -1044,7 +1129,7 @@ export default function ProfilePage() {
                       </div>
                       <Dialog open={isEducationDialogOpen} onOpenChange={setIsEducationDialogOpen}>
                         <DialogTrigger asChild>
-                          <Button size="sm" className="ml-auto">
+                          <Button size="sm" className="ml-auto" disabled={!isEditing}>
                             <PlusCircle className="h-4 w-4 mr-2" />
                             Add Education
                           </Button>
@@ -1157,13 +1242,11 @@ export default function ProfilePage() {
                                   </div>
                                 </div>
                                 <div className="flex space-x-2">
-                                  <Button size="sm" variant="ghost" onClick={() => handleEditEducation(idx)}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 mr-1">
-                                      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-                                    </svg>
+                                  <Button size="sm" variant="ghost" onClick={() => handleEditEducation(idx)} disabled={!isEditing}>
+                                    <Edit className="h-4 w-4 mr-1" />
                                     Edit
                                   </Button>
-                                  <Button size="sm" variant="ghost" className="text-red-500" onClick={() => handleDeleteEducation(idx)}>
+                                  <Button size="sm" variant="ghost" className="text-red-500" onClick={() => handleDeleteEducation(idx)} disabled={!isEditing}>
                                     <Trash2 className="h-4 w-4 mr-1" />
                                     Delete
                                   </Button>
@@ -1183,7 +1266,7 @@ export default function ProfilePage() {
                           <p className="text-sm text-muted-foreground mb-4">
                             Add your educational background to showcase your qualifications.
                           </p>
-                          <Button onClick={() => setIsEducationDialogOpen(true)}>
+                          <Button onClick={() => setIsEducationDialogOpen(true)} disabled={!isEditing}>
                             <PlusCircle className="h-4 w-4 mr-2" />
                             Add Education
                           </Button>
@@ -1203,7 +1286,7 @@ export default function ProfilePage() {
                       </div>
                       <Dialog open={isExperienceDialogOpen} onOpenChange={setIsExperienceDialogOpen}>
                         <DialogTrigger asChild>
-                          <Button size="sm" className="ml-auto">
+                          <Button size="sm" className="ml-auto" disabled={!isEditing}>
                             <PlusCircle className="h-4 w-4 mr-2" />
                             Add Experience
                           </Button>
@@ -1332,13 +1415,11 @@ export default function ProfilePage() {
                                   </div>
                                 </div>
                                 <div className="flex space-x-2">
-                                  <Button size="sm" variant="ghost" onClick={() => handleEditExperience(idx)}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 mr-1">
-                                      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-                                    </svg>
+                                  <Button size="sm" variant="ghost" onClick={() => handleEditExperience(idx)} disabled={!isEditing}>
+                                    <Edit className="h-4 w-4 mr-1" />
                                     Edit
                                   </Button>
-                                  <Button size="sm" variant="ghost" className="text-red-500" onClick={() => handleDeleteExperience(idx)}>
+                                  <Button size="sm" variant="ghost" className="text-red-500" onClick={() => handleDeleteExperience(idx)} disabled={!isEditing}>
                                     <Trash2 className="h-4 w-4 mr-1" />
                                     Delete
                                   </Button>
@@ -1356,7 +1437,7 @@ export default function ProfilePage() {
                           <p className="text-sm text-muted-foreground mb-4">
                             Add your professional experience to showcase your career history.
                           </p>
-                          <Button onClick={() => setIsExperienceDialogOpen(true)}>
+                          <Button onClick={() => setIsExperienceDialogOpen(true)} disabled={!isEditing}>
                             <PlusCircle className="h-4 w-4 mr-2" />
                             Add Experience
                           </Button>
@@ -1376,7 +1457,7 @@ export default function ProfilePage() {
                       </div>
                       <Dialog open={isProjectDialogOpen} onOpenChange={setIsProjectDialogOpen}>
                         <DialogTrigger asChild>
-                          <Button size="sm" className="ml-auto">
+                          <Button size="sm" className="ml-auto" disabled={!isEditing}>
                             <PlusCircle className="h-4 w-4 mr-2" />
                             Add Project
                           </Button>
@@ -1535,12 +1616,10 @@ export default function ProfilePage() {
                                 <div className="flex justify-between items-start">
                                   <h3 className="font-semibold text-lg">{project.title}</h3>
                                   <div className="flex space-x-2">
-                                    <Button size="sm" variant="ghost" onClick={() => handleEditProject(idx)}>
-                                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-                                        <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-                                      </svg>
+                                    <Button size="sm" variant="ghost" onClick={() => handleEditProject(idx)} disabled={!isEditing}>
+                                      <Edit className="h-4 w-4" />
                                     </Button>
-                                    <Button size="sm" variant="ghost" className="text-red-500" onClick={() => handleDeleteProject(idx)}>
+                                    <Button size="sm" variant="ghost" className="text-red-500" onClick={() => handleDeleteProject(idx)} disabled={!isEditing}>
                                       <Trash2 className="h-4 w-4" />
                                     </Button>
                                   </div>
@@ -1583,7 +1662,7 @@ export default function ProfilePage() {
                           <p className="text-sm text-muted-foreground mb-4">
                             Add your projects to showcase your work and accomplishments.
                           </p>
-                          <Button onClick={() => setIsProjectDialogOpen(true)}>
+                          <Button onClick={() => setIsProjectDialogOpen(true)} disabled={!isEditing}>
                             <PlusCircle className="h-4 w-4 mr-2" />
                             Add Project
                           </Button>
@@ -1592,16 +1671,7 @@ export default function ProfilePage() {
                     </CardContent>
                   </TabsContent>
                 </Tabs>
-                <CardFooter className="flex justify-end space-x-4 border-t mt-4 pt-6">
-                  <Button variant="outline">Cancel</Button>
-                  <Button
-                    className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white"
-                    onClick={handleSaveProfile}
-                    disabled={isUpdating}
-                  >
-                    {isUpdating ? 'Saving...' : 'Save Changes'}
-                  </Button>
-                </CardFooter>
+                {/* Remove Save/Cancel from CardFooter; moved to top Edit Profile button */}
               </Card>
             </div>
           </div>
