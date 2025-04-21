@@ -4,11 +4,8 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import TemplateRenderer from '@/components/template-renderer/TemplateRenderer';
 import EditorSidebar from './EditorSidebar';
-import ThemeSelector from './ThemeSelector';
-import LayoutSelector from './LayoutSelector';
 import apiClient from '@/lib/apiClient';
 import { toast } from 'sonner';
 
@@ -25,8 +22,13 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
   const [error, setError] = useState<string | null>(null);
   const [isClient, setIsClient] = useState(false);
   const [updatedTemplate, setUpdatedTemplate] = useState(template);
+
+  // State for UI interactions
   const [isSaving, setIsSaving] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [isPreviewing, setIsPreviewing] = useState(false);
+  const [viewportMode, setViewportMode] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
   const [savedPortfolioId, setSavedPortfolioId] = useState<string | null>(null);
 
   // Set isClient to true when component mounts
@@ -81,6 +83,17 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
               { title: 'Experience', description: 'Highlight your years of experience or key skills.' },
               { title: 'Education', description: 'Share your educational background.' }
             ]
+          },
+          seo: {
+            title: 'My Portfolio | Professional Website',
+            description: 'Welcome to my professional portfolio showcasing my work and experience.',
+            keywords: 'portfolio, professional, skills, projects'
+          },
+          socialLinks: {
+            github: '',
+            linkedin: '',
+            twitter: '',
+            instagram: ''
           }
         },
         // Default theme settings
@@ -99,6 +112,22 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
     }
   }, [template, user]);
 
+  // Handler for section updates
+  const handleSectionUpdate = (sectionId: string, data: any) => {
+    if (!portfolio) return;
+
+    setPortfolio(prev => ({
+      ...prev,
+      content: {
+        ...prev.content,
+        [sectionId]: data
+      }
+    }));
+
+    // Clear saved status when changes are made
+    setIsSaved(false);
+  };
+
   // Handler for theme selection
   const handleThemeSelect = (colorSchemeId: string, fontPairingId: string) => {
     if (!portfolio) return;
@@ -108,6 +137,9 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
       activeColorScheme: colorSchemeId,
       activeFontPairing: fontPairingId,
     }));
+
+    // Clear saved status when changes are made
+    setIsSaved(false);
   };
 
   // Handler for layout selection
@@ -118,47 +150,25 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
       ...prev,
       activeLayout: layoutId,
     }));
+
+    // Clear saved status when changes are made
+    setIsSaved(false);
   };
 
-  // Handler for custom colors
-  const handleCustomColorsChange = (schemeId: string, updatedColors: any) => {
+  // Handler for custom CSS updates
+  const handleCustomCssUpdate = (css: string) => {
     if (!portfolio) return;
 
     setPortfolio(prev => ({
       ...prev,
-      customColors: updatedColors
-    }));
-  };
-
-  // Handler for saving a custom color scheme
-  const handleSaveCustomColorScheme = (name: string, colors: any) => {
-    if (!updatedTemplate || !portfolio) return;
-
-    // Create a unique, stable ID for the custom scheme
-    const customSchemeId = `custom-${name.toLowerCase().replace(/\s+/g, '-')}`;
-
-    // In a real app, this would call an API to save the custom scheme
-    const newScheme = {
-      id: customSchemeId,
-      name,
-      colors
-    };
-
-    // Update the template state
-    setUpdatedTemplate(prev => ({
-      ...prev,
-      themeOptions: {
-        ...prev.themeOptions,
-        colorSchemes: [...(prev.themeOptions?.colorSchemes || []), newScheme]
+      content: {
+        ...prev.content,
+        customCss: css
       }
     }));
 
-    // Switch to the new scheme
-    setPortfolio(prev => ({
-      ...prev,
-      activeColorScheme: customSchemeId,
-      customColors: null // Reset custom colors when using a saved scheme
-    }));
+    // Clear saved status when changes are made
+    setIsSaved(false);
   };
 
   // Handler for saving portfolio as draft
@@ -175,6 +185,11 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
         templateId: template._id,
       };
 
+      // Simulate network delay in development mode for better UX testing
+      if (process.env.NODE_ENV === 'development') {
+        await new Promise(resolve => setTimeout(resolve, 800));
+      }
+
       // Save portfolio as draft
       const response = await apiClient.portfolios.saveDraft(portfolioToSave);
 
@@ -185,6 +200,7 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
           ...prev,
           _id: response.portfolio._id
         }));
+        setIsSaved(true);
         toast.success("Portfolio saved as draft!");
       } else {
         throw new Error("Failed to save portfolio");
@@ -204,12 +220,22 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
     try {
       setIsPublishing(true);
 
+      // First save as draft if not already saved
+      if (!savedPortfolioId) {
+        await handleSaveDraft();
+      }
+
       // Prepare portfolio data for publishing
       const portfolioToPublish = {
         ...portfolio,
         // Make sure we have the template ID
         templateId: template._id,
       };
+
+      // Simulate network delay in development mode for better UX testing
+      if (process.env.NODE_ENV === 'development') {
+        await new Promise(resolve => setTimeout(resolve, 1200));
+      }
 
       // Publish portfolio
       const response = await apiClient.portfolios.publish(portfolioToPublish);
@@ -222,6 +248,7 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
           _id: response.portfolio._id,
           isPublished: true
         }));
+
         toast.success("Portfolio published successfully!");
 
         // Navigate to the published portfolio
@@ -240,11 +267,27 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
   };
 
   // Handler for previewing the portfolio
-  const handlePreview = () => {
-    if (savedPortfolioId) {
-      window.open(`/portfolio/preview/${savedPortfolioId}`, '_blank');
-    } else {
-      toast.info("Please save your portfolio as a draft first to preview it");
+  const handlePreview = async () => {
+    if (!portfolio) return;
+
+    setIsPreviewing(true);
+
+    try {
+      // Save as draft first if not already saved
+      if (!savedPortfolioId) {
+        await handleSaveDraft();
+      }
+
+      if (savedPortfolioId) {
+        window.open(`/portfolio/preview/${savedPortfolioId}`, '_blank');
+      } else {
+        throw new Error("Failed to generate preview");
+      }
+    } catch (err) {
+      console.error("Error generating preview:", err);
+      toast.error("Failed to generate preview. Please try again.");
+    } finally {
+      setIsPreviewing(false);
     }
   };
 
@@ -260,7 +303,10 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <p>Loading template editor...</p>
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-r-transparent"></div>
+          <p className="text-muted-foreground">Loading template editor...</p>
+        </div>
       </div>
     );
   }
@@ -280,8 +326,14 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
     return null;
   }
 
+  // Calculate viewport class based on selected mode
+  const viewportClass =
+    viewportMode === 'mobile' ? 'max-w-[375px] mx-auto border-x shadow-lg' :
+    viewportMode === 'tablet' ? 'max-w-[768px] mx-auto border-x shadow-lg' :
+    'w-full';
+
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex h-screen flex-col overflow-hidden">
       {/* Top navigation bar */}
       <div className="border-b bg-card shadow-sm">
         <div className="container flex h-16 items-center justify-between px-4">
@@ -291,86 +343,67 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
             </Link>
             <h1 className="text-xl font-bold">{updatedTemplate.name}</h1>
           </div>
-          <div className="flex items-center gap-4">
-            <Button
-              variant="outline"
-              onClick={handleSaveDraft}
-              disabled={isSaving}
-            >
-              {isSaving ? "Saving..." : "Save Draft"}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={handlePreview}
-              disabled={!savedPortfolioId}
-            >
-              Preview
-            </Button>
-            <Button
-              onClick={handlePublish}
-              disabled={isPublishing}
-            >
-              {isPublishing ? "Publishing..." : "Publish Portfolio"}
-            </Button>
+          <div className="flex items-center gap-3">
+            <div className="flex border rounded-md overflow-hidden">
+              <button
+                className={`px-3 py-1 text-sm ${viewportMode === 'desktop' ? 'bg-muted font-medium' : 'hover:bg-muted/50'}`}
+                onClick={() => setViewportMode('desktop')}
+                title="Desktop view"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                  <rect width="20" height="14" x="2" y="3" rx="2" />
+                  <line x1="2" x2="22" y1="20" y2="20" />
+                </svg>
+              </button>
+              <button
+                className={`px-3 py-1 text-sm ${viewportMode === 'tablet' ? 'bg-muted font-medium' : 'hover:bg-muted/50'}`}
+                onClick={() => setViewportMode('tablet')}
+                title="Tablet view"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                  <rect width="14" height="18" x="5" y="3" rx="2" />
+                  <line x1="9" x2="15" y1="21" y2="21" />
+                </svg>
+              </button>
+              <button
+                className={`px-3 py-1 text-sm ${viewportMode === 'mobile' ? 'bg-muted font-medium' : 'hover:bg-muted/50'}`}
+                onClick={() => setViewportMode('mobile')}
+                title="Mobile view"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                  <rect width="10" height="18" x="7" y="3" rx="2" />
+                  <line x1="11" x2="13" y1="21" y2="21" />
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Main content */}
-      <div className="container flex-1 px-0">
-        <div className="grid grid-cols-1 md:grid-cols-[300px_1fr] gap-0">
-          {/* Editor sidebar - contains all the editing tools */}
-          <EditorSidebar template={updatedTemplate} portfolio={portfolio} />
+      <div className="flex flex-1 overflow-hidden">
+        {/* Editor sidebar - contains all the editing tools */}
+        <EditorSidebar
+          template={updatedTemplate}
+          portfolio={portfolio}
+          onUpdateSection={handleSectionUpdate}
+          onUpdateLayout={handleLayoutSelect}
+          onUpdateTheme={handleThemeSelect}
+          onUpdateCustomCss={handleCustomCssUpdate}
+          onSaveDraft={handleSaveDraft}
+          onPreview={handlePreview}
+          onPublish={handlePublish}
+          draftSaving={isSaving}
+          draftSaved={isSaved}
+          previewLoading={isPreviewing}
+          publishLoading={isPublishing}
+        />
 
-          {/* Main preview */}
-          <div className="border-l min-h-[calc(100vh-64px)] overflow-y-auto">
-            <div className="sticky top-0 z-10 bg-background px-4 py-2 border-b">
-              <Tabs defaultValue="preview">
-                <TabsList>
-                  <TabsTrigger value="preview">Preview</TabsTrigger>
-                  <TabsTrigger value="layout">Layout</TabsTrigger>
-                  <TabsTrigger value="theme">Theme</TabsTrigger>
-                </TabsList>
-
-                {/* Preview tab - shows the template rendered with current settings */}
-                <TabsContent value="preview" className="p-0 mt-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <h2 className="text-sm font-medium">Portfolio Preview</h2>
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm">Desktop</Button>
-                      <Button variant="outline" size="sm">Tablet</Button>
-                      <Button variant="outline" size="sm">Mobile</Button>
-                    </div>
-                  </div>
-                </TabsContent>
-
-                {/* Layout tab - shows layout options */}
-                <TabsContent value="layout" className="mt-4">
-                  <h2 className="text-sm font-medium mb-4">Select Layout</h2>
-                  <LayoutSelector
-                    template={updatedTemplate}
-                    initialLayout={portfolio.activeLayout}
-                    onSelect={handleLayoutSelect}
-                  />
-                </TabsContent>
-
-                {/* Theme tab - shows theme options */}
-                <TabsContent value="theme" className="mt-4">
-                  <h2 className="text-sm font-medium mb-4">Select Theme</h2>
-                  <ThemeSelector
-                    template={updatedTemplate}
-                    initialColorScheme={portfolio.activeColorScheme}
-                    initialFontPairing={portfolio.activeFontPairing}
-                    onSelect={handleThemeSelect}
-                    onCustomColorsChange={handleCustomColorsChange}
-                    onSaveCustomColorScheme={handleSaveCustomColorScheme}
-                  />
-                </TabsContent>
-              </Tabs>
-            </div>
-
+        {/* Main preview pane */}
+        <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">
+          <div className={`bg-white dark:bg-gray-800 h-full ${viewportClass}`}>
             {/* Template preview */}
-            <div className="mt-4 pb-20">
+            <div className="pb-20">
               <TemplateRenderer
                 template={updatedTemplate}
                 portfolio={portfolio}

@@ -1,287 +1,321 @@
-'use client';
-
-import React, { useState } from 'react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Card } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import ThemeSelector from './ThemeSelector';
+import LayoutSelector from './LayoutSelector';
+import HeaderEditor from './HeaderEditor';
+import AboutEditor from './AboutEditor';
+import SkillsEditor from './SkillsEditor';
+import ProjectsEditor from './ProjectsEditor';
+import ExperienceEditor from './ExperienceEditor';
+import EducationEditor from './EducationEditor';
+import ContactEditor from './ContactEditor';
+import GalleryEditor from './GalleryEditor';
+import SocialLinksEditor from './SocialLinksEditor';
+import CustomCSSEditor from './CustomCSSEditor';
+import SEOEditor from './SEOEditor';
+import { SaveDraftButton } from '@/components/ui/save-draft-button';
+import { PreviewButton } from '@/components/ui/preview-button';
+import { PublishButton } from '@/components/ui/publish-button';
 
 interface EditorSidebarProps {
   template: any;
   portfolio: any;
-  onUpdate?: (section: string, data: any) => void;
+  onUpdateSection: (sectionId: string, data: any) => void;
+  onUpdateLayout: (layoutId: string) => void;
+  onUpdateTheme: (colorSchemeId: string, fontPairingId: string) => void;
+  onUpdateCustomCss: (css: string) => void;
+  onSaveDraft: () => void;
+  onPreview: () => void;
+  onPublish: () => void;
+  draftSaving: boolean;
+  draftSaved: boolean;
+  previewLoading: boolean;
+  publishLoading: boolean;
 }
 
-const EditorSidebar: React.FC<EditorSidebarProps> = ({
+export default function EditorSidebar({
   template,
   portfolio,
-  onUpdate
-}) => {
-  const [activeSection, setActiveSection] = useState('portfolio');
+  onUpdateSection,
+  onUpdateLayout,
+  onUpdateTheme,
+  onUpdateCustomCss,
+  onSaveDraft,
+  onPreview,
+  onPublish,
+  draftSaving,
+  draftSaved,
+  previewLoading,
+  publishLoading
+}: EditorSidebarProps) {
+  const [activeTab, setActiveTab] = useState('content');
 
-  // Get sections from the active layout or default to template sections
-  const selectedLayout = template.layouts?.find((l: any) => l.id === portfolio.activeLayout) || template.layouts?.[0];
+  // Determine which sections to show in the editor based on the active layout
+  const activeLayoutId = portfolio.activeLayout || template?.layouts?.[0]?.id || 'default';
+  const activeLayout = template?.layouts?.find((l: any) => l.id === activeLayoutId) || template?.layouts?.[0];
+  const sectionsToShow = activeLayout?.structure?.sections ||
+    template?.defaultStructure?.layout?.sections || [];
 
-  const sections = selectedLayout?.structure?.sections ||
-    template.defaultStructure?.layout?.sections || [
-      'header', 'about', 'projects', 'skills', 'experience', 'education', 'contact'
-    ];
+  // Separate the sections by type
+  const mainSections = ['header', 'about'];
+  const portfolioSections = ['projects', 'skills', 'experience', 'education', 'gallery'];
+  const additionalSections = ['contact', 'services', 'testimonials'];
 
-  // Handle portfolio metadata updates
-  const handlePortfolioUpdate = (field: string, value: any) => {
-    if (onUpdate) {
-      onUpdate('portfolio', { ...portfolio, [field]: value });
-    }
-  };
-
-  // Handle section content updates
-  const handleSectionUpdate = (section: string, data: any) => {
-    if (onUpdate) {
-      onUpdate(section, data);
-    }
+  const getContentForSection = (sectionId: string) => {
+    return portfolio?.content?.[sectionId] || {};
   };
 
   return (
-    <div className="bg-muted/20 border-r min-h-[calc(100vh-64px)] overflow-y-auto">
-      <Tabs
-        defaultValue={activeSection}
-        orientation="vertical"
-        onValueChange={setActiveSection}
-        className="h-full"
-      >
-        {/* Sidebar Navigation */}
-        <div className="border-b p-4">
-          <TabsList className="flex flex-col space-y-1 w-full">
-            <TabsTrigger
-              value="portfolio"
-              className="justify-start text-left px-3 py-2 h-auto"
-            >
-              Portfolio Settings
-            </TabsTrigger>
-
-            {sections.map((section: string) => (
-              <TabsTrigger
-                key={section}
-                value={section}
-                className="justify-start text-left px-3 py-2 h-auto capitalize"
-              >
-                {section}
-              </TabsTrigger>
-            ))}
-          </TabsList>
+    <div className="h-full flex flex-col border-l bg-card">
+      <div className="p-4 border-b flex items-center justify-between">
+        <h2 className="text-lg font-semibold">Template Editor</h2>
+        <div className="flex items-center space-x-2">
+          <SaveDraftButton
+            onClick={onSaveDraft}
+            loading={draftSaving}
+            saved={draftSaved}
+          />
+          <PreviewButton
+            onClick={onPreview}
+            loading={previewLoading}
+          />
         </div>
+      </div>
 
-        {/* Sidebar Content */}
-        <div className="p-4">
-          {/* Portfolio Settings Panel */}
-          <TabsContent value="portfolio" className="space-y-4 mt-0">
-            <h2 className="text-lg font-medium">Portfolio Settings</h2>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
+        <TabsList className="flex justify-between px-4 py-2 bg-muted/40">
+          <TabsTrigger value="content" className="flex-1">Content</TabsTrigger>
+          <TabsTrigger value="design" className="flex-1">Design</TabsTrigger>
+          <TabsTrigger value="settings" className="flex-1">Settings</TabsTrigger>
+        </TabsList>
 
-            <div className="space-y-3">
-              <div className="space-y-2">
-                <Label htmlFor="portfolio-title">Title</Label>
-                <Input
-                  id="portfolio-title"
-                  value={portfolio.title || ''}
-                  onChange={(e) => handlePortfolioUpdate('title', e.target.value)}
-                  placeholder="My Portfolio"
-                />
-              </div>
+        <ScrollArea className="flex-1">
+          <TabsContent value="content" className="m-0 p-4 h-full">
+            <div className="space-y-6">
+              <Accordion type="multiple" className="w-full">
+                {/* Main Sections */}
+                {mainSections.filter(section => sectionsToShow.includes(section)).map(section => (
+                  <AccordionItem value={section} key={section}>
+                    <AccordionTrigger className="capitalize text-sm py-2">
+                      {section === 'header' ? 'Header & Profile' : section}
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      {section === 'header' && (
+                        <HeaderEditor
+                          data={getContentForSection('header')}
+                          onChange={(data) => onUpdateSection('header', data)}
+                        />
+                      )}
+                      {section === 'about' && (
+                        <AboutEditor
+                          data={getContentForSection('about')}
+                          onChange={(data) => onUpdateSection('about', data)}
+                        />
+                      )}
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
 
-              <div className="space-y-2">
-                <Label htmlFor="portfolio-subdomain">Subdomain</Label>
-                <div className="flex items-center space-x-2">
-                  <Input
-                    id="portfolio-subdomain"
-                    value={portfolio.subdomain || ''}
-                    onChange={(e) => handlePortfolioUpdate('subdomain', e.target.value)}
-                    placeholder="my-portfolio"
-                  />
-                  <span className="text-sm text-muted-foreground whitespace-nowrap">.portfoliohub.com</span>
-                </div>
-              </div>
+                {/* Portfolio Sections */}
+                {portfolioSections.filter(section => sectionsToShow.includes(section)).length > 0 && (
+                  <AccordionItem value="portfolio-sections">
+                    <AccordionTrigger className="text-sm py-2">
+                      Work & Experience
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      {portfolioSections.filter(section => sectionsToShow.includes(section)).map(section => (
+                        <div key={section} className="mb-6">
+                          <h3 className="font-medium capitalize mb-2">
+                            {section}
+                          </h3>
+                          {section === 'projects' && (
+                            <ProjectsEditor
+                              data={getContentForSection('projects')}
+                              onChange={(data) => onUpdateSection('projects', data)}
+                            />
+                          )}
+                          {section === 'skills' && (
+                            <SkillsEditor
+                              data={getContentForSection('skills')}
+                              onChange={(data) => onUpdateSection('skills', data)}
+                            />
+                          )}
+                          {section === 'experience' && (
+                            <ExperienceEditor
+                              data={getContentForSection('experience')}
+                              onChange={(data) => onUpdateSection('experience', data)}
+                            />
+                          )}
+                          {section === 'education' && (
+                            <EducationEditor
+                              data={getContentForSection('education')}
+                              onChange={(data) => onUpdateSection('education', data)}
+                            />
+                          )}
+                          {section === 'gallery' && (
+                            <GalleryEditor
+                              data={getContentForSection('gallery')}
+                              onChange={(data) => onUpdateSection('gallery', data)}
+                            />
+                          )}
+                        </div>
+                      ))}
+                    </AccordionContent>
+                  </AccordionItem>
+                )}
 
-              <div className="space-y-2">
-                <Label htmlFor="portfolio-description">Description</Label>
-                <Textarea
-                  id="portfolio-description"
-                  value={portfolio.description || ''}
-                  onChange={(e) => handlePortfolioUpdate('description', e.target.value)}
-                  placeholder="A brief description of your portfolio"
-                  rows={3}
-                />
-              </div>
+                {/* Additional Sections */}
+                {additionalSections.filter(section => sectionsToShow.includes(section)).map(section => (
+                  <AccordionItem value={section} key={section}>
+                    <AccordionTrigger className="capitalize text-sm py-2">
+                      {section}
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      {section === 'contact' && (
+                        <ContactEditor
+                          data={getContentForSection('contact')}
+                          onChange={(data) => onUpdateSection('contact', data)}
+                        />
+                      )}
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
 
-              <div className="pt-2">
-                <Button className="w-full">Save Settings</Button>
-              </div>
+                {/* Social Media */}
+                <AccordionItem value="social">
+                  <AccordionTrigger className="text-sm py-2">
+                    Social Media
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <SocialLinksEditor
+                      data={portfolio?.content?.socialLinks || {}}
+                      onChange={(data) => onUpdateSection('socialLinks', data)}
+                    />
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
             </div>
           </TabsContent>
 
-          {/* Section Editor Panels */}
-          {sections.map((section: string) => (
-            <TabsContent key={section} value={section} className="space-y-4 mt-0">
-              <h2 className="text-lg font-medium capitalize">{section} Section</h2>
+          <TabsContent value="design" className="m-0 p-4 h-full">
+            <div className="space-y-6">
+              <Accordion type="multiple" className="w-full" defaultValue={["layout", "theme"]}>
+                <AccordionItem value="layout">
+                  <AccordionTrigger className="text-sm py-2">
+                    Layout
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <LayoutSelector
+                      layouts={template?.layouts || []}
+                      activeLayoutId={portfolio?.activeLayout || template?.layouts?.[0]?.id}
+                      onChange={onUpdateLayout}
+                    />
+                  </AccordionContent>
+                </AccordionItem>
 
-              {section === 'header' && (
-                <HeaderEditor
-                  data={portfolio.content?.header}
-                  onUpdate={(data) => handleSectionUpdate('header', data)}
-                />
-              )}
+                <AccordionItem value="theme">
+                  <AccordionTrigger className="text-sm py-2">
+                    Colors & Fonts
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <ThemeSelector
+                      themeOptions={template?.themeOptions}
+                      activeColorSchemeId={portfolio?.activeColorScheme}
+                      activeFontPairingId={portfolio?.activeFontPairing}
+                      onChange={onUpdateTheme}
+                    />
+                  </AccordionContent>
+                </AccordionItem>
 
-              {section === 'about' && (
-                <AboutEditor
-                  data={portfolio.content?.about}
-                  onUpdate={(data) => handleSectionUpdate('about', data)}
-                />
-              )}
+                <AccordionItem value="custom-css">
+                  <AccordionTrigger className="text-sm py-2">
+                    Custom CSS
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <CustomCSSEditor
+                      css={portfolio?.content?.customCss || ''}
+                      onChange={(css) => onUpdateCustomCss(css)}
+                    />
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            </div>
+          </TabsContent>
 
-              {/* Placeholder for other section editors */}
-              {!['header', 'about'].includes(section) && (
-                <Card className="p-4">
-                  <p className="text-muted-foreground text-sm mb-4">
-                    This section editor will be implemented soon. For now, you can view and edit the {section} section in the preview pane.
-                  </p>
+          <TabsContent value="settings" className="m-0 p-4 h-full">
+            <div className="space-y-6">
+              <Accordion type="multiple" className="w-full" defaultValue={["seo"]}>
+                <AccordionItem value="seo">
+                  <AccordionTrigger className="text-sm py-2">
+                    SEO & Metadata
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <SEOEditor
+                      data={portfolio?.content?.seo || {}}
+                      onChange={(data) => onUpdateSection('seo', data)}
+                    />
+                  </AccordionContent>
+                </AccordionItem>
 
-                  <div className="border-t pt-3 mt-2">
-                    <Button variant="outline" size="sm" className="w-full">
-                      Edit in Preview
-                    </Button>
-                  </div>
-                </Card>
-              )}
-            </TabsContent>
-          ))}
-        </div>
+                <AccordionItem value="domain">
+                  <AccordionTrigger className="text-sm py-2">
+                    Domain Settings
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-sm font-medium">Portfolio URL</label>
+                        <div className="mt-1 flex">
+                          <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-input bg-muted text-muted-foreground text-sm">
+                            portfoliohub.com/
+                          </span>
+                          <input
+                            type="text"
+                            className="flex-1 min-w-0 block w-full px-3 py-2 rounded-none rounded-r-md border border-input bg-transparent text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                            placeholder="your-username"
+                            value={portfolio?.subdomain || ''}
+                            readOnly
+                          />
+                        </div>
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          This is your portfolio's URL. You can customize this in your profile settings.
+                        </p>
+                      </div>
+
+                      <div>
+                        <label className="text-sm font-medium">Custom Domain</label>
+                        <div className="mt-1">
+                          <input
+                            type="text"
+                            className="flex w-full px-3 py-2 rounded-md border border-input bg-transparent text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                            placeholder="example.com"
+                            disabled
+                          />
+                        </div>
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          Custom domains are available on Premium and Professional plans.
+                          <a href="/pricing" className="text-primary ml-1">Upgrade your plan</a>
+                        </p>
+                      </div>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            </div>
+          </TabsContent>
+        </ScrollArea>
       </Tabs>
-    </div>
-  );
-};
 
-// Helper component for Header section editing
-const HeaderEditor: React.FC<{ data: any; onUpdate: (data: any) => void }> = ({ data, onUpdate }) => {
-  const handleChange = (field: string, value: any) => {
-    if (onUpdate) {
-      onUpdate({ ...data, [field]: value });
-    }
-  };
-
-  return (
-    <div className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="header-title">Name/Title</Label>
-        <Input
-          id="header-title"
-          value={data?.title || ''}
-          onChange={(e) => handleChange('title', e.target.value)}
-          placeholder="Your Name"
+      <div className="p-4 border-t bg-card mt-auto">
+        <PublishButton
+          onClick={onPublish}
+          loading={publishLoading}
+          className="w-full"
         />
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="header-subtitle">Subtitle/Role</Label>
-        <Input
-          id="header-subtitle"
-          value={data?.subtitle || ''}
-          onChange={(e) => handleChange('subtitle', e.target.value)}
-          placeholder="Your Profession"
-        />
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="header-image">Profile Image URL</Label>
-        <Input
-          id="header-image"
-          value={data?.profileImage || ''}
-          onChange={(e) => handleChange('profileImage', e.target.value)}
-          placeholder="https://example.com/your-image.jpg"
-        />
-        <div className="flex justify-between text-xs text-muted-foreground">
-          <span>Enter a URL or</span>
-          <button className="text-primary hover:underline">Upload Image</button>
-        </div>
       </div>
     </div>
   );
-};
-
-// Helper component for About section editing
-const AboutEditor: React.FC<{ data: any; onUpdate: (data: any) => void }> = ({ data, onUpdate }) => {
-  const handleChange = (field: string, value: any) => {
-    if (onUpdate) {
-      onUpdate({ ...data, [field]: value });
-    }
-  };
-
-  return (
-    <div className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="about-title">Section Title</Label>
-        <Input
-          id="about-title"
-          value={data?.title || ''}
-          onChange={(e) => handleChange('title', e.target.value)}
-          placeholder="About Me"
-        />
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="about-bio">Bio</Label>
-        <Textarea
-          id="about-bio"
-          value={data?.bio || ''}
-          onChange={(e) => handleChange('bio', e.target.value)}
-          placeholder="Write something about yourself"
-          rows={6}
-        />
-      </div>
-
-      <div className="space-y-2">
-        <Label>Style Variant</Label>
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            className={`p-2 text-xs border rounded-md ${data?.variant === 'standard' ? 'bg-primary text-primary-foreground' : 'bg-card'}`}
-            onClick={() => handleChange('variant', 'standard')}
-          >
-            Standard
-          </button>
-          <button
-            className={`p-2 text-xs border rounded-md ${data?.variant === 'with-image' ? 'bg-primary text-primary-foreground' : 'bg-card'}`}
-            onClick={() => handleChange('variant', 'with-image')}
-          >
-            With Image
-          </button>
-          <button
-            className={`p-2 text-xs border rounded-md ${data?.variant === 'with-highlights' ? 'bg-primary text-primary-foreground' : 'bg-card'}`}
-            onClick={() => handleChange('variant', 'with-highlights')}
-          >
-            With Highlights
-          </button>
-          <button
-            className={`p-2 text-xs border rounded-md ${data?.variant === 'minimal' ? 'bg-primary text-primary-foreground' : 'bg-card'}`}
-            onClick={() => handleChange('variant', 'minimal')}
-          >
-            Minimal
-          </button>
-        </div>
-      </div>
-
-      {data?.variant === 'with-image' && (
-        <div className="space-y-2">
-          <Label htmlFor="about-image">About Image URL</Label>
-          <Input
-            id="about-image"
-            value={data?.image || ''}
-            onChange={(e) => handleChange('image', e.target.value)}
-            placeholder="https://example.com/about-image.jpg"
-          />
-        </div>
-      )}
-    </div>
-  );
-};
-
-export default EditorSidebar;
+}

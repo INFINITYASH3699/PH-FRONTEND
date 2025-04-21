@@ -1,276 +1,187 @@
-'use client';
-
 import { useState } from 'react';
+import { PlusCircle, X, Upload } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-
-// Define header content interface
-interface HeaderContent {
-  title?: string;
-  subtitle?: string;
-  showNavigation?: boolean;
-  navItems?: { label: string; link: string }[];
-  style?: 'default' | 'centered' | 'minimal';
-  logoUrl?: string;
-}
+import { Label } from '@/components/ui/label';
 
 interface HeaderEditorProps {
-  content: HeaderContent;
-  onSave: (content: HeaderContent) => void;
-  isLoading?: boolean;
-  onImageUpload?: (file: File) => void;
+  data: {
+    title?: string;
+    subtitle?: string;
+    profileImage?: string;
+    coverImage?: string;
+    navigation?: string[];
+  };
+  onChange: (data: any) => void;
 }
 
-export default function HeaderEditor({ content, onSave, isLoading = false, onImageUpload }: HeaderEditorProps) {
-  const [headerInfo, setHeaderInfo] = useState<HeaderContent>(content || {
-    title: '',
-    subtitle: '',
-    showNavigation: true,
-    navItems: [
-      { label: 'Home', link: '#home' },
-      { label: 'About', link: '#about' },
-      { label: 'Projects', link: '#projects' },
-      { label: 'Contact', link: '#contact' }
-    ],
-    style: 'default',
-    logoUrl: ''
-  });
+export default function HeaderEditor({ data, onChange }: HeaderEditorProps) {
+  const [newNavItem, setNewNavItem] = useState('');
 
-  // Handle basic input changes
-  const handleInputChange = (field: keyof HeaderContent, value: string | boolean) => {
-    const updatedHeaderInfo = { ...headerInfo, [field]: value };
-    setHeaderInfo(updatedHeaderInfo);
-    onSave(updatedHeaderInfo);
+  // Set default values if data is empty
+  const headerData = {
+    title: data?.title || 'Your Name',
+    subtitle: data?.subtitle || 'Your Profession',
+    profileImage: data?.profileImage || '',
+    coverImage: data?.coverImage || '',
+    navigation: data?.navigation || ['Home', 'About', 'Projects', 'Contact']
   };
 
-  // Handle nav item changes
-  const handleNavItemChange = (index: number, field: 'label' | 'link', value: string) => {
-    const updatedNavItems = [...headerInfo.navItems || []];
-
-    if (updatedNavItems[index]) {
-      updatedNavItems[index] = { ...updatedNavItems[index], [field]: value };
-
-      const updatedHeaderInfo = { ...headerInfo, navItems: updatedNavItems };
-      setHeaderInfo(updatedHeaderInfo);
-      onSave(updatedHeaderInfo);
-    }
+  // Handle input changes
+  const handleInputChange = (field: string, value: string) => {
+    onChange({
+      ...headerData,
+      [field]: value
+    });
   };
 
-  // Add new nav item
-  const addNavItem = () => {
-    const updatedNavItems = [...headerInfo.navItems || [], { label: 'New Link', link: '#' }];
-    const updatedHeaderInfo = { ...headerInfo, navItems: updatedNavItems };
-    setHeaderInfo(updatedHeaderInfo);
-    onSave(updatedHeaderInfo);
+  // Handle navigation item addition
+  const handleAddNavItem = () => {
+    if (!newNavItem.trim()) return;
+
+    const updatedNav = [...headerData.navigation, newNavItem.trim()];
+    onChange({
+      ...headerData,
+      navigation: updatedNav
+    });
+    setNewNavItem('');
   };
 
-  // Remove nav item
-  const removeNavItem = (index: number) => {
-    const updatedNavItems = [...headerInfo.navItems || []];
-    updatedNavItems.splice(index, 1);
-    const updatedHeaderInfo = { ...headerInfo, navItems: updatedNavItems };
-    setHeaderInfo(updatedHeaderInfo);
-    onSave(updatedHeaderInfo);
+  // Handle navigation item removal
+  const handleRemoveNavItem = (index: number) => {
+    const updatedNav = [...headerData.navigation];
+    updatedNav.splice(index, 1);
+    onChange({
+      ...headerData,
+      navigation: updatedNav
+    });
   };
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col space-y-2">
-        <h3 className="text-lg font-medium">Header Section</h3>
-        <p className="text-muted-foreground">
-          Customize your portfolio header. This is typically the first element visitors will see at the top of the page.
+    <div className="space-y-5">
+      <div className="space-y-2">
+        <Label htmlFor="header-title">Name/Title</Label>
+        <Input
+          id="header-title"
+          value={headerData.title}
+          onChange={(e) => handleInputChange('title', e.target.value)}
+          placeholder="John Doe"
+        />
+        <p className="text-xs text-muted-foreground">
+          This will be displayed as the main heading in your header section
         </p>
       </div>
 
-      {/* Basic Header Settings */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Header Settings</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Header Title</label>
-            <Input
-              placeholder="Your Name or Portfolio Title"
-              value={headerInfo.title || ''}
-              onChange={(e) => handleInputChange('title', e.target.value)}
+      <div className="space-y-2">
+        <Label htmlFor="header-subtitle">Subtitle/Role</Label>
+        <Input
+          id="header-subtitle"
+          value={headerData.subtitle}
+          onChange={(e) => handleInputChange('subtitle', e.target.value)}
+          placeholder="Software Developer"
+        />
+        <p className="text-xs text-muted-foreground">
+          Your professional title or a short tagline
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="profile-image">Profile Image URL</Label>
+        <div className="flex gap-2">
+          <Input
+            id="profile-image"
+            value={headerData.profileImage}
+            onChange={(e) => handleInputChange('profileImage', e.target.value)}
+            placeholder="https://example.com/your-image.jpg"
+          />
+          <Button variant="outline" size="icon" title="Upload Image">
+            <Upload className="h-4 w-4" />
+          </Button>
+        </div>
+        {headerData.profileImage && (
+          <div className="mt-2 relative w-16 h-16 rounded-full overflow-hidden border">
+            <img
+              src={headerData.profileImage}
+              alt="Profile Preview"
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                e.currentTarget.src = 'https://via.placeholder.com/150?text=Profile';
+              }}
             />
-            <p className="text-xs text-muted-foreground">
-              This will be displayed prominently in the header. Leave empty to use your portfolio title.
-            </p>
           </div>
+        )}
+      </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Header Subtitle</label>
-            <Input
-              placeholder="Web Developer | Designer | Photographer"
-              value={headerInfo.subtitle || ''}
-              onChange={(e) => handleInputChange('subtitle', e.target.value)}
+      <div className="space-y-2">
+        <Label htmlFor="cover-image">Cover/Background Image URL</Label>
+        <div className="flex gap-2">
+          <Input
+            id="cover-image"
+            value={headerData.coverImage}
+            onChange={(e) => handleInputChange('coverImage', e.target.value)}
+            placeholder="https://example.com/cover-image.jpg"
+          />
+          <Button variant="outline" size="icon" title="Upload Image">
+            <Upload className="h-4 w-4" />
+          </Button>
+        </div>
+        {headerData.coverImage && (
+          <div className="mt-2 relative h-24 rounded-md overflow-hidden border">
+            <img
+              src={headerData.coverImage}
+              alt="Cover Preview"
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                e.currentTarget.src = 'https://via.placeholder.com/800x200?text=Cover+Image';
+              }}
             />
-            <p className="text-xs text-muted-foreground">
-              A brief description or tagline to appear below the header title.
-            </p>
           </div>
+        )}
+      </div>
 
-          <div className="space-y-2 pt-4 border-t">
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="show-navigation"
-                checked={headerInfo.showNavigation || false}
-                onCheckedChange={(checked) => handleInputChange('showNavigation', checked)}
-              />
-              <Label htmlFor="show-navigation">Show Navigation Menu</Label>
+      <div className="space-y-2">
+        <Label>Navigation Menu Items</Label>
+        <div className="flex flex-wrap gap-2">
+          {headerData.navigation.map((item, i) => (
+            <div
+              key={i}
+              className="flex items-center gap-1 bg-muted px-2 py-1 rounded text-sm"
+            >
+              <span>{item}</span>
+              <button
+                type="button"
+                onClick={() => handleRemoveNavItem(i)}
+                className="text-muted-foreground hover:text-destructive"
+              >
+                <X className="h-3 w-3" />
+              </button>
             </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Navigation Items */}
-      {headerInfo.showNavigation && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Navigation Menu</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-3">
-              {headerInfo.navItems && headerInfo.navItems.map((item, index) => (
-                <div key={index} className="flex items-center gap-2">
-                  <Input
-                    placeholder="Label"
-                    value={item.label}
-                    onChange={(e) => handleNavItemChange(index, 'label', e.target.value)}
-                    className="flex-1"
-                  />
-                  <Input
-                    placeholder="Link (e.g., #about)"
-                    value={item.link}
-                    onChange={(e) => handleNavItemChange(index, 'link', e.target.value)}
-                    className="flex-1"
-                  />
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => removeNavItem(index)}
-                    disabled={headerInfo.navItems?.length === 1}
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="24"
-                      height="24"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="h-4 w-4"
-                    >
-                      <path d="M18 6 6 18"></path>
-                      <path d="m6 6 12 12"></path>
-                    </svg>
-                  </Button>
-                </div>
-              ))}
-            </div>
-
-            <Button variant="outline" onClick={addNavItem} className="w-full">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-4 w-4 mr-2"
-              >
-                <path d="M5 12h14"></path>
-                <path d="M12 5v14"></path>
-              </svg>
-              Add Navigation Link
-            </Button>
-
-            <p className="text-xs text-muted-foreground mt-2">
-              For section links, use hashtags (e.g., #about, #projects). For external links, use full URLs.
-            </p>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Header Style */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Header Style</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Choose Style</label>
-            <div className="grid grid-cols-3 gap-4 mt-2">
-              <div
-                className={`border rounded-md p-4 cursor-pointer ${
-                  headerInfo.style === 'default' ? 'border-primary bg-primary/5' : 'border-border'
-                }`}
-                onClick={() => handleInputChange('style', 'default')}
-              >
-                <div className="h-8 bg-primary/20 rounded flex items-center justify-between px-2 mb-2">
-                  <div className="w-8 h-3 bg-primary/40 rounded"></div>
-                  <div className="flex space-x-1">
-                    <div className="w-3 h-3 bg-primary/40 rounded"></div>
-                    <div className="w-3 h-3 bg-primary/40 rounded"></div>
-                    <div className="w-3 h-3 bg-primary/40 rounded"></div>
-                  </div>
-                </div>
-                <p className="text-xs text-center font-medium">Default</p>
-              </div>
-
-              <div
-                className={`border rounded-md p-4 cursor-pointer ${
-                  headerInfo.style === 'centered' ? 'border-primary bg-primary/5' : 'border-border'
-                }`}
-                onClick={() => handleInputChange('style', 'centered')}
-              >
-                <div className="h-8 bg-primary/20 rounded flex flex-col items-center justify-center px-2 mb-2">
-                  <div className="w-12 h-2 bg-primary/40 rounded mb-1"></div>
-                  <div className="flex space-x-1">
-                    <div className="w-2 h-2 bg-primary/40 rounded"></div>
-                    <div className="w-2 h-2 bg-primary/40 rounded"></div>
-                    <div className="w-2 h-2 bg-primary/40 rounded"></div>
-                  </div>
-                </div>
-                <p className="text-xs text-center font-medium">Centered</p>
-              </div>
-
-              <div
-                className={`border rounded-md p-4 cursor-pointer ${
-                  headerInfo.style === 'minimal' ? 'border-primary bg-primary/5' : 'border-border'
-                }`}
-                onClick={() => handleInputChange('style', 'minimal')}
-              >
-                <div className="h-8 bg-primary/10 rounded flex items-center justify-end px-2 mb-2">
-                  <div className="flex space-x-1">
-                    <div className="w-3 h-3 bg-primary/30 rounded"></div>
-                    <div className="w-3 h-3 bg-primary/30 rounded"></div>
-                    <div className="w-3 h-3 bg-primary/30 rounded"></div>
-                  </div>
-                </div>
-                <p className="text-xs text-center font-medium">Minimal</p>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Custom Domain Notice */}
-      <div className="p-3 bg-amber-50 text-amber-800 rounded-md text-sm">
-        <p className="font-medium">Custom Domain Notice</p>
-        <p className="text-xs mt-1">
-          Custom domains are only available in paid plans, which are not currently available.
-          Your portfolio will be accessible via a PortfolioHub subdomain (username.portfoliohub.com).
+          ))}
+        </div>
+        <div className="flex gap-2 mt-2">
+          <Input
+            value={newNavItem}
+            onChange={(e) => setNewNavItem(e.target.value)}
+            placeholder="Add navigation item"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                handleAddNavItem();
+              }
+            }}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={handleAddNavItem}
+          >
+            <PlusCircle className="h-4 w-4" />
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          These links will appear in your header navigation menu
         </p>
       </div>
     </div>

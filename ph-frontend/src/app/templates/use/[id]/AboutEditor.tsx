@@ -1,155 +1,217 @@
-'use client';
-
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
+import { PlusCircle, X, Upload } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import Image from 'next/image';
-import { FetchProfileButton } from '@/components/ui/fetch-profile-button';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
-// Define about content interface
-interface AboutContent {
-  title?: string;
-  bio?: string;
-  profileImage?: string;
+interface Highlight {
+  title: string;
+  description: string;
 }
 
 interface AboutEditorProps {
-  content: AboutContent;
-  onSave: (content: AboutContent) => void;
-  isLoading?: boolean;
-  onImageUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  data: {
+    title?: string;
+    bio?: string;
+    image?: string;
+    variant?: string;
+    highlights?: Highlight[];
+  };
+  onChange: (data: any) => void;
 }
 
-export default function AboutEditor({ content, onSave, isLoading = false, onImageUpload }: AboutEditorProps) {
-  const [aboutInfo, setAboutInfo] = useState<AboutContent>(content || {
-    title: 'About Me',
-    bio: '',
-    profileImage: ''
-  });
-
-  // Handle basic input changes
-  const handleInputChange = (field: keyof AboutContent, value: string) => {
-    const updatedAboutInfo = { ...aboutInfo, [field]: value };
-    setAboutInfo(updatedAboutInfo);
-    onSave(updatedAboutInfo);
+export default function AboutEditor({ data, onChange }: AboutEditorProps) {
+  // Set default values if data is empty
+  const aboutData = {
+    title: data?.title || 'About Me',
+    bio: data?.bio || 'Share your story, background, and what makes you unique.',
+    image: data?.image || '',
+    variant: data?.variant || 'standard',
+    highlights: data?.highlights || [
+      { title: 'My Expertise', description: 'Describe your main area of expertise.' },
+      { title: 'Experience', description: 'Highlight your years of experience or key skills.' },
+      { title: 'Education', description: 'Share your educational background.' }
+    ]
   };
 
-  // Handle image removal
-  const handleRemoveImage = () => {
-    const updatedAboutInfo = { ...aboutInfo, profileImage: '' };
-    setAboutInfo(updatedAboutInfo);
-    onSave(updatedAboutInfo);
+  // Handle input changes for simple fields
+  const handleInputChange = (field: string, value: string) => {
+    onChange({
+      ...aboutData,
+      [field]: value
+    });
   };
 
-  // Handle fetching about data from profile
-  const handleFetchFromProfile = (profileData: AboutContent) => {
-    setAboutInfo(profileData);
-    onSave(profileData);
+  // Handle variant change
+  const handleVariantChange = (value: string) => {
+    onChange({
+      ...aboutData,
+      variant: value
+    });
+  };
+
+  // Handle highlight changes
+  const handleHighlightChange = (index: number, field: 'title' | 'description', value: string) => {
+    const updatedHighlights = [...aboutData.highlights];
+    updatedHighlights[index] = {
+      ...updatedHighlights[index],
+      [field]: value
+    };
+
+    onChange({
+      ...aboutData,
+      highlights: updatedHighlights
+    });
+  };
+
+  // Add a new highlight
+  const handleAddHighlight = () => {
+    const updatedHighlights = [
+      ...aboutData.highlights,
+      { title: 'New Highlight', description: 'Description of this highlight.' }
+    ];
+
+    onChange({
+      ...aboutData,
+      highlights: updatedHighlights
+    });
+  };
+
+  // Remove a highlight
+  const handleRemoveHighlight = (index: number) => {
+    const updatedHighlights = [...aboutData.highlights];
+    updatedHighlights.splice(index, 1);
+
+    onChange({
+      ...aboutData,
+      highlights: updatedHighlights
+    });
   };
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col space-y-2">
-        <div className="flex justify-between items-center">
-          <h3 className="text-lg font-medium">About Section</h3>
-          <FetchProfileButton
-            onFetch={handleFetchFromProfile}
-            section="about"
-            disabled={isLoading}
-          />
-        </div>
-        <p className="text-muted-foreground">
-          Tell visitors about yourself. This is typically the first section visitors will see.
+    <div className="space-y-5">
+      <div className="space-y-2">
+        <Label htmlFor="about-title">Section Title</Label>
+        <Input
+          id="about-title"
+          value={aboutData.title}
+          onChange={(e) => handleInputChange('title', e.target.value)}
+          placeholder="About Me"
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="about-bio">Bio</Label>
+        <Textarea
+          id="about-bio"
+          value={aboutData.bio}
+          onChange={(e) => handleInputChange('bio', e.target.value)}
+          placeholder="Share your professional background and what makes you unique"
+          rows={5}
+        />
+        <p className="text-xs text-muted-foreground">
+          Write a compelling bio that highlights your expertise and personality
         </p>
       </div>
 
-      {/* About Information */}
-      <Card>
-        <CardHeader>
-          <CardTitle>About Information</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Section Title</label>
-            <Input
-              placeholder="About Me"
-              value={aboutInfo.title || 'About Me'}
-              onChange={(e) => handleInputChange('title', e.target.value)}
+      <div className="space-y-2">
+        <Label htmlFor="about-image">Profile/About Image URL</Label>
+        <div className="flex gap-2">
+          <Input
+            id="about-image"
+            value={aboutData.image}
+            onChange={(e) => handleInputChange('image', e.target.value)}
+            placeholder="https://example.com/about-image.jpg"
+          />
+          <Button variant="outline" size="icon" title="Upload Image">
+            <Upload className="h-4 w-4" />
+          </Button>
+        </div>
+        {aboutData.image && (
+          <div className="mt-2 relative h-28 rounded-md overflow-hidden border">
+            <img
+              src={aboutData.image}
+              alt="About Preview"
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                e.currentTarget.src = 'https://via.placeholder.com/400x200?text=About+Image';
+              }}
             />
           </div>
+        )}
+      </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Bio</label>
-            <Textarea
-              className="min-h-32"
-              placeholder="Write something about yourself..."
-              value={aboutInfo.bio || ''}
-              onChange={(e) => handleInputChange('bio', e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
-              Introduce yourself, your expertise, and what makes you unique.
-            </p>
+      <div className="space-y-3">
+        <Label>Section Layout</Label>
+        <RadioGroup
+          value={aboutData.variant}
+          onValueChange={handleVariantChange}
+          className="flex flex-col space-y-1"
+        >
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="standard" id="variant-standard" />
+            <Label htmlFor="variant-standard">Standard (Text only)</Label>
           </div>
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="with-image" id="variant-with-image" />
+            <Label htmlFor="variant-with-image">With Image (Text + Image)</Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="with-highlights" id="variant-highlights" />
+            <Label htmlFor="variant-highlights">With Highlights (Text + Highlight Cards)</Label>
+          </div>
+        </RadioGroup>
+      </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Profile Image</label>
-            <div className="flex items-center gap-4">
-              <div className="w-32 h-32 rounded-full bg-muted flex items-center justify-center overflow-hidden">
-                {aboutInfo.profileImage ? (
-                  <Image
-                    src={aboutInfo.profileImage}
-                    alt="Profile"
-                    width={128}
-                    height={128}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="h-12 w-12 text-muted-foreground"
-                  >
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                    <circle cx="12" cy="7" r="4" />
-                  </svg>
-                )}
+      {aboutData.variant === 'with-highlights' && (
+        <div className="space-y-3 pt-2">
+          <Label>Highlights</Label>
+          {aboutData.highlights.map((highlight, index) => (
+            <div key={index} className="border rounded-md p-3 space-y-2">
+              <div className="flex justify-between items-center">
+                <Label className="text-sm">Highlight {index + 1}</Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 px-2 text-muted-foreground hover:text-destructive"
+                  onClick={() => handleRemoveHighlight(index)}
+                  disabled={aboutData.highlights.length <= 1}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
               </div>
-              <div className="space-y-2">
-                <label htmlFor="profileImage" className="cursor-pointer">
-                  <div className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2">
-                    Upload Image
-                  </div>
-                  <input
-                    type="file"
-                    id="profileImage"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={onImageUpload}
-                  />
-                </label>
-                {aboutInfo.profileImage && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleRemoveImage}
-                  >
-                    Remove
-                  </Button>
-                )}
-              </div>
+
+              <Input
+                value={highlight.title}
+                onChange={(e) => handleHighlightChange(index, 'title', e.target.value)}
+                placeholder="Highlight Title"
+                className="mb-2"
+              />
+
+              <Textarea
+                value={highlight.description}
+                onChange={(e) => handleHighlightChange(index, 'description', e.target.value)}
+                placeholder="Highlight Description"
+                rows={2}
+              />
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          ))}
+
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="w-full"
+            onClick={handleAddHighlight}
+          >
+            <PlusCircle className="h-4 w-4 mr-2" />
+            Add Highlight
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

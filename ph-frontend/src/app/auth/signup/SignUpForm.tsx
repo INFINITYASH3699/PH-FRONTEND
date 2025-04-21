@@ -1,81 +1,79 @@
-"use client";
-
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import * as z from "zod";
+import { toast } from "sonner";
+
 import { Button } from "@/components/ui/button";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { CardContent, CardFooter } from "@/components/ui/card";
-import { toast } from "sonner";
 import { useAuth } from "@/components/providers/AuthContext";
-import apiClient from "@/lib/apiClient";
+
+// Define validation schema with Zod
+const formSchema = z.object({
+  firstName: z.string().min(2, { message: "First name must be at least 2 characters" }),
+  lastName: z.string().min(2, { message: "Last name must be at least 2 characters" }),
+  username: z.string()
+    .min(3, { message: "Username must be at least 3 characters" })
+    .max(30, { message: "Username must be at most 30 characters" })
+    .regex(/^[a-zA-Z0-9_-]+$/, {
+      message: "Username can only contain letters, numbers, underscores, and hyphens",
+    }),
+  email: z.string().email({ message: "Please enter a valid email address" }),
+  password: z.string()
+    .min(8, { message: "Password must be at least 8 characters" })
+    .regex(/[A-Z]/, { message: "Password must contain at least one uppercase letter" })
+    .regex(/[a-z]/, { message: "Password must contain at least one lowercase letter" })
+    .regex(/[0-9]/, { message: "Password must contain at least one number" }),
+  confirmPassword: z.string(),
+  termsAccepted: z.boolean().refine(val => val === true, {
+    message: "You must accept the terms and conditions",
+  }),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords do not match",
+  path: ["confirmPassword"],
+});
+
+type FormValues = z.infer<typeof formSchema>;
 
 export default function SignUpForm() {
   const { register } = useAuth();
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    firstName: "",
-    lastName: "",
-    username: "",
-    email: "",
-    password: "",
-    confirmPassword: "",
+
+  // Initialize form
+  const form = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      firstName: "",
+      lastName: "",
+      username: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
+      termsAccepted: false,
+    },
   });
 
-  // Debug auth state on component mount
-  useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      // Check if debugAuthState function exists before calling it
-      if (apiClient.debugAuthState) {
-        try {
-          const authState = apiClient.debugAuthState();
-          console.log("SignUpForm - Auth State:", authState);
-        } catch (error) {
-          console.error("Error checking auth state:", error);
-        }
-      } else {
-        console.log("SignUpForm - Auth State: debugAuthState function not available");
-      }
-    }
-  }, []);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { id, value } = e.target;
-    setFormData((prev) => ({ ...prev, [id]: value }));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    // Basic validation
-    if (formData.password !== formData.confirmPassword) {
-      toast.error("Passwords do not match");
-      return;
-    }
-
-    if (formData.password.length < 8) {
-      toast.error("Password must be at least 8 characters long");
-      return;
-    }
-
-    if (!/^[a-zA-Z0-9_-]{3,30}$/.test(formData.username)) {
-      toast.error(
-        "Username must be 3-30 characters and can only contain letters, numbers, underscores, and hyphens"
-      );
-      return;
-    }
-
+  const onSubmit = async (values: FormValues) => {
     setIsLoading(true);
 
     try {
-      // Clear any existing auth data to ensure a clean signup
-      apiClient.logout();
-
-      // Use the Auth Context register function
       await register({
-        fullName: `${formData.firstName} ${formData.lastName}`,
-        username: formData.username,
-        email: formData.email,
-        password: formData.password,
+        fullName: `${values.firstName} ${values.lastName}`,
+        username: values.username,
+        email: values.email,
+        password: values.password,
       });
 
       toast.success("Account created successfully!");
@@ -83,7 +81,6 @@ export default function SignUpForm() {
       // Wait a moment to ensure cookies are set before redirecting
       setTimeout(() => {
         // Force a hard navigation to ensure middleware picks up the new auth state
-        console.log("Signup successful, redirecting to dashboard");
         window.location.href = "/dashboard";
       }, 100);
     } catch (error) {
@@ -96,140 +93,241 @@ export default function SignUpForm() {
     }
   };
 
-  // Rest of the form stays the same
+  // Username availability check (simulated)
+  const checkUsernameAvailability = async (username: string) => {
+    // Here you would typically make an API call to check availability
+    // For now, we'll simulate a response based on the username length
+    return new Promise<boolean>((resolve) => {
+      setTimeout(() => {
+        resolve(username.length > 3); // Pretend username is available if length > 3
+      }, 500);
+    });
+  };
+
   return (
     <>
-      {/* form content - unchanged */}
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label
-                htmlFor="firstName"
-                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-              >
-                First name
-              </label>
-              <Input
-                id="firstName"
-                placeholder="John"
-                value={formData.firstName}
-                onChange={handleChange}
-                disabled={isLoading}
-                required
+      <CardContent className="p-6">
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="firstName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>First name</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="John"
+                        {...field}
+                        disabled={isLoading}
+                        className="h-10"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="lastName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Last name</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Doe"
+                        {...field}
+                        disabled={isLoading}
+                        className="h-10"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
             </div>
-            <div className="space-y-2">
-              <label
-                htmlFor="lastName"
-                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-              >
-                Last name
-              </label>
-              <Input
-                id="lastName"
-                placeholder="Doe"
-                value={formData.lastName}
-                onChange={handleChange}
-                disabled={isLoading}
-                required
-              />
-            </div>
-          </div>
 
-          <div className="space-y-2">
-            <label
-              htmlFor="username"
-              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-            >
-              Username
-            </label>
-            <Input
-              id="username"
-              placeholder="johndoe"
-              value={formData.username}
-              onChange={handleChange}
-              disabled={isLoading}
-              required
+            <FormField
+              control={form.control}
+              name="username"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Username</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="johndoe"
+                      {...field}
+                      disabled={isLoading}
+                      className="h-10"
+                    />
+                  </FormControl>
+                  <div className="text-xs text-muted-foreground">
+                    This will be your portfolio URL: <span className="font-medium">portfoliohub.com/{field.value || "username"}</span>
+                  </div>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-            <p className="text-xs text-muted-foreground">
-              This will be used for your portfolio URL:
-              username.portfoliohub.com
-            </p>
-          </div>
 
-          <div className="space-y-2">
-            <label
-              htmlFor="email"
-              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-            >
-              Email
-            </label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="john.doe@example.com"
-              value={formData.email}
-              onChange={handleChange}
-              disabled={isLoading}
-              required
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="email"
+                      placeholder="john.doe@example.com"
+                      {...field}
+                      disabled={isLoading}
+                      className="h-10"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
 
-          <div className="space-y-2">
-            <label
-              htmlFor="password"
-              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-            >
-              Password
-            </label>
-            <Input
-              id="password"
-              type="password"
-              value={formData.password}
-              onChange={handleChange}
-              disabled={isLoading}
-              required
-              minLength={8}
+            <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Password</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="password"
+                      placeholder="••••••••"
+                      {...field}
+                      disabled={isLoading}
+                      className="h-10"
+                    />
+                  </FormControl>
+                  <div className="text-xs space-y-1 mt-1">
+                    <div className="text-muted-foreground">Password must:</div>
+                    <ul className="grid grid-cols-2 gap-x-4 gap-y-1 ml-4 list-disc text-muted-foreground">
+                      <li className={field.value.length >= 8 ? "text-green-600" : ""}>
+                        Be at least 8 characters
+                      </li>
+                      <li className={/[A-Z]/.test(field.value) ? "text-green-600" : ""}>
+                        Have an uppercase letter
+                      </li>
+                      <li className={/[a-z]/.test(field.value) ? "text-green-600" : ""}>
+                        Have a lowercase letter
+                      </li>
+                      <li className={/[0-9]/.test(field.value) ? "text-green-600" : ""}>
+                        Include a number
+                      </li>
+                    </ul>
+                  </div>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-            <p className="text-xs text-muted-foreground">
-              Password must be at least 8 characters long
-            </p>
-          </div>
 
-          <div className="space-y-2">
-            <label
-              htmlFor="confirmPassword"
-              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-            >
-              Confirm Password
-            </label>
-            <Input
-              id="confirmPassword"
-              type="password"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              disabled={isLoading}
-              required
+            <FormField
+              control={form.control}
+              name="confirmPassword"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Confirm Password</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="password"
+                      placeholder="••••••••"
+                      {...field}
+                      disabled={isLoading}
+                      className="h-10"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
 
-          <Button
-            type="submit"
-            className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 text-white"
-            disabled={isLoading}
-          >
-            {isLoading ? "Creating Account..." : "Create Account"}
-          </Button>
-        </form>
+            <FormField
+              control={form.control}
+              name="termsAccepted"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0 pt-2">
+                  <FormControl>
+                    <input
+                      type="checkbox"
+                      checked={field.value}
+                      onChange={field.onChange}
+                      className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary mt-1"
+                    />
+                  </FormControl>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel className="text-sm font-normal">
+                      I agree to the{" "}
+                      <Link
+                        href="/terms"
+                        className="text-primary underline hover:text-primary/90"
+                        target="_blank"
+                      >
+                        Terms of Service
+                      </Link>{" "}
+                      and{" "}
+                      <Link
+                        href="/privacy"
+                        className="text-primary underline hover:text-primary/90"
+                        target="_blank"
+                      >
+                        Privacy Policy
+                      </Link>
+                    </FormLabel>
+                    <FormMessage />
+                  </div>
+                </FormItem>
+              )}
+            />
+
+            <Button
+              type="submit"
+              className="w-full h-10 bg-gradient-to-r from-violet-600 to-indigo-600 text-white mt-2"
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <svg
+                    className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
+                  </svg>
+                  Creating Account...
+                </>
+              ) : (
+                "Create Account"
+              )}
+            </Button>
+          </form>
+        </Form>
       </CardContent>
-      <CardFooter className="flex flex-col space-y-4">
-        <div className="text-sm text-center text-muted-foreground">
+      <CardFooter className="p-6 pt-0 flex justify-center">
+        <p className="text-sm text-muted-foreground">
           Already have an account?{" "}
-          <Link href="/auth/signin" className="text-primary hover:underline">
+          <Link href="/auth/signin" className="text-primary font-medium hover:underline">
             Sign in
           </Link>
-        </div>
+        </p>
       </CardFooter>
     </>
   );

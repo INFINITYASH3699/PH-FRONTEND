@@ -1,186 +1,197 @@
-'use client';
-
-import React, { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useState } from 'react';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Button } from '@/components/ui/button';
-import { ThemeColorEditor } from '@/components/template-renderer/ThemeColorEditor';
 
 interface ThemeSelectorProps {
-  template: any;
-  initialColorScheme: string;
-  initialFontPairing: string;
-  onSelect?: (colorSchemeId: string, fontPairingId: string) => void;
-  onCustomColorsChange?: (colorSchemeId: string, updatedColors: any) => void;
-  onSaveCustomColorScheme?: (name: string, colors: any) => void;
+  themeOptions: {
+    colorSchemes: Array<{
+      id: string;
+      name: string;
+      colors: {
+        primary: string;
+        secondary: string;
+        background: string;
+        text: string;
+        accent?: string;
+        [key: string]: string | undefined;
+      };
+    }>;
+    fontPairings: Array<{
+      id: string;
+      name: string;
+      fonts: {
+        heading: string;
+        body: string;
+        mono?: string;
+        [key: string]: string | undefined;
+      };
+    }>;
+  };
+  activeColorSchemeId?: string;
+  activeFontPairingId?: string;
+  onChange: (colorSchemeId: string, fontPairingId: string) => void;
 }
 
-const ThemeSelector: React.FC<ThemeSelectorProps> = ({
-  template,
-  initialColorScheme,
-  initialFontPairing,
-  onSelect,
-  onCustomColorsChange,
-  onSaveCustomColorScheme
-}) => {
-  const [selectedColorScheme, setSelectedColorScheme] = useState(initialColorScheme);
-  const [selectedFontPairing, setSelectedFontPairing] = useState(initialFontPairing);
+export default function ThemeSelector({
+  themeOptions,
+  activeColorSchemeId,
+  activeFontPairingId,
+  onChange
+}: ThemeSelectorProps) {
+  const [activeTab, setActiveTab] = useState<string>('colors');
 
-  const colorSchemes = template.themeOptions?.colorSchemes || [];
-  const fontPairings = template.themeOptions?.fontPairings || [];
+  // Default to first options if no active selections
+  const colorSchemes = themeOptions?.colorSchemes || [];
+  const fontPairings = themeOptions?.fontPairings || [];
 
-  // Fallback for templates without proper theme options
-  const fallbackColorSchemes = [{
-    id: 'default',
-    name: 'Default',
-    colors: {
-      primary: '#6366f1',
-      secondary: '#8b5cf6',
-      background: '#ffffff',
-      text: '#111827'
-    }
-  }];
+  const defaultColorScheme = colorSchemes.length > 0 ? colorSchemes[0].id : '';
+  const defaultFontPairing = fontPairings.length > 0 ? fontPairings[0].id : '';
 
-  const fallbackFontPairings = [{
-    id: 'default',
-    name: 'Default',
-    fonts: {
-      heading: 'Inter',
-      body: 'Inter'
-    }
-  }];
+  const [selectedColorScheme, setSelectedColorScheme] = useState<string>(
+    activeColorSchemeId || defaultColorScheme
+  );
+  const [selectedFontPairing, setSelectedFontPairing] = useState<string>(
+    activeFontPairingId || defaultFontPairing
+  );
 
-  const displayColorSchemes = colorSchemes.length > 0 ? colorSchemes : fallbackColorSchemes;
-  const displayFontPairings = fontPairings.length > 0 ? fontPairings : fallbackFontPairings;
-
-  const handleColorSchemeSelect = (id: string) => {
-    setSelectedColorScheme(id);
-    if (onSelect) {
-      onSelect(id, selectedFontPairing);
-    }
+  // Handle color scheme selection
+  const handleColorSchemeChange = (value: string) => {
+    setSelectedColorScheme(value);
+    onChange(value, selectedFontPairing);
   };
 
-  const handleFontPairingSelect = (id: string) => {
-    setSelectedFontPairing(id);
-    if (onSelect) {
-      onSelect(selectedColorScheme, id);
-    }
+  // Handle font pairing selection
+  const handleFontPairingChange = (value: string) => {
+    setSelectedFontPairing(value);
+    onChange(selectedColorScheme, value);
   };
 
-  const handleCustomColorsChange = (schemeId: string, updatedColors?: any) => {
-    if (onCustomColorsChange && updatedColors) {
-      onCustomColorsChange(schemeId, updatedColors);
-    }
-  };
-
-  const handleSaveCustomColorScheme = (name: string, colors: any) => {
-    if (onSaveCustomColorScheme) {
-      onSaveCustomColorScheme(name, colors);
-    }
-  };
+  if (!themeOptions || (!colorSchemes.length && !fontPairings.length)) {
+    return (
+      <div className="text-sm text-muted-foreground text-center py-4">
+        No theme options available for this template.
+      </div>
+    );
+  }
 
   return (
-    <Tabs defaultValue="colors">
-      <TabsList className="mb-4">
-        <TabsTrigger value="colors">Color Schemes</TabsTrigger>
-        <TabsTrigger value="fonts">Font Pairings</TabsTrigger>
-        <TabsTrigger value="customize">Customize Colors</TabsTrigger>
-      </TabsList>
+    <div className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="colors">Colors</TabsTrigger>
+          <TabsTrigger value="fonts">Fonts</TabsTrigger>
+        </TabsList>
 
-      {/* Color Schemes Tab */}
-      <TabsContent value="colors">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {displayColorSchemes.map((scheme) => (
-            <Card
-              key={scheme.id}
-              className={`cursor-pointer transition-all ${selectedColorScheme === scheme.id ? 'ring-2 ring-primary' : 'hover:shadow-md'}`}
-              onClick={() => handleColorSchemeSelect(scheme.id)}
-            >
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg">{scheme.name}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-4 gap-2">
-                  {Object.entries(scheme.colors).map(([name, color]) => (
-                    <div key={name} className="flex flex-col items-center text-xs">
-                      <div
-                        className="w-8 h-8 rounded-full mb-1 border"
-                        style={{ backgroundColor: color as string }}
-                      />
-                      <span className="capitalize">{name}</span>
+        <TabsContent value="colors" className="space-y-4 pt-4">
+          <RadioGroup
+            value={selectedColorScheme}
+            onValueChange={handleColorSchemeChange}
+            className="space-y-2"
+          >
+            {colorSchemes.map((scheme) => (
+              <div key={scheme.id} className="flex items-start space-x-3">
+                <RadioGroupItem value={scheme.id} id={`color-${scheme.id}`} className="mt-1" />
+                <div className="flex-1">
+                  <Label
+                    htmlFor={`color-${scheme.id}`}
+                    className="flex items-center cursor-pointer"
+                  >
+                    <span className="font-medium mr-3">{scheme.name}</span>
+                    <div className="flex ml-auto gap-1">
+                      {Object.entries(scheme.colors).map(([name, color]) => (
+                        <div
+                          key={name}
+                          className="w-5 h-5 rounded-full border border-gray-200"
+                          style={{ backgroundColor: color }}
+                          title={`${name}: ${color}`}
+                        />
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </Label>
 
-                <div className="mt-4 flex justify-end">
-                  <Button
-                    variant={selectedColorScheme === scheme.id ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => handleColorSchemeSelect(scheme.id)}
+                  {selectedColorScheme === scheme.id && (
+                    <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+                      {Object.entries(scheme.colors).map(([name, color]) => (
+                        <div key={name} className="flex items-center space-x-2">
+                          <div
+                            className="w-3 h-3 rounded-full"
+                            style={{ backgroundColor: color }}
+                          />
+                          <span className="capitalize">{name}:</span>
+                          <code className="text-xs bg-muted px-1 rounded">{color}</code>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </RadioGroup>
+
+          {colorSchemes.length === 0 && (
+            <div className="text-sm text-muted-foreground text-center py-2">
+              No color schemes available.
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="fonts" className="space-y-4 pt-4">
+          <RadioGroup
+            value={selectedFontPairing}
+            onValueChange={handleFontPairingChange}
+            className="space-y-2"
+          >
+            {fontPairings.map((pairing) => (
+              <div key={pairing.id} className="flex items-start space-x-3">
+                <RadioGroupItem value={pairing.id} id={`font-${pairing.id}`} className="mt-1" />
+                <div className="flex-1">
+                  <Label
+                    htmlFor={`font-${pairing.id}`}
+                    className="flex flex-col cursor-pointer"
                   >
-                    {selectedColorScheme === scheme.id ? "Selected" : "Select"}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </TabsContent>
+                    <span className="font-medium">{pairing.name}</span>
 
-      {/* Font Pairings Tab */}
-      <TabsContent value="fonts">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {displayFontPairings.map((pairing) => (
-            <Card
-              key={pairing.id}
-              className={`cursor-pointer transition-all ${selectedFontPairing === pairing.id ? 'ring-2 ring-primary' : 'hover:shadow-md'}`}
-              onClick={() => handleFontPairingSelect(pairing.id)}
-            >
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg">{pairing.name}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="border rounded-lg p-3">
-                    <p className="text-sm text-muted-foreground mb-2">Heading Font:</p>
-                    <h3 style={{ fontFamily: pairing.fonts.heading }} className="text-xl font-bold">
-                      {pairing.fonts.heading}
-                    </h3>
-                  </div>
-                  <div className="border rounded-lg p-3">
-                    <p className="text-sm text-muted-foreground mb-2">Body Font:</p>
-                    <p style={{ fontFamily: pairing.fonts.body }} className="text-base">
-                      {pairing.fonts.body}
-                    </p>
-                  </div>
-                </div>
+                    <div className="mt-2 text-sm space-y-2">
+                      <div className="flex gap-2">
+                        <span className="text-xs text-muted-foreground w-16">Heading:</span>
+                        <span
+                          className="text-base font-semibold"
+                          style={{ fontFamily: pairing.fonts.heading }}
+                        >
+                          {pairing.fonts.heading}
+                        </span>
+                      </div>
 
-                <div className="mt-4 flex justify-end">
-                  <Button
-                    variant={selectedFontPairing === pairing.id ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => handleFontPairingSelect(pairing.id)}
-                  >
-                    {selectedFontPairing === pairing.id ? "Selected" : "Select"}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </TabsContent>
+                      <div className="flex gap-2">
+                        <span className="text-xs text-muted-foreground w-16">Body:</span>
+                        <span style={{ fontFamily: pairing.fonts.body }}>
+                          {pairing.fonts.body}
+                        </span>
+                      </div>
 
-      {/* Customize Colors Tab */}
-      <TabsContent value="customize">
-        <ThemeColorEditor
-          colorSchemes={displayColorSchemes}
-          activeColorSchemeId={selectedColorScheme}
-          onChange={handleCustomColorsChange}
-          onSaveCustomScheme={handleSaveCustomColorScheme}
-        />
-      </TabsContent>
-    </Tabs>
+                      {pairing.fonts.mono && (
+                        <div className="flex gap-2">
+                          <span className="text-xs text-muted-foreground w-16">Mono:</span>
+                          <span className="font-mono" style={{ fontFamily: pairing.fonts.mono }}>
+                            {pairing.fonts.mono}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </Label>
+                </div>
+              </div>
+            ))}
+          </RadioGroup>
+
+          {fontPairings.length === 0 && (
+            <div className="text-sm text-muted-foreground text-center py-2">
+              No font pairings available.
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
+    </div>
   );
-};
-
-export default ThemeSelector;
+}

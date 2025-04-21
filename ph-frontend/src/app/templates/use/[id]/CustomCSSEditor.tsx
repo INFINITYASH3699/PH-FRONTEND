@@ -1,153 +1,166 @@
-'use client';
-
-import { useState } from 'react';
-import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-
-// Define custom CSS interface
-interface CustomCSSContent {
-  styles: string;
-}
+import { Label } from '@/components/ui/label';
 
 interface CustomCSSEditorProps {
-  content: CustomCSSContent;
-  onSave: (content: CustomCSSContent) => void;
-  isLoading?: boolean;
+  css: string;
+  onChange: (css: string) => void;
 }
 
-// Sample CSS snippets for users to add
-const cssSnippets = [
-  {
-    name: 'Gradient Background',
-    code: `.section-header {\n  background: linear-gradient(to right, #6366f1, #8b5cf6);\n  color: white;\n  padding: 2rem;\n  border-radius: 8px;\n}`,
-  },
-  {
-    name: 'Animated Button',
-    code: `.cta-button {\n  transition: all 0.3s ease;\n  border-radius: 4px;\n}\n\n.cta-button:hover {\n  transform: translateY(-3px);\n  box-shadow: 0 10px 20px rgba(0,0,0,0.1);\n}`,
-  },
-  {
-    name: 'Card Hover Effect',
-    code: `.project-card {\n  transition: all 0.3s ease;\n}\n\n.project-card:hover {\n  transform: scale(1.03);\n  box-shadow: 0 10px 20px rgba(0,0,0,0.1);\n}`,
-  },
-  {
-    name: 'Custom Font Sizes',
-    code: `h1 {\n  font-size: 3.5rem;\n  font-weight: 700;\n  line-height: 1.2;\n}\n\nh2 {\n  font-size: 2.5rem;\n  font-weight: 600;\n  line-height: 1.3;\n}\n\np {\n  font-size: 1.125rem;\n  line-height: 1.7;\n}`,
-  },
-];
+export default function CustomCSSEditor({ css, onChange }: CustomCSSEditorProps) {
+  const [cssValue, setCssValue] = useState(css || '');
+  const [isApplied, setIsApplied] = useState(true);
 
-export default function CustomCSSEditor({ content, onSave, isLoading = false }: CustomCSSEditorProps) {
-  const [customCSS, setCustomCSS] = useState<string>(content.styles || '');
-  const [previewVisible, setPreviewVisible] = useState<boolean>(false);
+  // Update internal state when props change
+  useEffect(() => {
+    setCssValue(css || '');
+    setIsApplied(true);
+  }, [css]);
 
-  // Handle updating CSS
-  const handleCSSChange = (css: string) => {
-    setCustomCSS(css);
-    onSave({ styles: css });
+  // Handle text change
+  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setCssValue(e.target.value);
+    setIsApplied(false);
   };
 
-  // Add a CSS snippet to the editor
-  const addSnippet = (snippetCode: string) => {
-    const updatedCSS = customCSS ? `${customCSS}\n\n${snippetCode}` : snippetCode;
-    handleCSSChange(updatedCSS);
+  // Apply the CSS changes
+  const handleApply = () => {
+    onChange(cssValue);
+    setIsApplied(true);
+  };
+
+  // Example CSS snippets that users can insert
+  const cssSnippets = [
+    {
+      name: 'Custom Link Color',
+      code: `/* Change link color */
+a {
+  color: #6366f1;
+  transition: color 0.2s;
+}
+a:hover {
+  color: #4f46e5;
+}`
+    },
+    {
+      name: 'Custom Heading Styles',
+      code: `/* Custom heading styles */
+h1, h2, h3 {
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+h1 {
+  font-size: 2.5rem;
+  margin-bottom: 1.5rem;
+}`
+    },
+    {
+      name: 'Animated Section',
+      code: `/* Add animation to sections */
+.section {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.6s, transform 0.6s;
+}
+.section.visible {
+  opacity: 1;
+  transform: translateY(0);
+}`
+    },
+    {
+      name: 'Custom Button Style',
+      code: `/* Custom button style */
+.custom-button {
+  background: linear-gradient(to right, #6366f1, #8b5cf6);
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.375rem;
+  font-weight: 500;
+  border: none;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.custom-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.25);
+}`
+    }
+  ];
+
+  // Insert a CSS snippet
+  const insertSnippet = (snippet: string) => {
+    const newValue = cssValue ? `${cssValue}\n\n${snippet}` : snippet;
+    setCssValue(newValue);
+    setIsApplied(false);
   };
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col space-y-2">
-        <h3 className="text-lg font-medium">Custom CSS</h3>
-        <p className="text-muted-foreground">
-          Add custom CSS styles to fine-tune the appearance of your portfolio.
+    <div className="space-y-4">
+      <div className="flex justify-between items-start">
+        <div>
+          <Label htmlFor="custom-css">Custom CSS</Label>
+          <p className="text-xs text-muted-foreground mt-1">
+            Add custom CSS to personalize your portfolio beyond the theme options
+          </p>
+        </div>
+        <Button
+          size="sm"
+          variant={isApplied ? "outline" : "default"}
+          onClick={handleApply}
+          disabled={isApplied}
+        >
+          {isApplied ? "Applied" : "Apply CSS"}
+        </Button>
+      </div>
+
+      <div className="border rounded-md overflow-hidden">
+        <div className="bg-muted px-3 py-2 text-xs font-mono border-b flex justify-between items-center">
+          <span>style.css</span>
+          <span className="text-muted-foreground">{cssValue.length} bytes</span>
+        </div>
+        <textarea
+          id="custom-css"
+          value={cssValue}
+          onChange={handleTextChange}
+          className="font-mono text-sm w-full p-3 min-h-[250px] bg-black text-green-400 focus:outline-none focus:ring-0 focus:border-0"
+          placeholder="/* Add your custom CSS here */
+
+/* Example:
+.header-section {
+  background: linear-gradient(to right, #6366f1, #818cf8);
+}
+*/"
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label>Quick Snippets</Label>
+        <div className="grid grid-cols-2 gap-2">
+          {cssSnippets.map((snippet, index) => (
+            <Button
+              key={index}
+              variant="outline"
+              size="sm"
+              className="h-auto py-2 justify-start text-left"
+              onClick={() => insertSnippet(snippet.code)}
+            >
+              <span className="truncate">{snippet.name}</span>
+            </Button>
+          ))}
+        </div>
+        <p className="text-xs text-muted-foreground mt-1">
+          Click any snippet to add it to your custom CSS
         </p>
       </div>
 
-      {/* Warning message */}
-      <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 p-4 rounded-md">
-        <h4 className="font-medium">⚠️ Advanced Feature</h4>
-        <p className="text-sm mt-1">
-          Custom CSS is for users with CSS knowledge. Incorrect CSS may break your portfolio's layout.
-          Make sure to test your changes using the preview button.
-        </p>
+      <div className="bg-muted/50 rounded-md p-3">
+        <h4 className="text-sm font-medium mb-2">CSS Tips</h4>
+        <ul className="text-xs text-muted-foreground space-y-1 list-disc pl-4">
+          <li>Use custom CSS to override the default styles of your template</li>
+          <li>Changes apply to your portfolio only and won't affect other templates</li>
+          <li>Click "Apply CSS" to see your changes in the preview</li>
+          <li>Be careful with selectors to avoid unwanted style changes</li>
+        </ul>
       </div>
-
-      {/* CSS Editor */}
-      <Card>
-        <CardHeader>
-          <CardTitle>CSS Editor</CardTitle>
-          <CardDescription>
-            Write custom CSS to customize your portfolio beyond the built-in options
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Textarea
-            placeholder="/* Add your custom CSS here */
-.my-custom-class {
-  color: blue;
-  font-weight: bold;
-}"
-            value={customCSS}
-            onChange={(e) => handleCSSChange(e.target.value)}
-            className="min-h-[300px] font-mono text-sm"
-          />
-        </CardContent>
-      </Card>
-
-      {/* CSS Snippets */}
-      <Card>
-        <CardHeader>
-          <CardTitle>CSS Snippets</CardTitle>
-          <CardDescription>
-            Click on any snippet to add it to your custom CSS
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {cssSnippets.map((snippet, index) => (
-              <div
-                key={index}
-                className="border rounded-md p-3 hover:bg-slate-50 cursor-pointer transition-colors"
-                onClick={() => addSnippet(snippet.code)}
-              >
-                <h4 className="font-medium text-sm mb-2">{snippet.name}</h4>
-                <pre className="bg-slate-100 p-2 rounded text-xs overflow-x-auto">
-                  <code>{snippet.code}</code>
-                </pre>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* CSS Usage Guide */}
-      <Card>
-        <CardHeader>
-          <CardTitle>CSS Usage Guide</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <h4 className="font-medium text-sm mb-2">Common CSS Class Names</h4>
-            <ul className="space-y-1 text-sm list-disc pl-4">
-              <li><code className="text-xs bg-slate-100 p-1 rounded">.portfolio-header</code> - The main header section</li>
-              <li><code className="text-xs bg-slate-100 p-1 rounded">.portfolio-section</code> - Each main section</li>
-              <li><code className="text-xs bg-slate-100 p-1 rounded">.project-card</code> - Project display cards</li>
-              <li><code className="text-xs bg-slate-100 p-1 rounded">.skill-item</code> - Individual skill items</li>
-              <li><code className="text-xs bg-slate-100 p-1 rounded">.experience-item</code> - Work experience entries</li>
-              <li><code className="text-xs bg-slate-100 p-1 rounded">.contact-form</code> - Contact form container</li>
-            </ul>
-          </div>
-
-          <div>
-            <h4 className="font-medium text-sm mb-2">Tips for Using Custom CSS</h4>
-            <ul className="space-y-1 text-sm list-disc pl-4">
-              <li>Use browser developer tools to inspect elements and find class names</li>
-              <li>Test your changes with the preview button</li>
-              <li>Keep a backup of your CSS before making major changes</li>
-              <li>Use <code className="text-xs bg-slate-100 p-1 rounded">!important</code> sparingly</li>
-              <li>For complex layouts, consider using media queries for responsive design</li>
-            </ul>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

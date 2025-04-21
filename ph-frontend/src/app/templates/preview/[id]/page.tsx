@@ -1,289 +1,234 @@
-import React from 'react';
+import { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
+import { notFound } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { getTemplateById } from '@/lib/apiClient';
+import TemplateRenderer from '@/components/template-renderer/TemplateRenderer';
 
-// Mock API call function - replace with actual API client in production
-async function getTemplateData(id: string) {
-  try {
-    // In real application, fetch from API
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/templates/${id}`, {
-      cache: 'no-store',
-    });
+// Sample portfolio data for preview
+const samplePortfolio = {
+  title: 'Portfolio Preview',
+  subtitle: 'See how your portfolio could look',
+  content: {},
+  activeLayout: 'default',
+  activeColorScheme: 'default',
+  activeFontPairing: 'default',
+};
 
-    if (!response.ok) {
-      throw new Error('Failed to fetch template');
-    }
+export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
+  const template = await getTemplateById(params.id);
 
-    const data = await response.json();
-    return data.template;
-  } catch (error) {
-    console.error('Error fetching template:', error);
-    return null;
+  if (!template) {
+    return {
+      title: 'Template Not Found',
+    };
   }
+
+  return {
+    title: `${template.name} - Template Preview | PortfolioHub`,
+    description: template.description,
+  };
 }
 
 export default async function TemplatePreviewPage({ params }: { params: { id: string } }) {
-  const template = await getTemplateData(params.id);
+  const template = await getTemplateById(params.id);
 
   if (!template) {
-    redirect('/templates');
+    notFound();
   }
 
-  // Get available layouts
-  const layouts = template.layouts || [];
-
-  // Get color schemes
+  // Process template data for preview
+  const layoutOptions = template.layouts || [];
   const colorSchemes = template.themeOptions?.colorSchemes || [];
-
-  // Get font pairings
   const fontPairings = template.themeOptions?.fontPairings || [];
 
-  // Get sections from the first layout or default structure
-  const defaultLayout = layouts[0] || { structure: { sections: [] } };
-  const sections = defaultLayout.structure.sections ||
-    template.defaultStructure?.layout?.sections || [];
-
   return (
-    <div className="container py-10">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        {/* Left sidebar with template info */}
-        <div className="space-y-6">
-          <div>
-            <h1 className="text-3xl font-bold">{template.name}</h1>
-            <p className="text-muted-foreground mt-2">{template.description}</p>
+    <div className="container mx-auto px-4 py-8">
+      <Link href="/templates" className="text-sm flex items-center mb-6 text-muted-foreground hover:text-foreground transition-colors">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="mr-2 h-4 w-4"
+        >
+          <path d="m15 18-6-6 6-6" />
+        </svg>
+        Back to Templates
+      </Link>
 
-            <div className="flex items-center mt-4 space-x-2">
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-800 dark:text-indigo-100">
-                {template.category}
-              </span>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+        <div className="md:col-span-1">
+          <div className="sticky top-8">
+            <div className="relative aspect-video w-full mb-4 overflow-hidden rounded-lg border">
+              <Image
+                src={template.previewImage}
+                alt={template.name}
+                fill
+                className="object-cover"
+              />
+            </div>
 
-              {template.isFeatured && (
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-800 dark:text-amber-100">
-                  Featured
-                </span>
+            <h1 className="text-2xl font-bold mb-2">{template.name}</h1>
+            <p className="text-muted-foreground mb-4">{template.description}</p>
+
+            <div className="flex flex-col space-y-2 mb-6">
+              <div className="flex justify-between">
+                <span className="text-sm">Category:</span>
+                <span className="text-sm font-medium capitalize">{template.category}</span>
+              </div>
+
+              <div className="flex justify-between">
+                <span className="text-sm">Layouts:</span>
+                <span className="text-sm font-medium">{layoutOptions.length}</span>
+              </div>
+
+              <div className="flex justify-between">
+                <span className="text-sm">Color Schemes:</span>
+                <span className="text-sm font-medium">{colorSchemes.length}</span>
+              </div>
+
+              <div className="flex justify-between">
+                <span className="text-sm">Font Pairings:</span>
+                <span className="text-sm font-medium">{fontPairings.length}</span>
+              </div>
+
+              {template.usageCount !== undefined && (
+                <div className="flex justify-between">
+                  <span className="text-sm">Used By:</span>
+                  <span className="text-sm font-medium">{template.usageCount} portfolios</span>
+                </div>
               )}
-
-              <div className="flex items-center">
-                <svg className="w-4 h-4 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
-                </svg>
-                <span className="ml-1 text-sm text-gray-600">
-                  {template.rating?.average || 0} ({template.rating?.count || 0} reviews)
-                </span>
-              </div>
             </div>
 
-            <div className="mt-6 space-y-4">
-              <Link href={`/templates/use/${template._id}`}>
-                <Button className="w-full">Use This Template</Button>
-              </Link>
-
-              <Link href="/templates">
-                <Button variant="outline" className="w-full">Back to Templates</Button>
-              </Link>
-            </div>
-          </div>
-
-          {/* Tags */}
-          {template.tags && template.tags.length > 0 && (
-            <div>
-              <h3 className="text-lg font-medium mb-2">Tags</h3>
-              <div className="flex flex-wrap gap-2">
-                {template.tags.map((tag: string, index: number) => (
-                  <span
-                    key={index}
-                    className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100"
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Template stats */}
-          <div>
-            <h3 className="text-lg font-medium mb-2">Template Details</h3>
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Used by</span>
-                <span className="font-medium">{template.usageCount || 0} portfolios</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Layouts</span>
-                <span className="font-medium">{layouts.length || 1}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Color schemes</span>
-                <span className="font-medium">{colorSchemes.length || 1}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Sections</span>
-                <span className="font-medium">{sections.length}</span>
-              </div>
-            </div>
+            <Link href={`/templates/use/${template._id}`}>
+              <Button className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 text-white">
+                Use This Template
+              </Button>
+            </Link>
           </div>
         </div>
 
-        {/* Main preview area */}
         <div className="md:col-span-2">
           <Tabs defaultValue="preview" className="w-full">
-            <TabsList className="mb-4">
+            <TabsList className="grid w-full grid-cols-4 mb-8">
               <TabsTrigger value="preview">Preview</TabsTrigger>
               <TabsTrigger value="layouts">Layouts</TabsTrigger>
-              <TabsTrigger value="themes">Themes</TabsTrigger>
-              <TabsTrigger value="sections">Sections</TabsTrigger>
+              <TabsTrigger value="colors">Colors</TabsTrigger>
+              <TabsTrigger value="fonts">Fonts</TabsTrigger>
             </TabsList>
 
-            {/* Preview tab */}
             <TabsContent value="preview" className="space-y-4">
-              <div className="relative aspect-[16/9] overflow-hidden rounded-lg border bg-muted">
-                <Image
-                  src={template.previewImage}
-                  alt={template.name}
-                  fill
-                  className="object-cover"
-                />
-              </div>
-
-              {template.previewImages && template.previewImages.length > 0 && (
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
-                  {template.previewImages.map((img: string, i: number) => (
-                    <div key={i} className="relative aspect-[4/3] overflow-hidden rounded-lg border bg-muted">
-                      <Image
-                        src={img}
-                        alt={`${template.name} preview ${i+1}`}
-                        fill
-                        className="object-cover"
-                      />
-                    </div>
-                  ))}
+              <div className="p-4 border rounded-lg">
+                <div className="bg-background rounded-md border shadow-sm overflow-hidden">
+                  <div className="h-[600px] overflow-y-auto p-4">
+                    <TemplateRenderer
+                      template={template}
+                      portfolio={samplePortfolio}
+                      editable={false}
+                    />
+                  </div>
                 </div>
-              )}
+              </div>
             </TabsContent>
 
-            {/* Layouts tab */}
             <TabsContent value="layouts" className="space-y-4">
-              {layouts.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {layouts.map((layout: any, i: number) => (
-                    <Card key={i} className="overflow-hidden">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-lg">{layout.name}</CardTitle>
-                      </CardHeader>
-                      <CardContent className="pb-2">
-                        <div className="relative aspect-[4/3] overflow-hidden rounded-lg bg-muted">
-                          {layout.previewImage ? (
-                            <Image
-                              src={layout.previewImage}
-                              alt={layout.name}
-                              fill
-                              className="object-cover"
-                            />
-                          ) : (
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              <p className="text-muted-foreground text-sm">Layout preview not available</p>
-                            </div>
-                          )}
-                        </div>
-                        <div className="mt-2">
-                          <p className="text-xs text-muted-foreground">Grid System: {layout.structure.gridSystem}</p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Sections: {layout.structure.sections.join(', ')}
-                          </p>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground">
-                    This template uses a standard layout configuration
-                  </p>
-                </div>
-              )}
-            </TabsContent>
-
-            {/* Themes tab */}
-            <TabsContent value="themes" className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Color schemes */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Color Schemes</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {colorSchemes.length > 0 ? (
-                      colorSchemes.map((scheme: any, i: number) => (
-                        <div key={i} className="border rounded-lg p-3">
-                          <div className="font-medium mb-2">{scheme.name}</div>
-                          <div className="grid grid-cols-4 gap-2">
-                            {Object.entries(scheme.colors).map(([name, color]: [string, any]) => (
-                              <div key={name} className="flex flex-col items-center text-xs">
-                                <div
-                                  className="w-6 h-6 rounded-full mb-1 border"
-                                  style={{ backgroundColor: color }}
-                                />
-                                {name}
-                              </div>
-                            ))}
-                          </div>
+                {layoutOptions.map((layout) => (
+                  <Card key={layout.id} className="overflow-hidden">
+                    <div className="p-4 border-b bg-muted/30">
+                      <h3 className="font-medium">{layout.name}</h3>
+                      <p className="text-sm text-muted-foreground">
+                        {layout.structure.gridSystem === 'sidebar-main'
+                          ? 'Sidebar Navigation Layout'
+                          : 'Standard Content Layout'}
+                      </p>
+                    </div>
+                    <CardContent className="p-4">
+                      <div className="text-sm space-y-2">
+                        <div className="font-medium mb-2">Included Sections:</div>
+                        <div className="flex flex-wrap gap-2">
+                          {layout.structure.sections.map((section: string) => (
+                            <span key={section} className="px-2 py-1 bg-muted rounded-md text-xs capitalize">
+                              {section}
+                            </span>
+                          ))}
                         </div>
-                      ))
-                    ) : (
-                      <p className="text-muted-foreground text-sm">Default color scheme</p>
-                    )}
-                  </CardContent>
-                </Card>
-
-                {/* Font pairings */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Font Pairings</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {fontPairings.length > 0 ? (
-                      fontPairings.map((pairing: any, i: number) => (
-                        <div key={i} className="border rounded-lg p-3">
-                          <div className="font-medium mb-2">{pairing.name}</div>
-                          <div className="space-y-2">
-                            {Object.entries(pairing.fonts).map(([name, font]: [string, any]) => (
-                              <div key={name} className="text-sm">
-                                <span className="text-muted-foreground">{name}: </span>
-                                <span>{font}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-muted-foreground text-sm">Default font pairings</p>
-                    )}
-                  </CardContent>
-                </Card>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
             </TabsContent>
 
-            {/* Sections tab */}
-            <TabsContent value="sections" className="space-y-4">
-              <div className="border rounded-lg p-4">
-                <h3 className="font-medium text-lg mb-3">Available Sections</h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  {sections.map((section: string, i: number) => (
-                    <div key={i} className="border rounded-lg p-3 text-center">
-                      <span className="capitalize">{section.replace('-', ' ')}</span>
+            <TabsContent value="colors" className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {colorSchemes.map((scheme) => (
+                  <Card key={scheme.id} className="overflow-hidden">
+                    <div className="p-4 border-b bg-muted/30">
+                      <h3 className="font-medium">{scheme.name}</h3>
                     </div>
-                  ))}
-                </div>
+                    <CardContent className="p-4">
+                      <div className="grid grid-cols-2 gap-2">
+                        {Object.entries(scheme.colors).map(([name, color]) => (
+                          <div key={name} className="flex items-center space-x-2">
+                            <div
+                              className="w-6 h-6 rounded-full border"
+                              style={{ backgroundColor: color as string }}
+                            />
+                            <span className="text-xs capitalize">{name}: {color}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
+            </TabsContent>
 
-              <div className="text-sm text-muted-foreground mt-2">
-                <p>Sections can be customized and reordered when using the template.</p>
+            <TabsContent value="fonts" className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {fontPairings.map((font) => (
+                  <Card key={font.id} className="overflow-hidden">
+                    <div className="p-4 border-b bg-muted/30">
+                      <h3 className="font-medium">{font.name}</h3>
+                    </div>
+                    <CardContent className="p-4">
+                      <div className="space-y-4">
+                        <div className="space-y-1">
+                          <div className="text-xs text-muted-foreground">Heading Font</div>
+                          <div className="text-lg font-bold" style={{ fontFamily: font.fonts.heading }}>
+                            {font.fonts.heading}
+                          </div>
+                        </div>
+
+                        <div className="space-y-1">
+                          <div className="text-xs text-muted-foreground">Body Font</div>
+                          <div className="text-md" style={{ fontFamily: font.fonts.body }}>
+                            {font.fonts.body}
+                          </div>
+                        </div>
+
+                        {font.fonts.mono && (
+                          <div className="space-y-1">
+                            <div className="text-xs text-muted-foreground">Monospace Font</div>
+                            <div className="text-md font-mono" style={{ fontFamily: font.fonts.mono }}>
+                              {font.fonts.mono}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
             </TabsContent>
           </Tabs>
