@@ -1,150 +1,111 @@
-'use client';
+'use client'
 
-import { useState, useRef } from 'react';
-import { toast } from 'sonner';
-import { Button } from './button';
-import { Loader2, Upload, X } from 'lucide-react';
+import React, { useCallback, useState } from 'react'
+import { Button } from './button'
+import { uploadFileToCloudinary } from '@/lib/cloudinary'
+import { toast } from 'sonner'
 
-interface FileUploadProps {
-  onUpload: (url: string) => void;
-  onError?: (error: string) => void;
-  initialImage?: string;
-  className?: string;
-  accept?: string;
-  maxSizeMB?: number;
-  buttonText?: string;
-  uploadingText?: string;
-  variant?: 'default' | 'outline' | 'secondary' | 'ghost' | 'link' | 'destructive';
+export interface FileUploadProps {
+  onUploadComplete: (result: { url: string; publicId: string }) => void
+  onUploadError?: (error: string) => void
+  allowedTypes?: string[]
+  maxSizeMB?: number
+  buttonText?: string
+  uploading?: boolean
+  className?: string
+  variant?: 'default' | 'outline' | 'secondary'
 }
+
+const DEFAULT_ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+const DEFAULT_MAX_SIZE = 5 // 5MB
 
 export function FileUpload({
-  onUpload,
-  onError,
-  initialImage,
-  className = '',
-  accept = 'image/*',
-  maxSizeMB = 5,
+  onUploadComplete,
+  onUploadError,
+  allowedTypes = DEFAULT_ALLOWED_TYPES,
+  maxSizeMB = DEFAULT_MAX_SIZE,
   buttonText = 'Upload Image',
-  uploadingText = 'Uploading...',
-  variant = 'outline',
+  uploading: externalUploading,
+  className = '',
+  variant = 'default',
 }: FileUploadProps) {
-  const [isUploading, setIsUploading] = useState(false);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(initialImage || null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false)
+  const isUploading = uploading || externalUploading
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleFileChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0]
+      if (!file) return
 
-    // Check file size (convert maxSizeMB to bytes)
-    if (file.size > maxSizeMB * 1024 * 1024) {
-      toast.error(`File size exceeds ${maxSizeMB}MB limit`);
-      onError?.(`File size exceeds ${maxSizeMB}MB limit`);
-      return;
-    }
-
-    // Create a preview
-    const objectUrl = URL.createObjectURL(file);
-    setPreviewUrl(objectUrl);
-
-    setIsUploading(true);
-
-    try {
-      // Create FormData to send the file
-      const formData = new FormData();
-      formData.append('file', file);
-
-      // Upload to the server
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Upload failed');
+      // Validate file type
+      if (!allowedTypes.includes(file.type)) {
+        const errorMsg = `Invalid file type. Allowed types: ${allowedTypes.join(', ')}`
+        toast.error(errorMsg)
+        onUploadError?.(errorMsg)
+        e.target.value = ''
+        return
       }
 
-      const data = await response.json();
-      onUpload(data.url);
-      toast.success('File uploaded successfully');
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'File upload failed';
-      toast.error(message);
-      onError?.(message);
-
-      // Reset preview if upload fails
-      if (!initialImage) {
-        setPreviewUrl(null);
-      } else {
-        setPreviewUrl(initialImage);
+      // Validate file size
+      const maxSizeBytes = maxSizeMB * 1024 * 1024
+      if (file.size > maxSizeBytes) {
+        const errorMsg = `File too large. Maximum size: ${maxSizeMB}MB`
+        toast.error(errorMsg)
+        onUploadError?.(errorMsg)
+        e.target.value = ''
+        return
       }
-    } finally {
-      setIsUploading(false);
 
-      // Reset the file input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
+      try {
+        setUploading(true)
+
+        // Upload to Cloudinary
+        const result = await uploadFileToCloudinary(file)
+
+        if (!result.success) {
+          throw new Error(result.error || 'Upload failed')
+        }
+
+        onUploadComplete({
+          url: result.url,
+          publicId: result.publicId
+        })
+
+        toast.success('File uploaded successfully')
+      } catch (error) {
+        console.error('Upload error:', error)
+        const errorMsg = error instanceof Error ? error.message : 'Upload failed'
+        toast.error(`Upload failed: ${errorMsg}`)
+        onUploadError?.(errorMsg)
+      } finally {
+        setUploading(false)
+        // Reset the file input
+        e.target.value = ''
       }
-    }
-  };
-
-  const clearImage = () => {
-    setPreviewUrl(null);
-    onUpload('');
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
+    },
+    [allowedTypes, maxSizeMB, onUploadComplete, onUploadError]
+  )
 
   return (
-    <div className={`w-full ${className}`}>
-      <input
-        type="file"
-        accept={accept}
-        onChange={handleFileChange}
-        className="hidden"
-        ref={fileInputRef}
+    <div className={className}>
+      <Button
+        variant={variant}
         disabled={isUploading}
+        onClick={() => document.getElementById('file-upload-input')?.click()}
+        className="relative"
+      >
+        {isUploading ? 'Uploading...' : buttonText}
+      </Button>
+      <input
+        id="file-upload-input"
+        type="file"
+        accept={allowedTypes.join(',')}
+        onChange={handleFileChange}
+        disabled={isUploading}
+        className="hidden"
       />
-
-      {previewUrl ? (
-        <div className="relative">
-          <img
-            src={previewUrl}
-            alt="Preview"
-            className="w-full h-auto rounded-md object-cover"
-          />
-          <button
-            type="button"
-            onClick={clearImage}
-            className="absolute top-2 right-2 p-1 bg-black/50 rounded-full text-white hover:bg-black/80 transition-colors"
-            disabled={isUploading}
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      ) : (
-        <Button
-          type="button"
-          variant={variant}
-          onClick={() => fileInputRef.current?.click()}
-          disabled={isUploading}
-          className="w-full h-24 flex flex-col gap-2 items-center justify-center border-dashed"
-        >
-          {isUploading ? (
-            <>
-              <Loader2 className="h-5 w-5 animate-spin" />
-              <span>{uploadingText}</span>
-            </>
-          ) : (
-            <>
-              <Upload className="h-5 w-5" />
-              <span>{buttonText}</span>
-            </>
-          )}
-        </Button>
-      )}
     </div>
-  );
+  )
 }
+
+export default FileUpload

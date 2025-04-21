@@ -1,63 +1,44 @@
-import { v2 as cloudinary } from 'cloudinary';
+// Cloudinary configuration for frontend
+// This file provides utilities for client-side uploads and signed uploads
 
 // Check if we're using placeholder credentials
 const isUsingPlaceholderCreds =
-  process.env.CLOUDINARY_CLOUD_NAME === 'placeholder' ||
-  process.env.CLOUDINARY_API_KEY === 'placeholder' ||
-  process.env.CLOUDINARY_API_SECRET === 'placeholder';
+  !process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME ||
+  !process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY;
 
-const isDevelopmentMode = process.env.NODE_ENV === 'development';
+const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'dhsovbumi';
+const apiKey = process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY || '411185747495248';
+const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || 'portfolio_hub';
 
-// Configure Cloudinary with your credentials
-if (!isUsingPlaceholderCreds) {
-  cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET,
-    secure: true,
-  });
-} else {
-  console.warn('Using placeholder Cloudinary credentials. File operations will be mocked.');
-}
+// Function to get Cloudinary URL for client-side uploads
+export const getCloudinaryUploadUrl = () => {
+  return `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`;
+};
 
 /**
- * Upload a file to Cloudinary
- * @param file - File buffer
- * @param folder - Destination folder in Cloudinary
- * @param publicId - Optional public ID for the file
+ * Upload a file to Cloudinary from the client-side
+ * @param file - File object from input or drag-and-drop
  * @returns Cloudinary upload result
  */
-export const uploadToCloudinary = async (
-  file: Buffer,
-  folder: string = 'portfolio-hub',
-  publicId?: string
-) => {
-  // Return mock data for development with placeholder credentials
-  if (isDevelopmentMode && isUsingPlaceholderCreds) {
-    console.log('DEV MODE: Mocking Cloudinary upload');
-    // Generate a random ID for the mock upload
-    const mockId = publicId || `dev_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-    return {
-      success: true,
-      url: `https://via.placeholder.com/300?text=Mocked+Upload`,
-      publicId: mockId,
-      format: 'jpg',
-      width: 300,
-      height: 300,
-    };
-  }
-
+export const uploadFileToCloudinary = async (file: File) => {
   try {
-    // Convert buffer to base64
-    const fileStr = `data:image/jpeg;base64,${file.toString('base64')}`;
+    // Create FormData object
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', uploadPreset);
+    formData.append('cloud_name', cloudName);
 
     // Upload to Cloudinary
-    const result = await cloudinary.uploader.upload(fileStr, {
-      folder,
-      public_id: publicId,
-      overwrite: !!publicId,
-      resource_type: 'auto',
+    const response = await fetch(getCloudinaryUploadUrl(), {
+      method: 'POST',
+      body: formData,
     });
+
+    if (!response.ok) {
+      throw new Error(`Upload failed with status ${response.status}`);
+    }
+
+    const result = await response.json();
 
     return {
       success: true,
@@ -77,31 +58,47 @@ export const uploadToCloudinary = async (
 };
 
 /**
- * Delete a file from Cloudinary
- * @param publicId - Public ID of the file to delete
- * @returns Deletion result
+ * Get a mock image URL for development
+ * @param text - Text to display on the mock image
+ * @param width - Width of the mock image
+ * @param height - Height of the mock image
+ * @returns URL for a placeholder image
  */
-export const deleteFromCloudinary = async (publicId: string) => {
-  // Return mock success for development with placeholder credentials
-  if (isDevelopmentMode && isUsingPlaceholderCreds) {
-    console.log(`DEV MODE: Mocking Cloudinary delete for ${publicId}`);
-    return {
-      success: true,
-    };
+export const getMockImageUrl = (text = 'Portfolio+Image', width = 300, height = 300) => {
+  return `https://via.placeholder.com/${width}x${height}?text=${text}`;
+};
+
+/**
+ * Get Cloudinary optimization options for Next.js Image component
+ */
+export const getCloudinaryLoader = ({ src, width, quality }) => {
+  // If it's not a Cloudinary URL, return the source unchanged
+  if (!src.includes('res.cloudinary.com')) {
+    return src;
   }
 
-  try {
-    const result = await cloudinary.uploader.destroy(publicId);
-    return {
-      success: result === 'ok',
-    };
-  } catch (error) {
-    console.error('Cloudinary delete error:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Deletion failed',
-    };
-  }
-}
+  const params = [
+    'f_auto',
+    'c_limit',
+    `w_${width}`,
+    `q_${quality || 75}`
+  ];
 
-export { cloudinary };
+  return `${src.split('/upload/')[0]}/upload/${params.join(',')}/v${src.split('/upload/v')[1]}`;
+};
+
+export const getCloudinaryConfig = () => {
+  return {
+    cloudName,
+    apiKey,
+    uploadPreset,
+  };
+};
+
+export default {
+  uploadFileToCloudinary,
+  getMockImageUrl,
+  getCloudinaryLoader,
+  getCloudinaryConfig,
+  getCloudinaryUploadUrl,
+};

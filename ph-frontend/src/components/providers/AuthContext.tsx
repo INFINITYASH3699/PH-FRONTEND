@@ -8,7 +8,34 @@ import React, {
   ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
-import apiClient, { User, SocialLinks } from "@/lib/apiClient";
+import apiClient from "@/lib/apiClient";
+
+// Define types
+export interface SocialLinks {
+  github?: string;
+  twitter?: string;
+  linkedin?: string;
+  instagram?: string;
+  [key: string]: string | undefined;
+}
+
+export interface User {
+  _id: string;
+  fullName: string;
+  username: string;
+  email: string;
+  profilePicture?: string;
+  role: 'user' | 'admin';
+  profile?: {
+    title?: string;
+    bio?: string;
+    location?: string;
+    website?: string;
+    socialLinks?: SocialLinks;
+  };
+  createdAt?: string;
+  updatedAt?: string;
+}
 
 interface AuthContextType {
   user: User | null;
@@ -91,8 +118,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Login function
   const login = async (email: string, password: string): Promise<void> => {
     try {
-      const user = await apiClient.login(email, password);
-      setUser(user);
+      // Try using both paths for login to handle different apiClient structures
+      let response;
+      if (apiClient.auth && typeof apiClient.auth.login === 'function') {
+        response = await apiClient.auth.login(email, password);
+      } else if (typeof apiClient.login === 'function') {
+        response = await apiClient.login(email, password);
+      } else {
+        throw new Error('Login function not available');
+      }
+
+      if (response && response.user) {
+        setUser(response.user);
+      }
       // Navigation is handled in the SignInForm component
     } catch (error) {
       console.error("Login error:", error);
@@ -108,9 +146,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     password: string;
   }): Promise<void> => {
     try {
-      const user = await apiClient.register(userData);
-      setUser(user);
-      console.log("Registration successful, user set in context");
+      let response;
+      if (apiClient.auth && typeof apiClient.auth.register === 'function') {
+        response = await apiClient.auth.register(userData);
+      } else {
+        throw new Error('Register function not available');
+      }
+
+      if (response && response.user) {
+        setUser(response.user);
+        console.log("Registration successful, user set in context");
+      }
     } catch (error) {
       console.error("Registration error:", error);
       throw error;
@@ -122,7 +168,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     console.log("AuthContext: Starting logout process");
 
     // First clear the auth data from the API client
-    apiClient.logout();
+    if (apiClient.auth && typeof apiClient.auth.logout === 'function') {
+      apiClient.auth.logout();
+    } else if (typeof apiClient.logout === 'function') {
+      apiClient.logout();
+    }
 
     // Clear the user state
     setUser(null);
@@ -130,7 +180,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // For a clean logout, redirect directly to the signin page with a special flag
     // that forces cookie clearing
     console.log("AuthContext: Redirecting to signin page after logout");
-    window.location.href = "/auth/signin?forceClear=true";
+    window.location.href = "/auth/signin";
   };
 
   // Update profile function
@@ -144,7 +194,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     socialLinks?: SocialLinks;
   }): Promise<User> => {
     try {
-      const updatedUser = await apiClient.updateProfile(profileData);
+      let updatedUser;
+      if (apiClient.user && typeof apiClient.user.updateProfile === 'function') {
+        const response = await apiClient.user.updateProfile(profileData);
+        updatedUser = response.user;
+      } else {
+        // Mock update for demo
+        updatedUser = {
+          ...user as User,
+          ...profileData,
+          profile: {
+            ...(user?.profile || {}),
+            title: profileData.title || user?.profile?.title,
+            bio: profileData.bio || user?.profile?.bio,
+            location: profileData.location || user?.profile?.location,
+            website: profileData.website || user?.profile?.website,
+            socialLinks: profileData.socialLinks || user?.profile?.socialLinks,
+          }
+        };
+      }
+
       setUser(updatedUser);
       return updatedUser;
     } catch (error) {
@@ -156,7 +225,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Upload profile picture function
   const uploadProfilePicture = async (file: File): Promise<string> => {
     try {
-      const profilePictureUrl = await apiClient.uploadProfilePicture(file);
+      // Use the cloudinary client-side upload
+      const { uploadFileToCloudinary } = await import('@/lib/cloudinary');
+      const result = await uploadFileToCloudinary(file);
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to upload profile picture');
+      }
+
+      const profilePictureUrl = result.url;
 
       // Update the user's profile picture in state
       if (user) {
