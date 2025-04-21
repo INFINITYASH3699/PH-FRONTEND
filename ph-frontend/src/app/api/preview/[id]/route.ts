@@ -11,8 +11,8 @@ export async function GET(
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://portfolio-hub-yqp0.onrender.com/api';
 
   try {
-    // Fetch portfolio data from the backend
-    const response = await fetch(`${API_BASE_URL}/portfolios/${id}`);
+    // Fetch portfolio data from the backend - use the correct preview endpoint
+    const response = await fetch(`${API_BASE_URL}/portfolios/preview/${id}`);
 
     if (!response.ok) {
       throw new Error('Failed to fetch portfolio data');
@@ -50,8 +50,8 @@ function generatePortfolioHTML(portfolio: any) {
     <!DOCTYPE html>
     <html lang="en">
     <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
       <title>${title || 'Portfolio Preview'}</title>
       <style>
         body {
@@ -131,7 +131,7 @@ function generatePortfolioHTML(portfolio: any) {
             <div>
               <h3>${project.title}</h3>
               <p>${project.description}</p>
-              ${project.projectUrl ? `<p><a href="${project.projectUrl}" target="_blank">View Project</a></p>` : ''}
+              ${project.projectUrl ? `<p><a href="${project.projectUrl}" target="_blank" rel="noopener noreferrer">View Project</a></p>` : ''}
             </div>
           `).join('')}
         </section>

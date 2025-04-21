@@ -115,7 +115,7 @@ export default function PortfolioPreviewPage() {
       setIframeUrl(
         portfolio && portfolio.isPublished
           ? `/portfolio/${portfolio.subdomain || 'preview'}`
-          : `${window.location.origin}/api/preview/${portfolioId}`
+          : `/api/preview/${portfolioId}`
       );
     }
   }, [portfolio, portfolioId]);
