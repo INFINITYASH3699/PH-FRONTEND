@@ -1079,7 +1079,12 @@ export default function TemplateUseEditor() {
           }
         );
 
-        toast.success("Portfolio published successfully");
+        if (savedPortfolio.success) {
+          toast.success("Portfolio published successfully");
+        } else if (savedPortfolio.message && savedPortfolio.message.includes("can only have one published portfolio")) {
+          // This case shouldn't happen anymore with our backend updates, but keeping as fallback
+          toast.info("Your existing portfolio was unpublished and this portfolio has been published.");
+        }
       } else {
         try {
           const subdomain = await generateUniqueSubdomain(
@@ -1113,6 +1118,14 @@ export default function TemplateUseEditor() {
         } catch (portfolioError: any) {
           const errorMessage =
             portfolioError.message || "Failed to create portfolio";
+
+          // Handle the specific case for free plan users with already published portfolio
+          if (errorMessage.includes("can only have one published portfolio")) {
+            toast.info("Your existing portfolio was unpublished and this portfolio has been published.");
+            return Promise.resolve();
+          }
+
+          // Handle other error cases as before
           toast.error(errorMessage);
 
           if (errorMessage.includes("subdomain is already taken")) {
@@ -1297,7 +1310,7 @@ export default function TemplateUseEditor() {
                 <path d="M12 8h.01" />
               </svg>
               <span>
-                <strong>Note:</strong> You can create multiple portfolios using the same template with different content and styling. Only one portfolio can be published at a time. Publishing a new portfolio will automatically unpublish any previously published portfolio.
+                <strong>Note:</strong> You can create multiple portfolios using the same template with different content and styling. <strong>Only one portfolio can be published at a time.</strong> If you publish a new portfolio, any previously published portfolio will be automatically unpublished.
               </span>
             </div>
 

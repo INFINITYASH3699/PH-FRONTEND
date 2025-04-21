@@ -93,7 +93,7 @@ export const createPortfolio = async (
 
     // If this portfolio is being published, check publishing limitations
     if (req.body.isPublished) {
-      // For free plan users, check if they already have a published portfolio
+      // For free plan users, automatically unpublish any existing published portfolio
       if (isFreePlan) {
         const existingPublishedPortfolio = await Portfolio.findOne({
           userId: req.user.id,
@@ -101,10 +101,15 @@ export const createPortfolio = async (
         });
 
         if (existingPublishedPortfolio) {
-          return res.status(403).json({
-            success: false,
-            message: "Free plan users can only have one published portfolio. Unpublish your existing portfolio or upgrade to a paid plan.",
-          });
+          // Automatically unpublish the existing portfolio
+          await Portfolio.updateOne(
+            { _id: existingPublishedPortfolio._id },
+            { $set: { isPublished: false } }
+          );
+
+          console.log(
+            `Automatically unpublished portfolio ${existingPublishedPortfolio._id} for user ${req.user.id} as they are publishing a new portfolio`
+          );
         }
       } else {
         // For paid plans, unpublish other portfolios with the same subdomain
@@ -305,7 +310,7 @@ export const updatePortfolio = async (
 
     // If this portfolio is being published
     if (isPublished === true && !portfolio.isPublished) {
-      // For free plan users, check if they already have a published portfolio
+      // For free plan users, automatically unpublish their existing published portfolio
       if (isFreePlan) {
         const existingPublishedPortfolio = await Portfolio.findOne({
           userId: req.user.id,
@@ -314,10 +319,15 @@ export const updatePortfolio = async (
         });
 
         if (existingPublishedPortfolio) {
-          return res.status(403).json({
-            success: false,
-            message: "Free plan users can only have one published portfolio. Unpublish your existing portfolio or upgrade to a paid plan.",
-          });
+          // Automatically unpublish the existing portfolio
+          await Portfolio.updateOne(
+            { _id: existingPublishedPortfolio._id },
+            { $set: { isPublished: false } }
+          );
+
+          console.log(
+            `Automatically unpublished portfolio ${existingPublishedPortfolio._id} for user ${req.user.id} as they are publishing a new portfolio`
+          );
         }
       } else {
         // For paid plans, unpublish other portfolios with the same subdomain to avoid conflict
