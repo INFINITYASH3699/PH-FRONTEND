@@ -4,19 +4,24 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
+import { ThemeColorEditor } from '@/components/template-renderer/ThemeColorEditor';
 
 interface ThemeSelectorProps {
   template: any;
   initialColorScheme: string;
   initialFontPairing: string;
   onSelect?: (colorSchemeId: string, fontPairingId: string) => void;
+  onCustomColorsChange?: (colorSchemeId: string, updatedColors: any) => void;
+  onSaveCustomColorScheme?: (name: string, colors: any) => void;
 }
 
 const ThemeSelector: React.FC<ThemeSelectorProps> = ({
   template,
   initialColorScheme,
   initialFontPairing,
-  onSelect
+  onSelect,
+  onCustomColorsChange,
+  onSaveCustomColorScheme
 }) => {
   const [selectedColorScheme, setSelectedColorScheme] = useState(initialColorScheme);
   const [selectedFontPairing, setSelectedFontPairing] = useState(initialFontPairing);
@@ -62,11 +67,24 @@ const ThemeSelector: React.FC<ThemeSelectorProps> = ({
     }
   };
 
+  const handleCustomColorsChange = (schemeId: string, updatedColors?: any) => {
+    if (onCustomColorsChange && updatedColors) {
+      onCustomColorsChange(schemeId, updatedColors);
+    }
+  };
+
+  const handleSaveCustomColorScheme = (name: string, colors: any) => {
+    if (onSaveCustomColorScheme) {
+      onSaveCustomColorScheme(name, colors);
+    }
+  };
+
   return (
     <Tabs defaultValue="colors">
       <TabsList className="mb-4">
         <TabsTrigger value="colors">Color Schemes</TabsTrigger>
         <TabsTrigger value="fonts">Font Pairings</TabsTrigger>
+        <TabsTrigger value="customize">Customize Colors</TabsTrigger>
       </TabsList>
 
       {/* Color Schemes Tab */}
@@ -150,6 +168,16 @@ const ThemeSelector: React.FC<ThemeSelectorProps> = ({
             </Card>
           ))}
         </div>
+      </TabsContent>
+
+      {/* Customize Colors Tab */}
+      <TabsContent value="customize">
+        <ThemeColorEditor
+          colorSchemes={displayColorSchemes}
+          activeColorSchemeId={selectedColorScheme}
+          onChange={handleCustomColorsChange}
+          onSaveCustomScheme={handleSaveCustomColorScheme}
+        />
       </TabsContent>
     </Tabs>
   );

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   HeaderSection,
   AboutSection,
@@ -45,14 +45,28 @@ interface TemplateRendererProps {
   portfolio: any;
   editable?: boolean;
   onSectionUpdate?: (sectionId: string, data: any) => void;
+  customColors?: any;
 }
 
 const TemplateRenderer: React.FC<TemplateRendererProps> = ({
   template,
   portfolio,
   editable = false,
-  onSectionUpdate
+  onSectionUpdate,
+  customColors
 }) => {
+  const [isClient, setIsClient] = useState(false);
+
+  // Set isClient to true on component mount
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  // If we don't have the required props or not on client yet, return empty div to avoid hydration issues
+  if (!template || !portfolio || !isClient) {
+    return <div className="min-h-screen bg-background"></div>;
+  }
+
   // Get active layout (default to first one if not specified)
   const activeLayoutId = portfolio.activeLayout || (template.layouts?.[0]?.id || 'default');
   const activeLayout = template.layouts?.find(l => l.id === activeLayoutId) || template.layouts?.[0];
@@ -73,9 +87,10 @@ const TemplateRenderer: React.FC<TemplateRendererProps> = ({
   const getCssVariables = () => {
     const variables: Record<string, string> = {};
 
-    // Add color variables
-    if (colorScheme?.colors) {
-      Object.entries(colorScheme.colors).forEach(([key, value]) => {
+    // Add color variables - use custom colors if provided, otherwise use the selected scheme
+    const colors = customColors || colorScheme?.colors;
+    if (colors) {
+      Object.entries(colors).forEach(([key, value]) => {
         variables[`--color-${key}`] = value as string;
       });
     }

@@ -1,557 +1,57 @@
-import { toast } from "sonner";
+// API Client for making requests to the backend
 
-// API base URL - use environment variable or default to the backend URL
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ||
-  (typeof window !== 'undefined' && window.location.hostname !== 'localhost'
-    ? 'https://portfolio-hub-yqp0.onrender.com/api' // Use the correct Render.com backend URL
-    : 'http://localhost:5000/api'); // Use localhost for development
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
 // Storage keys
 const TOKEN_KEY = "ph_auth_token";
 const USER_KEY = "ph_user_data";
 
-// Interface for common API response
-interface ApiResponse<T> {
-  success: boolean;
-  message?: string;
-  [key: string]: any;
-}
+// Helper function to handle API responses
+const handleResponse = async (response: Response) => {
+  if (!response.ok) {
+    // Try to parse error message from the response
+    try {
+      const errorData = await response.json();
+      throw new Error(errorData.message || `API Error: ${response.status}`);
+    } catch (e) {
+      throw new Error(`API Error: ${response.status}`);
+    }
+  }
 
-// Social links interface
-export interface SocialLinks {
-  github?: string;
-  twitter?: string;
-  linkedin?: string;
-  instagram?: string;
-  [key: string]: string | undefined;
-}
+  return response.json();
+};
 
-// Skill interface
-export interface Skill {
-  name: string;
-  proficiency: number;
-}
-
-// Skill category interface
-export interface SkillCategory {
-  name: string;
-  skills: Skill[];
-}
-
-// Education interface
-export interface Education {
-  degree: string;
-  institution: string;
-  location?: string;
-  startDate: string;
-  endDate?: string;
-  description?: string;
-}
-
-// Experience interface
-export interface Experience {
-  title: string;
-  company: string;
-  location?: string;
-  startDate: string;
-  endDate?: string;
-  current: boolean;
-  description: string;
-}
-
-// Project interface
-export interface Project {
-  title: string;
-  description: string;
-  imageUrl?: string;
-  projectUrl?: string;
-  githubUrl?: string;
-  tags: string[];
-}
-
-// User profile interface
-export interface UserProfile {
-  title?: string;
-  bio?: string;
-  location?: string;
-  website?: string;
-  socialLinks?: SocialLinks;
-  // New profile fields
-  skills?: SkillCategory[];
-  education?: Education[];
-  experience?: Experience[];
-  projects?: Project[];
-}
-
-// User interface
-export interface User {
-  id: string;
-  fullName: string;
-  username: string;
-  email: string;
-  profilePicture?: string;
-  role: string;
-  profile?: UserProfile;
-}
-
-// Template interface
-export interface Template {
-  _id: string;
-  name: string;
-  description: string;
-  category: string;
-  previewImage: string;
-  defaultStructure: Record<string, any>;
-  isPublished: boolean;
-  createdAt?: string;
-  updatedAt?: string;
-  // New fields
-  isFeatured?: boolean;
-  rating?: {
-    average: number;
-    count: number;
-  };
-  reviews?: Array<{
-    userId: string;
-    userName?: string;
-    userAvatar?: string;
-    rating: number;
-    comment: string;
-    createdAt: string;
-  }>;
-  tags?: string[];
-  usageCount?: number;
-  previewImages?: string[];
-  customizationOptions?: {
-    colorSchemes?: Array<{
-      name: string;
-      primary: string;
-      secondary: string;
-      background: string;
-      text: string;
-    }>;
-    fontPairings?: Array<{
-      name: string;
-      heading: string;
-      body: string;
-    }>;
-    layouts?: string[];
-  };
-}
-
-// Portfolio interface
-export interface Portfolio {
-  _id: string;
-  title: string;
-  subtitle?: string;
-  subdomain: string;
-  templateId?: string | Template;
-  content: Record<string, any>;
-  isPublished: boolean;
-  viewCount: number;
-  customDomain?: string;
-  headerImage?: {
-    url: string;
-    publicId: string;
-  };
-  galleryImages?: Array<{
-    url: string;
-    publicId: string;
-  }>;
-  createdAt?: string;
-  updatedAt?: string;
-}
-
-// Auth related interfaces
-interface LoginResponse extends ApiResponse<any> {
-  token: string;
-  user: User;
-}
-
-interface RegisterResponse extends ApiResponse<any> {
-  token: string;
-  user: User;
-}
-
-interface ProfileUpdateResponse extends ApiResponse<any> {
-  user: User;
-}
-
-// Get stored token
+// Auth utilities
 export const getToken = (): string | null => {
   if (typeof window === "undefined") return null;
   return localStorage.getItem(TOKEN_KEY);
 };
 
-// Get stored user
-export const getUser = (): User | null => {
+export const getUser = (): any | null => {
   if (typeof window === "undefined") return null;
   const userData = localStorage.getItem(USER_KEY);
   return userData ? JSON.parse(userData) : null;
 };
 
-// Set auth data
-export const setAuthData = (token: string, user: User): void => {
-  if (!token || token.trim() === '') {
-    console.error("Attempted to set empty auth token");
-    return;
-  }
-
-  try {
-    localStorage.setItem(TOKEN_KEY, token);
-    localStorage.setItem(USER_KEY, JSON.stringify(user));
-
-    // Set a cookie with the same name as localStorage for middleware to detect
-    // Use secure flags when in production
-    const secure = process.env.NODE_ENV === 'production' ? '; secure; samesite=strict' : '';
-    document.cookie = `${TOKEN_KEY}=${token}; path=/; max-age=${30 * 24 * 60 * 60}${secure}`;
-
-  } catch (error) {
-    console.error("Error setting auth data:", error);
-  }
+export const setAuthData = (token: string, user: any): void => {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(TOKEN_KEY, token);
+  localStorage.setItem(USER_KEY, JSON.stringify(user));
 };
 
-// Clear auth data - completely rewritten for more targeted auth cookie clearing
 export const clearAuthData = (): void => {
-  try {
-    // Clear localStorage
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(USER_KEY);
-
-    // Only try to clear the specific auth cookie, not all cookies
-    // This is the cookie that middleware is checking
-
-    // Get the current cookie string
-    const cookiesBeforeClear = document.cookie;
-
-    // Only focus on clearing the auth token cookie
-    const paths = ['/', '/auth', '/dashboard', '/profile', '/templates', '/auth/signin', '/auth/signup'];
-
-    // Clear the cookie from all possible paths
-    paths.forEach(path => {
-      document.cookie = `${TOKEN_KEY}=; path=${path}; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0`;
-    });
-
-    // Check if the cookie was cleared
-    const hasCookieAfterClear = document.cookie.includes(TOKEN_KEY);
-
-    if (hasCookieAfterClear) {
-      console.warn("Failed to clear auth cookie using standard methods");
-
-      // Try a more aggressive approach to find and remove the specific cookie
-      const cookieParts = document.cookie.split(';');
-      for (let i = 0; i < cookieParts.length; i++) {
-        const cookiePart = cookieParts[i].trim();
-        if (cookiePart.startsWith(TOKEN_KEY + '=')) {
-          const path = cookiePart.includes('path=') ?
-            cookiePart.split('path=')[1].split(';')[0] : '/';
-          document.cookie = `${TOKEN_KEY}=; path=${path}; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0`;
-        }
-      }
-    }
-
-    return;
-  } catch (error) {
-    console.error("Error clearing auth data:", error);
-  }
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(USER_KEY);
 };
 
-// Check if user is authenticated
 export const isAuthenticated = (): boolean => {
-  const token = getToken();
-  const isAuth = !!token && token.trim() !== '';
-  return isAuth;
+  return !!getToken();
 };
 
-// Debug function to inspect auth state
-export const debugAuthState = (): {
-  isAuthenticated: boolean;
-  token: string | null;
-  hasUser: boolean;
-  cookies: string;
-} => {
-  const token = getToken();
-  const user = getUser();
-  return {
-    isAuthenticated: !!token && token.trim() !== '',
-    token: token ? `${token.substring(0, 10)}...` : null,
-    hasUser: !!user,
-    cookies: document.cookie,
-  };
-};
-
-// Generic API request function with improved error handling
-const apiRequest = async <T>(
-  endpoint: string,
-  method: string = "GET",
-  data?: any,
-  requiresAuth: boolean = true,
-  showErrorToast: boolean = true
-): Promise<T> => {
-  try {
-    const url = `${API_BASE_URL}${endpoint}`;
-    const token = getToken();
-
-    const headers: HeadersInit = {
-      "Content-Type": "application/json",
-    };
-
-    if (requiresAuth && token) {
-      headers["Authorization"] = `Bearer ${token}`;
-    }
-
-    const options: RequestInit = {
-      method,
-      headers,
-      credentials: "include", // Important for cookie handling
-      // Add a longer timeout (browsers don't directly support this, but we can handle it with AbortController)
-    };
-
-    if (data && (method === "POST" || method === "PUT" || method === "PATCH")) {
-      options.body = JSON.stringify(data);
-    }
-
-    // Set up AbortController with a timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
-    options.signal = controller.signal;
-
-    try {
-      const response = await fetch(url, options);
-      clearTimeout(timeoutId); // Clear the timeout if fetch completes
-
-      // Handle no response or network error
-      if (!response) {
-        throw new Error("No response from server");
-      }
-
-      let responseData;
-      const responseText = await response.text();
-
-      try {
-        responseData = responseText ? JSON.parse(responseText) : {};
-      } catch (error) {
-        console.error("Error parsing JSON response:", error);
-        throw new Error("Invalid response format");
-      }
-
-      if (!response.ok) {
-        throw new Error(responseData.message || "Request failed");
-      }
-
-      return responseData as T;
-    } catch (error: any) {
-      clearTimeout(timeoutId); // Ensure timeout is cleared on error
-
-      // Handle abort error specifically
-      if (error.name === 'AbortError') {
-        throw new Error("Request timed out after 15 seconds");
-      }
-
-      throw error;
-    }
-  } catch (error: any) {
-    console.error(`API error (${endpoint}):`, error);
-    if (showErrorToast) {
-      toast.error(error.message || 'An error occurred');
-    }
-    throw error;
-  }
-};
-
-// Auth API calls
-export const login = async (email: string, password: string): Promise<User> => {
-  try {
-    const response = await apiRequest<LoginResponse>(
-      "/auth/login",
-      "POST",
-      { email, password },
-      false
-    );
-
-    if (response.success && response.token && response.user) {
-      setAuthData(response.token, response.user);
-      return response.user;
-    }
-
-    throw new Error("Login failed");
-  } catch (error: any) {
-    throw error;
-  }
-};
-
-export const register = async (userData: {
-  fullName: string;
-  username: string;
-  email: string;
-  password: string;
-}): Promise<User> => {
-  try {
-    const response = await apiRequest<RegisterResponse>(
-      "/auth/register",
-      "POST",
-      userData,
-      false
-    );
-
-    if (response.success && response.token && response.user) {
-      setAuthData(response.token, response.user);
-      return response.user;
-    }
-
-    throw new Error("Registration failed");
-  } catch (error: any) {
-    throw error;
-  }
-};
-
-// Logout with additional cookie clearing safeguards
-export const logout = (): void => {
-  clearAuthData();
-
-  // Force reload if needed to ensure state is cleared
-  if (typeof window !== 'undefined') {
-    setTimeout(() => {
-      // Check if cookies are really cleared
-      if (document.cookie.includes(TOKEN_KEY)) {
-        console.warn("Cookie still exists after logout, forcing page reload");
-        window.location.href = '/auth/signin?forceClear=true';
-      } else {
-      }
-    }, 100);
-  }
-};
-
-// Get current user
-export const getCurrentUser = async (): Promise<User> => {
-  try {
-    const response = await apiRequest<{ success: boolean; user: User }>(
-      "/auth/me",
-      "GET"
-    );
-    return response.user;
-  } catch (error) {
-    clearAuthData();
-    throw error;
-  }
-};
-
-// Get user's subscription plan
-export const getUserSubscriptionPlan = async (): Promise<{
-  type: "free" | "premium" | "professional";
-  isActive: boolean;
-  features: {
-    customDomain: boolean;
-    analytics: boolean;
-    multiplePortfolios: boolean;
-    removeWatermark: boolean;
-  };
-}> => {
-  try {
-    const response = await apiRequest<{
-      success: boolean;
-      subscription: {
-        type: "free" | "premium" | "professional";
-        isActive: boolean;
-        features: {
-          customDomain: boolean;
-          analytics: boolean;
-          multiplePortfolios: boolean;
-          removeWatermark: boolean;
-        };
-      };
-    }>("/auth/subscription", "GET");
-
-    return response.subscription;
-  } catch (error) {
-    console.error('Error fetching user subscription:', error);
-    // Return default free plan if API fails
-    return {
-      type: "free",
-      isActive: true,
-      features: {
-        customDomain: false,
-        analytics: false,
-        multiplePortfolios: false,
-        removeWatermark: false
-      }
-    };
-  }
-};
-
-// Profile API calls
-export const updateProfile = async (profileData: {
-  fullName?: string;
-  profilePicture?: string;
-  title?: string;
-  bio?: string;
-  location?: string;
-  website?: string;
-  socialLinks?: SocialLinks;
-  // New profile fields
-  skills?: SkillCategory[];
-  education?: Education[];
-  experience?: Experience[];
-  projects?: Project[];
-}): Promise<User> => {
-  try {
-    const response = await apiRequest<ProfileUpdateResponse>(
-      "/auth/profile",
-      "PUT",
-      profileData
-    );
-
-    if (response.success && response.user) {
-      // Update the stored user data
-      const token = getToken() as string;
-      setAuthData(token, response.user);
-      return response.user;
-    }
-
-    throw new Error("Profile update failed");
-  } catch (error: any) {
-    throw error;
-  }
-};
-
-// Upload profile picture
-export const uploadProfilePicture = async (file: File): Promise<string> => {
-  try {
-    const url = `${API_BASE_URL}/auth/profile/upload-image`;
-    const token = getToken();
-    if (!token) {
-      throw new Error("Authentication required");
-    }
-
-    const formData = new FormData();
-    formData.append("profilePicture", file);
-
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${token}`
-      },
-      credentials: "include",
-      body: formData
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || "Failed to upload profile picture");
-    }
-
-    const data = await response.json();
-    return data.profilePicture;
-  } catch (error: any) {
-    console.error("Upload profile picture error:", error);
-    throw error;
-  }
-};
-
-// Template-related functions
-async function getTemplates(category?: string, options?: { sort?: string; tags?: string[]; featured?: boolean }): Promise<Template[]> {
-  try {
+const apiClient = {
+  // Legacy functions to maintain compatibility
+  getTemplates: async (category?: string, options?: any) => {
     let endpoint = '/templates';
     const queryParams = [];
 
@@ -575,474 +75,230 @@ async function getTemplates(category?: string, options?: { sort?: string; tags?:
       endpoint += `?${queryParams.join('&')}`;
     }
 
-    // Use the configured API base URL
-    console.log('[DEBUG] Fetching templates from:', `${API_BASE_URL}${endpoint}`);
-
-    // Set up a fetch with timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30-second timeout
-
-    try {
-      const token = getToken();
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-      };
-
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-        console.log('[DEBUG] Using auth token for templates request');
-      } else {
-        console.log('[DEBUG] No auth token available for templates request');
-      }
-
-      console.log('[DEBUG] Making fetch request to templates endpoint');
-      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-        method: 'GET',
-        headers,
-        credentials: 'include', // Match other API calls for consistency
-        signal: controller.signal
-      });
-
-      clearTimeout(timeoutId);
-
-      console.log('[DEBUG] Templates response status:', response.status);
-
-      // Try to get the response body as text first
-      const responseText = await response.text();
-      console.log('[DEBUG] Templates response text (first 200 chars):', responseText.substring(0, 200));
-
-      if (!response.ok) {
-        console.error('[DEBUG] Error response from templates endpoint:', response.status, responseText);
-        throw new Error(`Templates fetch failed with status: ${response.status}, message: ${responseText}`);
-      }
-
-      // Now parse the JSON
-      const data = JSON.parse(responseText);
-
-      console.log('[DEBUG] Templates data received:', data ? 'Success' : 'Empty data');
-      if (!data.templates || !Array.isArray(data.templates)) {
-        console.error('[DEBUG] Invalid templates data format:', data);
-        throw new Error('Invalid templates data format');
-      }
-
-      console.log('[DEBUG] Templates count:', data.templates.length);
-      return data.templates;
-    } catch (fetchError: any) {
-      clearTimeout(timeoutId);
-
-      // Special handling for abort/timeout
-      if (fetchError.name === 'AbortError') {
-        console.error('[DEBUG] Templates request timed out after 30s');
-        throw new Error('Templates request timed out after 30 seconds');
-      }
-
-      console.error('[DEBUG] Fetch error in templates request:', fetchError);
-      throw fetchError;
-    }
-  } catch (error) {
-    console.error('[DEBUG] Error in getTemplates function:', error);
-    // Throw with more details for better debugging
-    throw error;
-  }
-}
-
-async function getTemplateById(id: string): Promise<Template> {
-  try {
-    // Use the configured base URL instead of hardcoding it
-    // This ensures consistency between environments
-    console.log('Fetching template by ID from:', `${API_BASE_URL}/templates/${id}`);
-
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-    };
-    const token = getToken();
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-
-    // Add a timeout mechanism for better error handling
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30-second timeout
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/templates/${id}`, {
-        method: 'GET',
-        headers,
-        credentials: 'include', // Use 'include' to match other API calls
-        signal: controller.signal
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        throw new Error(`Template fetch failed with status: ${response.status}`);
-      }
-
-      // Get response as text first for debugging
-      const responseText = await response.text();
-      console.log('Template by ID response text (first 200 chars):', responseText.substring(0, 200));
-
-      // Parse JSON after ensuring we have valid content
-      const data = JSON.parse(responseText);
-      console.log('Template by ID response received:', data.success ? 'Success' : 'Failure');
-
-      return data.template;
-    } catch (fetchError: any) {
-      clearTimeout(timeoutId);
-
-      // Special handling for abort/timeout
-      if (fetchError.name === 'AbortError') {
-        console.error('Template request timed out after 30s');
-        throw new Error('Template request timed out after 30 seconds');
-      }
-
-      throw fetchError;
-    }
-  } catch (error) {
-    console.error('Error fetching template by ID:', error);
-    throw error;
-  }
-}
-
-// New template-related functions
-async function rateTemplate(templateId: string, rating: number, comment?: string): Promise<Template> {
-  try {
-    const response = await apiRequest<{ success: boolean; template: Template }>(
-      `/templates/${templateId}/rate`,
-      'POST',
-      { rating, comment }
-    );
-    return response.template;
-  } catch (error) {
-    console.error('Error rating template:', error);
-    throw error;
-  }
-}
-
-async function favoriteTemplate(templateId: string, isFavorite: boolean): Promise<{ success: boolean }> {
-  try {
-    const response = await apiRequest<{ success: boolean }>(
-      `/templates/${templateId}/favorite`,
-      'POST',
-      { isFavorite }
-    );
-    return response;
-  } catch (error) {
-    console.error('Error toggling template favorite:', error);
-    throw error;
-  }
-}
-
-async function getFavoriteTemplates(): Promise<Template[]> {
-  try {
-    // Use the configured API base URL
-    const token = getToken();
-
-    if (!token) {
-      throw new Error('Authentication required to get favorite templates');
-    }
-
-    console.log('Fetching favorite templates from:', `${API_BASE_URL}/templates/favorites`);
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30-second timeout
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/templates/favorites`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        credentials: 'include', // Match other API calls for consistency
-        signal: controller.signal
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        throw new Error(`Favorite templates fetch failed with status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      console.log('Favorite templates response received:', data);
-      return data.templates;
-    } catch (fetchError: any) {
-      clearTimeout(timeoutId);
-
-      if (fetchError.name === 'AbortError') {
-        console.error('Favorite templates request timed out after 30s');
-        throw new Error('Favorite templates request timed out after 30 seconds');
-      }
-
-      throw fetchError;
-    }
-  } catch (error) {
-    console.error('Error fetching favorite templates:', error);
-    throw error;
-  }
-}
-
-async function getTemplateReviews(templateId: string): Promise<Template['reviews']> {
-  try {
-    const response = await apiRequest<{ success: boolean; reviews: Template['reviews'] }>(
-      `/templates/${templateId}/reviews`
-    );
-    return response.reviews || [];
-  } catch (error) {
-    console.error('Error fetching template reviews:', error);
-    throw error;
-  }
-}
-
-// Enhanced createPortfolio to automatically handle free plan restrictions
-async function createPortfolio(data: {
-  title: string;
-  subtitle?: string;
-  subdomain: string;
-  templateId: string;
-  content?: Record<string, any>;
-  isPublished?: boolean;
-}): Promise<Portfolio> {
-  try {
-    console.log("Creating portfolio with data:", {
-      title: data.title,
-      subtitle: data.subtitle,
-      subdomain: data.subdomain,
-      templateId: data.templateId,
-      contentKeys: data.content ? Object.keys(data.content) : 'none',
-      isPublished: data.isPublished || false
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      credentials: 'include'
     });
 
-    // Get the current user to help with subdomain generation
-    let user = null;
-    try {
-      user = await getCurrentUser();
-    } catch (error) {
-      console.error('Failed to get current user for subdomain validation:', error);
-      // Continue anyway, backend will handle validation
-    }
+    const data = await handleResponse(response);
+    return data.templates || [];
+  },
 
-    // If user is on free plan, enforce username as subdomain
-    if (user) {
-      try {
-        const subscription = await getUserSubscriptionPlan();
+  getTemplateById: async (id: string) => {
+    const response = await fetch(`${API_BASE_URL}/templates/${id}`);
+    const data = await handleResponse(response);
+    return data.template;
+  },
 
-        if (subscription.type === "free") {
-          // Free users must use their username as subdomain
-          if (data.subdomain !== user.username) {
-            console.log('Free plan user must use username as subdomain, updating from:',
-              data.subdomain, 'to:', user.username);
-
-            data.subdomain = user.username;
-          }
-        }
-      } catch (error) {
-        console.error('Error checking subscription plan:', error);
-        // Continue with request, backend will validate
-      }
-    }
-
-    const response = await apiRequest<{ success: boolean; portfolio: Portfolio; message?: string }>(
-      '/portfolios',
-      'POST',
-      data
-    );
-
-    if (!response.success || !response.portfolio) {
-      const errorMessage = response.message || 'Failed to create portfolio';
-      console.error('Portfolio creation API returned error:', errorMessage);
-      throw new Error(errorMessage);
-    }
-
-    console.log("Portfolio created successfully:", response.portfolio._id);
-    return response.portfolio;
-  } catch (error: any) {
-    console.error('Error creating portfolio:', error);
-    // Enhanced error message that includes the original error
-    const errorMessage = error.message || 'Unknown error creating portfolio';
-    throw new Error(errorMessage);
-  }
-}
-
-async function updatePortfolioContent(
-  portfolioId: string,
-  content: Record<string, any>
-): Promise<Portfolio> {
-  try {
-    // For content updates, we need to determine if this is a full portfolio update
-    // or just updating a section
-    let endpoint = `/portfolios/${portfolioId}`;
-    let method = 'PUT';
-    let updateData: any = {};
-
-    // Check if we're updating specific section content or the entire portfolio
-    const isFullUpdate = 'title' in content || 'subtitle' in content || 'isPublished' in content;
-
-    if (isFullUpdate) {
-      // This is a full portfolio update
-      updateData = content;
-    } else {
-      // This is a section content update
-      updateData = { content };
-    }
-
-    const response = await apiRequest<{ success: boolean; portfolio: Portfolio }>(
-      endpoint,
-      method,
-      updateData
-    );
-
-    return response.portfolio;
-  } catch (error) {
-    console.error('Error updating portfolio content:', error);
-    throw error;
-  }
-}
-
-async function uploadImage(
-  file: File,
-  type: 'profile' | 'portfolio' | 'project',
-  portfolioId?: string
-): Promise<{ url: string; publicId: string }> {
-  try {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('type', type);
-    if (portfolioId) {
-      formData.append('portfolioId', portfolioId);
-    }
-
-    const token = getToken();
-    if (!token) {
-      throw new Error("Authentication required");
-    }
-
-    // Use the backend upload endpoint
-    const response = await fetch(`${API_BASE_URL}/upload`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      body: formData,
-      credentials: 'include',
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Failed to upload image');
-    }
-
-    const data = await response.json();
-
-    if (!data.success) {
-      throw new Error(data.message || 'Failed to upload image');
-    }
-
-    return {
-      url: data.url || data.secure_url || '',
-      publicId: data.publicId || data.public_id || '',
-    };
-  } catch (error) {
-    console.error('Error uploading image:', error);
-
-    // Fallback for development
-    if (process.env.NODE_ENV === 'development') {
-      // Return a placeholder image URL
-      console.warn('Using placeholder image in development');
-      const placeholderUrl = `https://picsum.photos/seed/${Date.now()}/800/600`;
-      return {
-        url: placeholderUrl,
-        publicId: 'placeholder_id',
-      };
-    }
-
-    throw error;
-  }
-}
-
-// New function to get portfolio by subdomain
-async function getPortfolioBySubdomain(subdomain: string): Promise<Portfolio> {
-  try {
-    const response = await apiRequest<{ success: boolean; portfolio: Portfolio }>(
-      `/portfolios/subdomain/${subdomain}`,
-      'GET'
-    );
-    return response.portfolio;
-  } catch (error) {
-    console.error('Error fetching portfolio by subdomain:', error);
-    throw error;
-  }
-}
-
-// Delete a portfolio
-async function deletePortfolio(portfolioId: string): Promise<{ success: boolean; message: string }> {
-  try {
-    const response = await apiRequest<{ success: boolean; message: string }>(
-      `/portfolios/${portfolioId}`,
-      'DELETE'
-    );
-    return response;
-  } catch (error) {
-    console.error('Error deleting portfolio:', error);
-    throw error;
-  }
-}
-
-// Increment template usage with improved error handling
-async function incrementTemplateUsage(templateId: string): Promise<boolean> {
-  try {
-    await apiRequest<{ success: boolean; message: string }>(
-      `/templates/${templateId}/use`,
-      'POST',
-      undefined,
-      true,
-      false // Set to false to suppress error toast
-    );
-    return true;
-  } catch (error) {
-    console.warn('Template usage tracking failed - continuing anyway:', error);
-    // Return true since this is a non-critical operation
-    return true;
-  }
-}
-
-// API client object
-const apiClient = {
-  // Auth
-  login,
-  register,
-  logout,
-  getCurrentUser,
   isAuthenticated,
   getToken,
   getUser,
-  debugAuthState, // Add the debug function to the exported object
-  getUserSubscriptionPlan,
+  logout: () => {
+    clearAuthData();
+  },
 
-  // Profile
-  updateProfile,
-  uploadProfilePicture,
+  getCurrentUser: async () => {
+    const response = await fetch(`${API_BASE_URL}/auth/me`, {
+      headers: {
+        Authorization: `Bearer ${getToken()}`
+      },
+      credentials: 'include'
+    });
 
-  // Templates
-  getTemplates,
-  getTemplateById,
-  rateTemplate,
-  favoriteTemplate,
-  getFavoriteTemplates,
-  getTemplateReviews,
-  incrementTemplateUsage, // Add the new method
+    const data = await handleResponse(response);
+    return data.user;
+  },
 
-  // Portfolios
-  createPortfolio,
-  updatePortfolioContent,
-  uploadImage,
-  getPortfolioBySubdomain,
-  deletePortfolio, // Add the deletePortfolio function to the exported object
+  // Auth endpoints
+  auth: {
+    login: async (email: string, password: string) => {
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+        credentials: 'include'
+      });
 
-  // Generic request method for other API calls
-  request: apiRequest,
+      const data = await handleResponse(response);
+      if (data.token && data.user) {
+        setAuthData(data.token, data.user);
+      }
+      return data;
+    },
+
+    register: async (userData: any) => {
+      const response = await fetch(`${API_BASE_URL}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userData)
+      });
+
+      const data = await handleResponse(response);
+      if (data.token && data.user) {
+        setAuthData(data.token, data.user);
+      }
+      return data;
+    },
+
+    logout: async () => {
+      const response = await fetch(`${API_BASE_URL}/auth/logout`, {
+        method: 'POST',
+        credentials: 'include'
+      });
+
+      clearAuthData();
+      return handleResponse(response);
+    },
+
+    forgotPassword: async (email: string) => {
+      const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+
+      return handleResponse(response);
+    },
+
+    resetPassword: async (token: string, password: string) => {
+      const response = await fetch(`${API_BASE_URL}/auth/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, password })
+      });
+
+      return handleResponse(response);
+    }
+  },
+
+  // Template endpoints
+  templates: {
+    getAll: async () => {
+      const response = await fetch(`${API_BASE_URL}/templates`);
+      return handleResponse(response);
+    },
+
+    getById: async (id: string) => {
+      const response = await fetch(`${API_BASE_URL}/templates/${id}`);
+      return handleResponse(response);
+    },
+
+    getFavorites: async () => {
+      const response = await fetch(`${API_BASE_URL}/templates/favorites`, {
+        credentials: 'include'
+      });
+
+      return handleResponse(response);
+    },
+
+    toggleFavorite: async (id: string) => {
+      const response = await fetch(`${API_BASE_URL}/templates/${id}/favorite`, {
+        method: 'POST',
+        credentials: 'include'
+      });
+
+      return handleResponse(response);
+    }
+  },
+
+  // Portfolio endpoints
+  portfolios: {
+    getAll: async () => {
+      const response = await fetch(`${API_BASE_URL}/portfolios`, {
+        credentials: 'include'
+      });
+
+      return handleResponse(response);
+    },
+
+    getById: async (id: string) => {
+      const response = await fetch(`${API_BASE_URL}/portfolios/${id}`);
+      return handleResponse(response);
+    },
+
+    getByUsername: async (username: string) => {
+      const response = await fetch(`${API_BASE_URL}/portfolios/user/${username}`);
+      return handleResponse(response);
+    },
+
+    // Save a draft portfolio
+    saveDraft: async (portfolioData: any) => {
+      // If the portfolio has an _id and it's not 'new-portfolio', update it
+      const isUpdate = portfolioData._id && portfolioData._id !== 'new-portfolio';
+      const endpoint = isUpdate
+        ? `${API_BASE_URL}/portfolios/${portfolioData._id}`
+        : `${API_BASE_URL}/portfolios`;
+
+      const method = isUpdate ? 'PUT' : 'POST';
+
+      const response = await fetch(endpoint, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...portfolioData,
+          status: 'draft'
+        }),
+        credentials: 'include'
+      });
+
+      return handleResponse(response);
+    },
+
+    // Publish a portfolio
+    publish: async (portfolioData: any) => {
+      // If the portfolio has an _id and it's not 'new-portfolio', update it
+      const isUpdate = portfolioData._id && portfolioData._id !== 'new-portfolio';
+      const endpoint = isUpdate
+        ? `${API_BASE_URL}/portfolios/${portfolioData._id}`
+        : `${API_BASE_URL}/portfolios`;
+
+      const method = isUpdate ? 'PUT' : 'POST';
+
+      const response = await fetch(endpoint, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...portfolioData,
+          status: 'published'
+        }),
+        credentials: 'include'
+      });
+
+      return handleResponse(response);
+    },
+
+    // Delete a portfolio
+    delete: async (id: string) => {
+      const response = await fetch(`${API_BASE_URL}/portfolios/${id}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+
+      return handleResponse(response);
+    }
+  },
+
+  // User profile endpoints
+  user: {
+    getProfile: async () => {
+      const response = await fetch(`${API_BASE_URL}/user/profile`, {
+        credentials: 'include'
+      });
+
+      return handleResponse(response);
+    },
+
+    updateProfile: async (profileData: any) => {
+      const response = await fetch(`${API_BASE_URL}/user/profile`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(profileData),
+        credentials: 'include'
+      });
+
+      return handleResponse(response);
+    }
+  }
 };
 
-// Export the API client
+export { apiClient };
 export default apiClient;
