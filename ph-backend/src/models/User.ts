@@ -254,7 +254,7 @@ UserSchema.pre('save', async function(next) {
   next();
 });
 
-// Add a post-save hook for debugging 
+// Add a post-save hook for debugging
 UserSchema.post('save', function(doc) {
   if (doc.profile) {
     // Add type safety by treating the profile as a Record
