@@ -6,31 +6,26 @@ import {
   createTemplate,
   updateTemplate,
   deleteTemplate,
-  getFeaturedTemplates,
-  rateTemplate,
-  getTemplateReviews,
-  toggleFavoriteTemplate,
-  getFavoriteTemplates,
-  incrementTemplateUsage,
+  addTemplateReview,
+  getTemplateStats
 } from '../controllers/templateController';
 
 const router = express.Router();
 
 // Public routes
-router.get('/', getAllTemplates);
-router.get('/featured', getFeaturedTemplates);
-router.get('/:id', getTemplateById);
-router.get('/:id/reviews', getTemplateReviews);
+router.get('/', getAllTemplates as express.RequestHandler);
+router.get('/stats/categories', getTemplateStats as express.RequestHandler);
+router.get('/:id', getTemplateById as express.RequestHandler);
 
-// Protected routes that require authentication
-router.post('/:id/rate', auth, rateTemplate);
-router.post('/:id/favorite', auth, toggleFavoriteTemplate);
-router.get('/favorites', auth, getFavoriteTemplates);
-router.post('/:id/use', auth, incrementTemplateUsage);
+// Protected routes - require authentication
+router.use(auth as express.RequestHandler);
 
-// Protected routes that require admin privileges
-router.post('/', auth, createTemplate);
-router.put('/:id', auth, updateTemplate);
-router.delete('/:id', auth, deleteTemplate);
+// Template management routes
+router.post('/', createTemplate as express.RequestHandler);
+router.put('/:id', updateTemplate as express.RequestHandler);
+router.delete('/:id', deleteTemplate as express.RequestHandler);
+
+// Template review routes
+router.post('/:id/reviews', addTemplateReview as express.RequestHandler);
 
 export default router;

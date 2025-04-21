@@ -1,158 +1,174 @@
 import { Request, Response } from 'express';
-import Template, { ITemplate } from '../models/Template';
-import User from '../models/User';
 import mongoose from 'mongoose';
+import Template, { ITemplate } from '../models/Template';
+import Portfolio from '../models/Portfolio';
 
-// @desc    Get all templates
-// @route   GET /api/templates
-// @access  Public
-export const getAllTemplates = async (req: Request, res: Response): Promise<Response> => {
+/**
+ * Get all templates
+ * @route GET /api/templates
+ * @access Public
+ */
+export const getAllTemplates = async (req: Request, res: Response): Promise<void> => {
   try {
     const {
       category,
-      sort,
       featured,
-      tags,
       search,
-      limit = 20,
+      sort = 'createdAt',
+      limit = 10,
       page = 1
     } = req.query;
 
-    let query: any = {};
+    const query: any = { isPublished: true };
 
-    // Filter by category if provided
+    // Apply category filter
     if (category) {
       query.category = category;
     }
 
-    // Filter by published status
-    query.isPublished = true;
-
-    // Filter by featured status
+    // Apply featured filter
     if (featured === 'true') {
       query.isFeatured = true;
     }
 
-    // Filter by tags
-    if (tags) {
-      const tagList = (tags as string).split(',');
-      query.tags = { $in: tagList };
-    }
-
-    // Search by query
+    // Apply search filter
     if (search) {
       query.$or = [
         { name: { $regex: search, $options: 'i' } },
         { description: { $regex: search, $options: 'i' } },
-        { tags: { $in: [new RegExp(search as string, 'i')] } }
+        { tags: { $regex: search, $options: 'i' } }
       ];
     }
 
-    // Pagination
-    const pageNum = parseInt(page as string, 10) || 1;
-    const limitNum = parseInt(limit as string, 10) || 20;
-    const skip = (pageNum - 1) * limitNum;
-
-    // Sorting
-    let sortOption = {};
-    if (sort) {
-      switch (sort) {
-        case 'newest':
-          sortOption = { createdAt: -1 };
-          break;
-        case 'oldest':
-          sortOption = { createdAt: 1 };
-          break;
-        case 'popular':
-          sortOption = { usageCount: -1 };
-          break;
-        case 'rating':
-          sortOption = { 'rating.average': -1 };
-          break;
-        default:
-          sortOption = { createdAt: -1 };
-      }
-    } else {
-      // Default sort order
-      sortOption = { createdAt: -1 };
+    // Determine sort order
+    let sortOptions: any = {};
+    switch (sort) {
+      case 'popular':
+        sortOptions = { usageCount: -1 };
+        break;
+      case 'rating':
+        sortOptions = { 'rating.average': -1 };
+        break;
+      case 'newest':
+        sortOptions = { createdAt: -1 };
+        break;
+      default:
+        sortOptions = { createdAt: -1 };
     }
 
-    // Count total templates (for pagination)
-    const total = await Template.countDocuments(query);
+    // Convert limit and page to numbers
+    const limitNum = parseInt(limit as string, 10);
+    const pageNum = parseInt(page as string, 10);
+    const skip = (pageNum - 1) * limitNum;
 
-    // Get templates
+    // Get templates with pagination
     const templates = await Template.find(query)
-      .sort(sortOption)
+      .sort(sortOptions)
       .skip(skip)
-      .limit(limitNum);
+      .limit(limitNum)
+      .select('name description category previewImage isFeatured rating tags usageCount createdAt previewImages')
+      .lean();
 
-    // Pagination info
-    const totalPages = Math.ceil(total / limitNum);
-    const hasNextPage = pageNum < totalPages;
-    const hasPrevPage = pageNum > 1;
+    // Get total count for pagination
+    const totalTemplates = await Template.countDocuments(query);
 
-    return res.status(200).json({
+    // Return templates with pagination info
+    res.status(200).json({
       success: true,
       count: templates.length,
-      total,
-      totalPages,
+      totalPages: Math.ceil(totalTemplates / limitNum),
       currentPage: pageNum,
-      hasNextPage,
-      hasPrevPage,
       templates
     });
   } catch (error: any) {
-    console.error('Get templates error:', error);
-    return res.status(500).json({
+    console.error('Error getting templates:', error);
+    res.status(500).json({
       success: false,
-      message: 'Server error retrieving templates',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: 'Server error',
+      error: error.message
     });
   }
 };
 
-// @desc    Get template by ID
-// @route   GET /api/templates/:id
-// @access  Public
-export const getTemplateById = async (req: Request, res: Response): Promise<Response> => {
+/**
+ * Get template by ID
+ * @route GET /api/templates/:id
+ * @access Public
+ */
+export const getTemplateById = async (req: Request, res: Response): Promise<void> => {
   try {
-    const template = await Template.findById(req.params.id);
+    const { id } = req.params;
 
+    // Validate ID
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      res.status(400).json({
+        success: false,
+        message: 'Invalid template ID'
+      });
+      return;
+    }
+
+    // Get template by ID
+    const template = await Template.findById(id).lean();
+
+    // Check if template exists
     if (!template) {
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         message: 'Template not found'
       });
+      return;
     }
 
-    // Increment view count (not stored yet in schema, but could be added)
-    // await Template.findByIdAndUpdate(req.params.id, { $inc: { viewCount: 1 } });
+    // Check if template is published or user is creator/admin
+    if (!template.isPublished &&
+        (!req.user ||
+         (template.createdBy && template.createdBy.toString() !== req.user.id &&
+         req.user.role !== 'admin'))) {
+      res.status(403).json({
+        success: false,
+        message: 'Access denied: Template is not published'
+      });
+      return;
+    }
 
-    return res.status(200).json({
+    // Calculate usage count (optional refinement)
+    const usageCount = await Portfolio.countDocuments({ templateId: id });
+
+    // If usage count from DB is different than stored, update it
+    if (usageCount !== template.usageCount) {
+      await Template.findByIdAndUpdate(id, { usageCount });
+      template.usageCount = usageCount;
+    }
+
+    res.status(200).json({
       success: true,
       template
     });
   } catch (error: any) {
-    console.error('Get template error:', error);
-    return res.status(500).json({
+    console.error('Error getting template by ID:', error);
+    res.status(500).json({
       success: false,
-      message: 'Server error retrieving template',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: 'Server error',
+      error: error.message
     });
   }
 };
 
-// @desc    Create a new template
-// @route   POST /api/templates
-// @access  Private/Admin
-export const createTemplate = async (req: Request, res: Response): Promise<Response> => {
+/**
+ * Create a new template
+ * @route POST /api/templates
+ * @access Private (Admin)
+ */
+export const createTemplate = async (req: Request, res: Response): Promise<void> => {
   try {
     // Check if user is admin
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({
+    if (!req.user || req.user.role !== 'admin') {
+      res.status(403).json({
         success: false,
-        message: 'Not authorized to create templates'
+        message: 'Access denied: Only admins can create templates'
       });
+      return;
     }
 
     const {
@@ -161,75 +177,107 @@ export const createTemplate = async (req: Request, res: Response): Promise<Respo
       category,
       previewImage,
       defaultStructure,
-      isPublished,
-      tags,
-      previewImages,
-      customizationOptions
+      layouts,
+      sectionDefinitions,
+      themeOptions,
+      componentMapping,
+      customizationOptions,
+      tags
     } = req.body;
 
     // Validate required fields
     if (!name || !description || !category || !previewImage) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
-        message: 'Please provide all required fields'
+        message: 'Please provide name, description, category, and previewImage'
       });
+      return;
     }
 
-    // Create template
-    const template = await Template.create({
+    // Create new template
+    const newTemplate = new Template({
       name,
       description,
       category,
       previewImage,
       defaultStructure: defaultStructure || {},
-      isPublished: isPublished !== undefined ? isPublished : false,
-      createdBy: req.user.id,
-      tags: tags || [],
-      previewImages: previewImages || [],
+      layouts: layouts || [],
+      sectionDefinitions: sectionDefinitions || {},
+      themeOptions: themeOptions || {
+        colorSchemes: [],
+        fontPairings: [],
+        spacing: {}
+      },
+      componentMapping: componentMapping || {},
       customizationOptions: customizationOptions || {
         colorSchemes: [],
         fontPairings: [],
         layouts: []
-      }
+      },
+      tags: tags || [],
+      createdBy: req.user.id
     });
 
-    return res.status(201).json({
+    // Save template to database
+    const savedTemplate = await newTemplate.save();
+
+    res.status(201).json({
       success: true,
-      template
+      message: 'Template created successfully',
+      template: savedTemplate
     });
   } catch (error: any) {
-    console.error('Create template error:', error);
-    return res.status(500).json({
+    console.error('Error creating template:', error);
+    res.status(500).json({
       success: false,
-      message: 'Server error creating template',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: 'Server error',
+      error: error.message
     });
   }
 };
 
-// @desc    Update template
-// @route   PUT /api/templates/:id
-// @access  Private/Admin
-export const updateTemplate = async (req: Request, res: Response): Promise<Response> => {
+/**
+ * Update template by ID
+ * @route PUT /api/templates/:id
+ * @access Private (Admin or Creator)
+ */
+export const updateTemplate = async (req: Request, res: Response): Promise<void> => {
   try {
-    // Check if user is admin
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({
+    const { id } = req.params;
+
+    // Validate ID
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      res.status(400).json({
         success: false,
-        message: 'Not authorized to update templates'
+        message: 'Invalid template ID'
       });
+      return;
     }
 
-    const template = await Template.findById(req.params.id);
+    // Get template by ID
+    const template = await Template.findById(id);
 
+    // Check if template exists
     if (!template) {
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         message: 'Template not found'
       });
+      return;
     }
 
-    // Update fields
+    // Check if user is admin or creator
+    if (!req.user ||
+        (template.createdBy && template.createdBy.toString() !== req.user.id &&
+         req.user.role !== 'admin')) {
+      res.status(403).json({
+        success: false,
+        message: 'Access denied: Only admins or template creators can update templates'
+      });
+      return;
+    }
+
+    // Fields to update
     const {
       name,
       description,
@@ -238,356 +286,270 @@ export const updateTemplate = async (req: Request, res: Response): Promise<Respo
       defaultStructure,
       isPublished,
       isFeatured,
-      tags,
-      previewImages,
-      customizationOptions
+      layouts,
+      sectionDefinitions,
+      themeOptions,
+      componentMapping,
+      customizationOptions,
+      tags
     } = req.body;
 
-    if (name) template.name = name;
-    if (description) template.description = description;
-    if (category) template.category = category;
-    if (previewImage) template.previewImage = previewImage;
-    if (defaultStructure) template.defaultStructure = defaultStructure;
-    if (isPublished !== undefined) template.isPublished = isPublished;
-    if (isFeatured !== undefined) template.isFeatured = isFeatured;
-    if (tags) template.tags = tags;
-    if (previewImages) template.previewImages = previewImages;
-    if (customizationOptions) template.customizationOptions = customizationOptions;
+    // Build update object
+    const updateData: Partial<ITemplate> = {};
 
-    // Save updated template
-    const updatedTemplate = await template.save();
+    // Add fields to update object if they exist
+    if (name) updateData.name = name;
+    if (description) updateData.description = description;
+    if (category) updateData.category = category;
+    if (previewImage) updateData.previewImage = previewImage;
+    if (defaultStructure) updateData.defaultStructure = defaultStructure;
+    if (isPublished !== undefined) updateData.isPublished = isPublished;
+    if (isFeatured !== undefined && req.user.role === 'admin') {
+      updateData.isFeatured = isFeatured;
+    }
+    if (layouts) updateData.layouts = layouts;
+    if (sectionDefinitions) updateData.sectionDefinitions = sectionDefinitions;
+    if (themeOptions) updateData.themeOptions = themeOptions;
+    if (componentMapping) updateData.componentMapping = componentMapping;
+    if (customizationOptions) updateData.customizationOptions = customizationOptions;
+    if (tags) updateData.tags = tags;
 
-    return res.status(200).json({
+    // Update template
+    const updatedTemplate = await Template.findByIdAndUpdate(
+      id,
+      { $set: updateData },
+      { new: true, runValidators: true }
+    );
+
+    res.status(200).json({
       success: true,
+      message: 'Template updated successfully',
       template: updatedTemplate
     });
   } catch (error: any) {
-    console.error('Update template error:', error);
-    return res.status(500).json({
+    console.error('Error updating template:', error);
+    res.status(500).json({
       success: false,
-      message: 'Server error updating template',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: 'Server error',
+      error: error.message
     });
   }
 };
 
-// @desc    Delete template
-// @route   DELETE /api/templates/:id
-// @access  Private/Admin
-export const deleteTemplate = async (req: Request, res: Response): Promise<Response> => {
+/**
+ * Delete template by ID
+ * @route DELETE /api/templates/:id
+ * @access Private (Admin or Creator)
+ */
+export const deleteTemplate = async (req: Request, res: Response): Promise<void> => {
   try {
-    // Check if user is admin
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({
+    const { id } = req.params;
+
+    // Validate ID
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      res.status(400).json({
         success: false,
-        message: 'Not authorized to delete templates'
+        message: 'Invalid template ID'
       });
+      return;
     }
 
-    const template = await Template.findById(req.params.id);
+    // Get template by ID
+    const template = await Template.findById(id);
 
+    // Check if template exists
     if (!template) {
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         message: 'Template not found'
       });
+      return;
     }
 
-    await Template.deleteOne({ _id: req.params.id });
+    // Check if user is admin or creator
+    if (!req.user ||
+        (template.createdBy && template.createdBy.toString() !== req.user.id &&
+         req.user.role !== 'admin')) {
+      res.status(403).json({
+        success: false,
+        message: 'Access denied: Only admins or template creators can delete templates'
+      });
+      return;
+    }
 
-    return res.status(200).json({
+    // Check if template is being used by any portfolios
+    const portfoliosUsingTemplate = await Portfolio.countDocuments({ templateId: id });
+
+    if (portfoliosUsingTemplate > 0) {
+      res.status(400).json({
+        success: false,
+        message: `Cannot delete template: It is being used by ${portfoliosUsingTemplate} portfolios`,
+        usageCount: portfoliosUsingTemplate
+      });
+      return;
+    }
+
+    // Delete template
+    await Template.findByIdAndDelete(id);
+
+    res.status(200).json({
       success: true,
       message: 'Template deleted successfully'
     });
   } catch (error: any) {
-    console.error('Delete template error:', error);
-    return res.status(500).json({
+    console.error('Error deleting template:', error);
+    res.status(500).json({
       success: false,
-      message: 'Server error deleting template',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: 'Server error',
+      error: error.message
     });
   }
 };
 
-// @desc    Get featured templates
-// @route   GET /api/templates/featured
-// @access  Public
-export const getFeaturedTemplates = async (req: Request, res: Response): Promise<Response> => {
+/**
+ * Add a review to a template
+ * @route POST /api/templates/:id/reviews
+ * @access Private
+ */
+export const addTemplateReview = async (req: Request, res: Response): Promise<void> => {
   try {
-    const templates = await Template.find({
-      isPublished: true,
-      isFeatured: true
-    }).sort({ createdAt: -1 });
-
-    return res.status(200).json({
-      success: true,
-      count: templates.length,
-      templates
-    });
-  } catch (error: any) {
-    console.error('Get featured templates error:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Server error retrieving featured templates',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
-  }
-};
-
-// @desc    Rate a template
-// @route   POST /api/templates/:id/rate
-// @access  Private
-export const rateTemplate = async (req: Request, res: Response): Promise<Response> => {
-  try {
+    const { id } = req.params;
     const { rating, comment } = req.body;
+
+    // Validate ID
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      res.status(400).json({
+        success: false,
+        message: 'Invalid template ID'
+      });
+      return;
+    }
 
     // Validate rating
     if (!rating || rating < 1 || rating > 5) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         message: 'Rating must be between 1 and 5'
       });
+      return;
     }
 
-    const template = await Template.findById(req.params.id);
+    // Get template by ID
+    const template = await Template.findById(id);
 
+    // Check if template exists
     if (!template) {
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         message: 'Template not found'
       });
+      return;
     }
 
-    // Check if user has already rated this template
-    const existingReviewIndex = template.reviews.findIndex(
-      review => review.userId.toString() === req.user.id.toString()
+    // Check if user has already reviewed this template
+    const alreadyReviewed = template.reviews.find(
+      review => review.userId.toString() === req.user.id
     );
 
-    if (existingReviewIndex >= 0) {
-      // Update existing review
-      template.reviews[existingReviewIndex].rating = rating;
-
-      if (comment) {
-        template.reviews[existingReviewIndex].comment = comment;
-      }
-
-      template.reviews[existingReviewIndex].createdAt = new Date();
-    } else {
-      // Add new review
-      template.reviews.push({
-        userId: req.user.id,
-        rating,
-        comment: comment || '',
-        createdAt: new Date()
+    if (alreadyReviewed) {
+      res.status(400).json({
+        success: false,
+        message: 'You have already reviewed this template'
       });
+      return;
     }
+
+    // Create new review
+    const newReview = {
+      userId: new mongoose.Types.ObjectId(req.user.id),
+      rating,
+      comment: comment || '',
+      createdAt: new Date()
+    };
+
+    // Add review to template
+    template.reviews.push(newReview);
 
     // Calculate new average rating
     const totalRating = template.reviews.reduce((sum, review) => sum + review.rating, 0);
-    template.rating = {
-      average: parseFloat((totalRating / template.reviews.length).toFixed(1)),
-      count: template.reviews.length
-    };
+    template.rating.average = Math.round((totalRating / template.reviews.length) * 10) / 10;
+    template.rating.count = template.reviews.length;
 
+    // Save template
     await template.save();
 
-    return res.status(200).json({
+    res.status(201).json({
       success: true,
-      template
+      message: 'Review added successfully',
+      review: newReview,
+      newRating: template.rating
     });
   } catch (error: any) {
-    console.error('Rate template error:', error);
-    return res.status(500).json({
+    console.error('Error adding review:', error);
+    res.status(500).json({
       success: false,
-      message: 'Server error rating template',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: 'Server error',
+      error: error.message
     });
   }
 };
 
-// @desc    Get template reviews
-// @route   GET /api/templates/:id/reviews
-// @access  Public
-export const getTemplateReviews = async (req: Request, res: Response): Promise<Response> => {
+/**
+ * Get category statistics
+ * @route GET /api/templates/stats/categories
+ * @access Public
+ */
+export const getTemplateStats = async (req: Request, res: Response): Promise<void> => {
   try {
-    const template = await Template.findById(req.params.id);
+    // Get count by category
+    const categoryCounts = await Template.aggregate([
+      { $match: { isPublished: true } },
+      { $group: { _id: '$category', count: { $sum: 1 } } },
+      { $sort: { count: -1 } }
+    ]);
 
-    if (!template) {
-      return res.status(404).json({
-        success: false,
-        message: 'Template not found'
-      });
-    }
+    // Get most popular templates
+    const popularTemplates = await Template.find({ isPublished: true })
+      .sort({ usageCount: -1 })
+      .limit(5)
+      .select('name category usageCount rating')
+      .lean();
 
-    // Get user details for the reviews
-    const reviewsWithUserDetails = await Promise.all(
-      template.reviews.map(async (review) => {
-        try {
-          const user = await User.findById(review.userId, 'fullName username profilePicture');
-          return {
-            userId: review.userId,
-            userName: user ? user.fullName : 'Unknown User',
-            userAvatar: user ? user.profilePicture : '',
-            rating: review.rating,
-            comment: review.comment,
-            createdAt: review.createdAt
-          };
-        } catch (error) {
-          return {
-            userId: review.userId,
-            userName: 'Unknown User',
-            rating: review.rating,
-            comment: review.comment,
-            createdAt: review.createdAt
-          };
-        }
-      })
-    );
+    // Get highest rated templates
+    const highestRatedTemplates = await Template.find({
+      isPublished: true,
+      'rating.count': { $gte: 3 } // Only consider templates with at least 3 ratings
+    })
+      .sort({ 'rating.average': -1 })
+      .limit(5)
+      .select('name category rating')
+      .lean();
 
-    return res.status(200).json({
+    // Get featured templates count
+    const featuredCount = await Template.countDocuments({
+      isPublished: true,
+      isFeatured: true
+    });
+
+    // Get total templates count
+    const totalCount = await Template.countDocuments({ isPublished: true });
+
+    res.status(200).json({
       success: true,
-      reviews: reviewsWithUserDetails
+      stats: {
+        totalTemplates: totalCount,
+        featuredTemplates: featuredCount,
+        categoryCounts,
+        popularTemplates,
+        highestRatedTemplates
+      }
     });
   } catch (error: any) {
-    console.error('Get template reviews error:', error);
-    return res.status(500).json({
+    console.error('Error getting template stats:', error);
+    res.status(500).json({
       success: false,
-      message: 'Server error retrieving template reviews',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
-  }
-};
-
-// @desc    Add or remove template from favorites
-// @route   POST /api/templates/:id/favorite
-// @access  Private
-export const toggleFavoriteTemplate = async (req: Request, res: Response): Promise<Response> => {
-  try {
-    const templateId = req.params.id;
-    const userId = req.user.id;
-    const { isFavorite } = req.body;
-
-    // Validate template existence
-    const template = await Template.findById(templateId);
-    if (!template) {
-      return res.status(404).json({
-        success: false,
-        message: 'Template not found'
-      });
-    }
-
-    // Update user's favorites directly using MongoDB operations
-    if (isFavorite) {
-      // Add to favorites using $addToSet to prevent duplicates
-      await User.findByIdAndUpdate(
-        userId,
-        {
-          $addToSet: { favoriteTemplates: new mongoose.Types.ObjectId(templateId) }
-        },
-        { new: true }
-      );
-    } else {
-      // Remove from favorites
-      await User.findByIdAndUpdate(
-        userId,
-        {
-          $pull: { favoriteTemplates: new mongoose.Types.ObjectId(templateId) }
-        },
-        { new: true }
-      );
-    }
-
-    return res.status(200).json({
-      success: true,
-      message: isFavorite
-        ? 'Template added to favorites'
-        : 'Template removed from favorites'
-    });
-  } catch (error: any) {
-    console.error('Toggle favorite template error:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Server error updating favorite status',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
-  }
-};
-
-// @desc    Get user's favorite templates
-// @route   GET /api/templates/favorites
-// @access  Private
-export const getFavoriteTemplates = async (req: Request, res: Response): Promise<Response> => {
-  try {
-    const userId = req.user.id;
-
-    // Find user and populate favoriteTemplates
-    const user = await User.findById(userId).lean();
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
-    }
-
-    // If user has no favorites or the field doesn't exist
-    if (!user.favoriteTemplates || user.favoriteTemplates.length === 0) {
-      return res.status(200).json({
-        success: true,
-        count: 0,
-        templates: []
-      });
-    }
-
-    // Fetch templates manually
-    const templates = await Template.find({
-      _id: { $in: user.favoriteTemplates },
-      isPublished: true
-    });
-
-    return res.status(200).json({
-      success: true,
-      count: templates.length,
-      templates
-    });
-  } catch (error: any) {
-    console.error('Get favorite templates error:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Server error retrieving favorite templates',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
-  }
-};
-
-// @desc    Increment template usage count
-// @route   POST /api/templates/:id/use
-// @access  Private
-export const incrementTemplateUsage = async (req: Request, res: Response): Promise<Response> => {
-  try {
-    const template = await Template.findById(req.params.id);
-
-    if (!template) {
-      return res.status(404).json({
-        success: false,
-        message: 'Template not found'
-      });
-    }
-
-    // Increment usage count
-    template.usageCount = (template.usageCount || 0) + 1;
-    await template.save();
-
-    return res.status(200).json({
-      success: true,
-      message: 'Template usage count incremented',
-      usageCount: template.usageCount
-    });
-  } catch (error: any) {
-    console.error('Increment template usage error:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Server error updating template usage',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: 'Server error',
+      error: error.message
     });
   }
 };
