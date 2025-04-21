@@ -29,6 +29,16 @@ export function PreviewButton({
   const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);
   const [showDialog, setShowDialog] = React.useState(false);
 
+  // Helper to get auth token from localStorage or cookies as needed
+  const getAuthToken = (): string | null => {
+    // Use the same key as in apiClient.ts (ph_auth_token)
+    try {
+      return localStorage.getItem('ph_auth_token');
+    } catch {
+      return null;
+    }
+  };
+
   const handlePreview = async () => {
     try {
       setStatus('loading');
@@ -36,12 +46,34 @@ export function PreviewButton({
       const url = await onPreview();
 
       if (url) {
-        setPreviewUrl(url);
+        // Ensure URL is absolute
+        const absoluteUrl = url.startsWith('http')
+          ? url
+          : window.location.origin + url;
+
+        // Append auth token as query param to ensure auth is passed
+        const authToken = getAuthToken();
+        let urlObj: URL;
+        try {
+          urlObj = new URL(absoluteUrl);
+        } catch {
+          // fallback: if absoluteUrl is malformed, fallback to original url string
+          urlObj = null as any;
+        }
+
+        let finalUrl = absoluteUrl;
+        if (urlObj && authToken) {
+          // Append or overwrite the auth token param
+          urlObj.searchParams.set('authToken', authToken);
+          finalUrl = urlObj.toString();
+        }
+
+        setPreviewUrl(finalUrl);
         setStatus('preview');
 
         if (fullscreen) {
           // Open in new tab/window
-          window.open(url, '_blank');
+          window.open(finalUrl, '_blank');
         } else {
           // Show in dialog
           setShowDialog(true);
@@ -111,6 +143,7 @@ export function PreviewButton({
                   src={previewUrl}
                   className="w-full h-full"
                   title="Portfolio Preview"
+                  sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
                 />
               )}
             </div>
@@ -126,7 +159,7 @@ export function PreviewButton({
                   Close Preview
                 </Button>
                 <Button
-                  onClick={() => window.open(previewUrl!, '_blank')}
+                  onClick={() => previewUrl && window.open(previewUrl, '_blank')}
                   className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white"
                 >
                   Open in New Tab

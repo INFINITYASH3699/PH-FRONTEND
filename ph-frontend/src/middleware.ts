@@ -70,7 +70,7 @@ export const config = {
   matcher: [
     // Match protected paths
     '/dashboard/:path*',
-    '/profile/:path*',
+    '/profile/:path*', 
     '/templates/use/:path*',
     // Match auth-only paths
     '/auth/:path*',

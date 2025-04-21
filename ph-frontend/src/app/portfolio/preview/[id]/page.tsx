@@ -18,6 +18,8 @@ import {
   Pencil,
   LayoutDashboard,
   Globe,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 import apiClient from "@/lib/apiClient";
 
@@ -31,6 +33,7 @@ export default function PortfolioPreviewPage() {
   const [user, setUser] = useState(null);
   const [iframeUrl, setIframeUrl] = useState("");
   const [iframeError, setIframeError] = useState("");
+  const [actualSize, setActualSize] = useState(false);
 
   const router = useRouter();
 
@@ -136,7 +139,7 @@ export default function PortfolioPreviewPage() {
       const previewUrl =
         portfolio && portfolio.isPublished
           ? `/portfolio/${portfolio.subdomain || "preview"}`
-          : `/api/preview/${portfolioId}`;
+          : `${window.location.origin}/api/preview/${portfolioId}`;
 
       setIframeUrl(previewUrl);
     }
@@ -252,7 +255,7 @@ export default function PortfolioPreviewPage() {
         return "w-[768px] h-[1024px] mx-auto border rounded-lg shadow-lg overflow-hidden";
       case "desktop":
       default:
-        return "w-full h-[calc(100vh-150px)] border rounded-lg shadow-lg overflow-hidden";
+        return `w-full max-w-full h-[calc(100vh-150px)] border rounded-lg shadow-lg ${actualSize ? "overflow-auto" : "overflow-hidden"}`;
     }
   };
 
@@ -290,6 +293,17 @@ export default function PortfolioPreviewPage() {
               >
                 <Laptop className="h-4 w-4" />
               </Button>
+              {viewportSize === "desktop" && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={actualSize ? "bg-slate-100" : ""}
+                  onClick={() => setActualSize(!actualSize)}
+                  title={actualSize ? "Fit to Container" : "Actual Size"}
+                >
+                  {actualSize ? <ZoomOut className="h-4 w-4" /> : <ZoomIn className="h-4 w-4" />}
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"
@@ -399,7 +413,7 @@ export default function PortfolioPreviewPage() {
       </header>
 
       <div className="container py-6 flex-1 flex flex-col md:flex-row gap-6">
-        <div className="w-full md:w-3/4 lg:w-3/4 flex flex-col">
+        <div className={`w-full ${viewportSize === "desktop" ? "md:w-3/5 lg:w-3/5" : "md:w-3/5 lg:w-3/5"} flex flex-col`}>
           <h2 className="text-xl font-semibold mb-4">Preview</h2>
           <div className={getPreviewContainerClasses()}>
             {iframeError ? (
@@ -427,15 +441,21 @@ export default function PortfolioPreviewPage() {
               <iframe
                 src={iframeUrl}
                 className="w-full h-full border-0 bg-white"
+                style={{
+                  width: viewportSize === "desktop" && actualSize ? "100%" : "",
+                  transform: viewportSize === "desktop" && actualSize ? "scale(1)" : "",
+                  transformOrigin: "top left"
+                }}
                 title="Portfolio Preview"
-                sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
-                allow="clipboard-write"
+                sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                referrerPolicy="origin"
+                loading="eager"
               />
             ) : null}
           </div>
         </div>
 
-        <div className="w-full md:w-1/4 lg:w-1/4 space-y-6">
+        <div className={`w-full ${viewportSize === "desktop" ? "md:w-2/5 lg:w-2/5" : "md:w-2/5 lg:w-2/5"} space-y-6`}>
           <div>
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold">Portfolio Details</h2>
@@ -451,18 +471,18 @@ export default function PortfolioPreviewPage() {
 
             <div className="mt-4 border rounded-lg bg-white dark:bg-gray-800 shadow-sm divide-y">
               <div className="p-4">
-                <h3 className="font-medium">Basic Info</h3>
-                <div className="mt-2 space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Title</span>
+                <h3 className="font-medium text-lg">Basic Info</h3>
+                <div className="mt-3 space-y-3 text-sm">
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground font-medium">Title</span>
                     <span className="font-medium">{portfolio.title}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Subdomain</span>
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground font-medium">Subdomain</span>
                     <span className="font-medium">{portfolio.subdomain}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Custom Domain</span>
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground font-medium">Custom Domain</span>
                     <span className="font-medium">
                       {portfolio.customDomain ? (
                         <span className="text-green-600">
@@ -475,8 +495,8 @@ export default function PortfolioPreviewPage() {
                       )}
                     </span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Status</span>
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground font-medium">Status</span>
                     <span
                       className={`font-medium ${
                         portfolio.isPublished
@@ -492,22 +512,22 @@ export default function PortfolioPreviewPage() {
 
               {showStats && (
                 <div className="p-4">
-                  <h3 className="font-medium">Statistics</h3>
-                  <div className="mt-2 space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Views</span>
+                  <h3 className="font-medium text-lg">Statistics</h3>
+                  <div className="mt-3 space-y-3 text-sm">
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground font-medium">Views</span>
                       <span className="font-medium">
                         {portfolio.viewCount || 0}
                       </span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Created</span>
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground font-medium">Created</span>
                       <span className="font-medium">
                         {new Date(portfolio.createdAt).toLocaleDateString()}
                       </span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground font-medium">
                         Last Updated
                       </span>
                       <span className="font-medium">
@@ -519,16 +539,16 @@ export default function PortfolioPreviewPage() {
               )}
 
               <div className="p-4">
-                <h3 className="font-medium">Template</h3>
-                <div className="mt-2 space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Name</span>
+                <h3 className="font-medium text-lg">Template</h3>
+                <div className="mt-3 space-y-3 text-sm">
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground font-medium">Name</span>
                     <span className="font-medium">
                       {portfolio.templateId?.name || "Custom"}
                     </span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Category</span>
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground font-medium">Category</span>
                     <span className="font-medium">
                       {portfolio.templateId?.category || "N/A"}
                     </span>
@@ -537,18 +557,18 @@ export default function PortfolioPreviewPage() {
               </div>
 
               <div className="p-4">
-                <h3 className="font-medium">SEO Information</h3>
-                <div className="mt-2 space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Title</span>
+                <h3 className="font-medium text-lg">SEO Information</h3>
+                <div className="mt-3 space-y-3 text-sm">
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground font-medium">Title</span>
                     <span className="font-medium truncate max-w-[150px]">
                       {portfolio.content?.seo?.title ||
                         portfolio.title ||
                         "Not set"}
                     </span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Description</span>
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground font-medium">Description</span>
                     <span className="font-medium truncate max-w-[150px]">
                       {portfolio.content?.seo?.description ? "Set" : "Not set"}
                     </span>
@@ -559,13 +579,13 @@ export default function PortfolioPreviewPage() {
           </div>
 
           {hasPaidPlan && (
-            <div className="border rounded-lg bg-white dark:bg-gray-800 shadow-sm p-4">
-              <div className="flex items-center space-x-2">
+            <div className="border rounded-lg bg-white dark:bg-gray-800 shadow-sm p-5">
+              <div className="flex items-center space-x-3">
                 <Globe className="h-5 w-5 text-violet-600" />
-                <h3 className="font-medium">Custom Domain</h3>
+                <h3 className="font-medium text-lg">Custom Domain</h3>
               </div>
-              <p className="text-sm text-muted-foreground mt-2">
-                Set up a custom domain for your portfolio.
+              <p className="text-sm text-muted-foreground mt-3">
+                Set up a custom domain for your portfolio to make it more professional.
               </p>
               <Button
                 variant="outline"
@@ -580,9 +600,9 @@ export default function PortfolioPreviewPage() {
             </div>
           )}
 
-          <div className="border rounded-lg bg-white dark:bg-gray-800 shadow-sm p-4">
-            <h3 className="font-medium">Quick Actions</h3>
-            <div className="mt-4 space-y-2">
+          <div className="border rounded-lg bg-white dark:bg-gray-800 shadow-sm p-5">
+            <h3 className="font-medium text-lg mb-3">Quick Actions</h3>
+            <div className="mt-4 space-y-3">
               <Button
                 variant="outline"
                 size="sm"
