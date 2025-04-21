@@ -20,6 +20,7 @@ export default function PortfolioPreviewPage() {
   const [showStats, setShowStats] = useState(true);
   const [publishLoading, setPublishLoading] = useState(false);
   const [user, setUser] = useState(null);
+  const [iframeUrl, setIframeUrl] = useState('');
 
   const router = useRouter();
 
@@ -41,15 +42,24 @@ export default function PortfolioPreviewPage() {
 
   const shareOnTwitter = () => {
     const text = `Check out ${portfolio?.title}'s portfolio`;
-    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(shareUrl)}`, '_blank');
+    window.open(
+      `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(shareUrl)}`,
+      '_blank'
+    );
   };
 
   const shareOnLinkedIn = () => {
-    window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`, '_blank');
+    window.open(
+      `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`,
+      '_blank'
+    );
   };
 
   const shareOnFacebook = () => {
-    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`, '_blank');
+    window.open(
+      `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`,
+      '_blank'
+    );
   };
 
   // Fetch user data to check subscription
@@ -80,7 +90,7 @@ export default function PortfolioPreviewPage() {
 
         if (response.success && response.portfolio) {
           setPortfolio(response.portfolio);
-          console.log("Portfolio data loaded:", response.portfolio);
+          console.log('Portfolio data loaded:', response.portfolio);
         } else {
           // If no portfolio is found, show 404
           notFound();
@@ -96,6 +106,20 @@ export default function PortfolioPreviewPage() {
     fetchPortfolio();
   }, [portfolioId]);
 
+  // Set iframe URL for preview (fix absolute URL)
+  useEffect(() => {
+    if (!portfolioId) return;
+
+    // Only run client side
+    if (typeof window !== 'undefined') {
+      setIframeUrl(
+        portfolio && portfolio.isPublished
+          ? `/portfolio/${portfolio.subdomain || 'preview'}`
+          : `${window.location.origin}/api/preview/${portfolioId}`
+      );
+    }
+  }, [portfolio, portfolioId]);
+
   // Publish portfolio function
   const publishPortfolio = async () => {
     if (!portfolio || !portfolioId) return;
@@ -105,8 +129,8 @@ export default function PortfolioPreviewPage() {
       const response = await apiClient.request(`/portfolios/${portfolioId}`, {
         method: 'PUT',
         data: {
-          isPublished: true
-        }
+          isPublished: true,
+        },
       });
 
       if (response.success) {
@@ -132,8 +156,8 @@ export default function PortfolioPreviewPage() {
       const response = await apiClient.request(`/portfolios/${portfolioId}`, {
         method: 'PUT',
         data: {
-          isPublished: false
-        }
+          isPublished: false,
+        },
       });
 
       if (response.success) {
@@ -347,11 +371,13 @@ export default function PortfolioPreviewPage() {
         <div className="w-full md:w-3/4 lg:w-3/4 flex flex-col">
           <h2 className="text-xl font-semibold mb-4">Preview</h2>
           <div className={getPreviewContainerClasses()}>
-            <iframe
-              src={portfolioViewUrl || `/api/preview/${portfolioId}`}
-              className="w-full h-full border-0"
-              title="Portfolio Preview"
-            />
+            {iframeUrl && (
+              <iframe
+                src={iframeUrl}
+                className="w-full h-full border-0"
+                title="Portfolio Preview"
+              />
+            )}
           </div>
         </div>
 
@@ -387,18 +413,20 @@ export default function PortfolioPreviewPage() {
                     <span className="font-medium">
                       {portfolio.customDomain ? (
                         <span className="text-green-600">{portfolio.customDomain}</span>
+                      ) : hasPaidPlan ? (
+                        <span className="text-amber-600">Not Set</span>
                       ) : (
-                        hasPaidPlan ? (
-                          <span className="text-amber-600">Not Set</span>
-                        ) : (
-                          <span className="text-gray-500">Premium Feature</span>
-                        )
+                        <span className="text-gray-500">Premium Feature</span>
                       )}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Status</span>
-                    <span className={`font-medium ${portfolio.isPublished ? 'text-green-600' : 'text-amber-600'}`}>
+                    <span
+                      className={`font-medium ${
+                        portfolio.isPublished ? 'text-green-600' : 'text-amber-600'
+                      }`}
+                    >
                       {portfolio.isPublished ? 'Published' : 'Draft'}
                     </span>
                   </div>

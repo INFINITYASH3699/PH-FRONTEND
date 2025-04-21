@@ -1235,9 +1235,41 @@ export default function TemplateUseEditor() {
       }
     }
 
-    // Use absolute URL with origin to make sure it works properly
-    const origin = window.location.origin; // Get the current origin (protocol + hostname + port)
-    return `${origin}/portfolio/preview/${portfolioId}`;
+    // For proper preview, use absolute URL with origin
+    if (typeof window !== "undefined") {
+      const origin = window.location.origin;
+
+      // Ensure the API endpoint exists and is accessible
+      try {
+        // Test access to the API endpoint by making a HEAD request
+        const apiEndpoint = `${origin}/api/preview/${portfolioId}`;
+        const response = await fetch(apiEndpoint, { method: 'HEAD' });
+
+        if (response.ok) {
+          // API route is accessible, use that
+          return apiEndpoint;
+        } else {
+          // Fallback to direct API URL
+          const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://portfolio-hub-yqp0.onrender.com/api';
+          toast.info("Using direct API connection for preview");
+
+          // Open in a new tab to avoid CORS issues
+          window.open(`${API_BASE_URL}/portfolios/preview/${portfolioId}`, '_blank');
+          return null;
+        }
+      } catch (error) {
+        console.error("Error testing API endpoint:", error);
+        // Fallback to direct API URL
+        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://portfolio-hub-yqp0.onrender.com/api';
+        toast.info("Using direct API connection for preview");
+
+        // Open in a new tab to avoid CORS issues
+        window.open(`${API_BASE_URL}/portfolios/preview/${portfolioId}`, '_blank');
+        return null;
+      }
+    }
+
+    return null;
   };
 
   // Add this function to fetch user profile data
