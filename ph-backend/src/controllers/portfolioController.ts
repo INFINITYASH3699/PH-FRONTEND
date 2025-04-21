@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import fs from "fs";
 import Portfolio from "../models/Portfolio";
 import Template from "../models/Template";
+import User from "../models/User";
 import {
   uploadToCloudinary,
   deleteFromCloudinary,
@@ -290,15 +291,58 @@ export const updatePortfolio = async (
 
     // Check for custom domain request
     if (customDomain !== undefined) {
-      // Check if attempting to set a custom domain
-      if (customDomain && customDomain.trim() !== '') {
-        return res.status(402).json({
+      // Get user to check subscription plan
+      const user = await User.findById(req.user.id);
+
+      if (!user) {
+        return res.status(404).json({
           success: false,
-          message: "Custom domains are only available in paid plans, which are not currently available. Please use the default subdomain for now.",
-          portfolio: portfolio
+          message: "User not found",
         });
       }
-      portfolio.customDomain = customDomain;
+
+      // Check if attempting to set a custom domain
+      if (customDomain && customDomain.trim() !== '') {
+        // Verify if user has paid plan with custom domain feature
+        const hasCustomDomainFeature = user.subscriptionPlan?.type !== "free" &&
+                                      user.subscriptionPlan?.isActive &&
+                                      user.subscriptionPlan?.features?.customDomain;
+
+        if (!hasCustomDomainFeature) {
+          return res.status(402).json({
+            success: false,
+            message: "Custom domains are only available in paid plans. Please upgrade your subscription to use this feature.",
+            portfolio: portfolio
+          });
+        }
+
+        // Validate the domain format
+        const domainRegex = /^([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/i;
+        if (!domainRegex.test(customDomain)) {
+          return res.status(400).json({
+            success: false,
+            message: "Please provide a valid domain name (e.g., example.com).",
+            portfolio: portfolio
+          });
+        }
+
+        // Check if domain is already in use
+        const existingPortfolioWithDomain = await Portfolio.findOne({
+          customDomain: customDomain.toLowerCase(),
+          _id: { $ne: portfolio._id }
+        });
+
+        if (existingPortfolioWithDomain) {
+          return res.status(400).json({
+            success: false,
+            message: "This domain is already in use. Please choose a different one.",
+            portfolio: portfolio
+          });
+        }
+      }
+
+      // If we reach here, either the domain is empty (removing it) or valid and available
+      portfolio.customDomain = customDomain ? customDomain.toLowerCase() : undefined;
     }
 
     // Handle content updates - ensure proper merging
@@ -447,7 +491,7 @@ export const deletePortfolio = async (
   }
 };
 
-// @desc    Get public portfolio by subdomain
+// @desc    Get public portfolio by subdomain or custom domain
 // @route   GET /api/portfolios/subdomain/:subdomain
 // @access  Public
 export const getPortfolioBySubdomain = async (
@@ -456,12 +500,25 @@ export const getPortfolioBySubdomain = async (
 ): Promise<Response> => {
   try {
     const { subdomain } = req.params;
+    const customDomain = req.query.customDomain as string;
 
-    // Find the portfolio
-    const portfolio = await Portfolio.findOne({
-      subdomain: subdomain.toLowerCase(),
-      isPublished: true,
-    }).populate("templateId", "name category");
+    let portfolio;
+
+    // First try to find by custom domain if provided
+    if (customDomain) {
+      portfolio = await Portfolio.findOne({
+        customDomain: customDomain.toLowerCase(),
+        isPublished: true,
+      }).populate("templateId", "name category");
+    }
+
+    // If not found by custom domain or no custom domain provided, look for subdomain
+    if (!portfolio) {
+      portfolio = await Portfolio.findOne({
+        subdomain: subdomain.toLowerCase(),
+        isPublished: true,
+      }).populate("templateId", "name category");
+    }
 
     if (!portfolio) {
       return res.status(404).json({

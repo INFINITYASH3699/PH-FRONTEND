@@ -3,15 +3,25 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { notFound, useParams } from 'next/navigation';
+import { notFound, useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
+import { Laptop, Smartphone, Tablet, Eye, Share2, Pencil, LayoutDashboard, Globe } from 'lucide-react';
 import apiClient from '@/lib/apiClient';
 
 export default function PortfolioPreviewPage() {
   const [showShareOptions, setShowShareOptions] = useState(false);
   const [portfolio, setPortfolio] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [viewportSize, setViewportSize] = useState('desktop');
+  const [showStats, setShowStats] = useState(true);
+  const [publishLoading, setPublishLoading] = useState(false);
+  const [user, setUser] = useState(null);
+
+  const router = useRouter();
 
   // Get portfolio ID from route params
   const params = useParams();
@@ -42,6 +52,22 @@ export default function PortfolioPreviewPage() {
     window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`, '_blank');
   };
 
+  // Fetch user data to check subscription
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const response = await apiClient.request('/auth/me');
+        if (response.success && response.user) {
+          setUser(response.user);
+        }
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+      }
+    };
+
+    fetchUserData();
+  }, []);
+
   // Fetch portfolio data by ID (not subdomain)
   useEffect(() => {
     const fetchPortfolio = async () => {
@@ -70,6 +96,70 @@ export default function PortfolioPreviewPage() {
     fetchPortfolio();
   }, [portfolioId]);
 
+  // Publish portfolio function
+  const publishPortfolio = async () => {
+    if (!portfolio || !portfolioId) return;
+
+    try {
+      setPublishLoading(true);
+      const response = await apiClient.request(`/portfolios/${portfolioId}`, {
+        method: 'PUT',
+        data: {
+          isPublished: true
+        }
+      });
+
+      if (response.success) {
+        setPortfolio({ ...portfolio, isPublished: true });
+        toast.success('Portfolio published successfully! It is now publicly visible.');
+      } else {
+        toast.error(response.message || 'Failed to publish portfolio');
+      }
+    } catch (error) {
+      console.error('Error publishing portfolio:', error);
+      toast.error('Something went wrong. Please try again.');
+    } finally {
+      setPublishLoading(false);
+    }
+  };
+
+  // Unpublish portfolio function
+  const unpublishPortfolio = async () => {
+    if (!portfolio || !portfolioId) return;
+
+    try {
+      setPublishLoading(true);
+      const response = await apiClient.request(`/portfolios/${portfolioId}`, {
+        method: 'PUT',
+        data: {
+          isPublished: false
+        }
+      });
+
+      if (response.success) {
+        setPortfolio({ ...portfolio, isPublished: false });
+        toast.success('Portfolio unpublished. It is no longer publicly visible.');
+      } else {
+        toast.error(response.message || 'Failed to unpublish portfolio');
+      }
+    } catch (error) {
+      console.error('Error unpublishing portfolio:', error);
+      toast.error('Something went wrong. Please try again.');
+    } finally {
+      setPublishLoading(false);
+    }
+  };
+
+  // Go to editor
+  const goToEditor = () => {
+    if (!portfolio?.templateId?._id) {
+      toast.error('Template information not found');
+      return;
+    }
+
+    router.push(`/templates/use/${portfolio.templateId._id}?portfolioId=${portfolioId}`);
+  };
+
   // Show loading state
   if (loading) {
     return (
@@ -91,508 +181,349 @@ export default function PortfolioPreviewPage() {
 
   // Extract username for navigation links
   const username = portfolio.subdomain || 'preview';
+  const portfolioViewUrl = portfolio.isPublished ? `/portfolio/${username}` : null;
+  const hasPaidPlan = user?.subscriptionPlan?.type !== 'free' && user?.subscriptionPlan?.isActive;
+
+  // Determine preview container classes based on viewport size
+  const getPreviewContainerClasses = () => {
+    switch (viewportSize) {
+      case 'mobile':
+        return 'w-[375px] h-[667px] mx-auto border rounded-lg shadow-lg overflow-hidden';
+      case 'tablet':
+        return 'w-[768px] h-[1024px] mx-auto border rounded-lg shadow-lg overflow-hidden';
+      case 'desktop':
+      default:
+        return 'w-full h-[calc(100vh-150px)] border rounded-lg shadow-lg overflow-hidden';
+    }
+  };
 
   return (
-    <div className="min-h-screen flex flex-col bg-white dark:bg-gray-950">
+    <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-gray-900">
       {/* Preview Banner */}
       <div className="bg-yellow-500 text-white py-2 px-4 text-center">
         <p className="text-sm font-medium">
-          This is a preview of your portfolio. It will not be publicly visible until you publish it.
+          {portfolio.isPublished
+            ? 'This portfolio is published and publicly visible.'
+            : 'This is a preview of your portfolio. It will not be publicly visible until you publish it.'}
         </p>
       </div>
 
-      {/* Custom Header - Render based on header section content */}
-      {portfolio.content?.header && (
-        <header className={`sticky top-0 z-50 w-full border-b bg-white/95 dark:bg-gray-950/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:supports-[backdrop-filter]:bg-gray-950/60 ${
-          portfolio.content.header.style === 'minimal' ? 'py-2' :
-          portfolio.content.header.style === 'centered' ? 'py-4 text-center' : 'py-0'
-        }`}>
-          <div className="container flex h-16 items-center justify-between">
-            {portfolio.content.header.style === 'centered' ? (
-              <div className="w-full flex flex-col items-center justify-center">
-                <Link href={`#`} className="text-xl font-bold bg-gradient-to-r from-violet-600 to-indigo-600 text-transparent bg-clip-text">
-                  {portfolio.content.header.title || portfolio.title || username}
-                </Link>
-                {portfolio.content.header.subtitle && (
-                  <p className="text-sm text-muted-foreground mt-1">{portfolio.content.header.subtitle}</p>
-                )}
-                {portfolio.content.header.showNavigation && portfolio.content.header.navItems && (
-                  <nav className="mt-2 flex items-center gap-6">
-                    {portfolio.content.header.navItems.map((item, index) => (
-                      <a
-                        key={index}
-                        href={item.link}
-                        className="text-sm font-medium transition-colors hover:text-primary"
-                      >
-                        {item.label}
-                      </a>
-                    ))}
-                  </nav>
-                )}
-              </div>
-            ) : (
-              <>
-                <Link href={`#`} className="text-xl font-bold bg-gradient-to-r from-violet-600 to-indigo-600 text-transparent bg-clip-text">
-                  {portfolio.content.header.title || portfolio.title || username}
-                </Link>
-
-                {portfolio.content.header.showNavigation && portfolio.content.header.navItems && (
-                  <nav className="hidden md:flex items-center gap-6">
-                    {portfolio.content.header.navItems.map((item, index) => (
-                      <a
-                        key={index}
-                        href={item.link}
-                        className="text-sm font-medium transition-colors hover:text-primary"
-                      >
-                        {item.label}
-                      </a>
-                    ))}
-                  </nav>
-                )}
-
-                {/* Share Button */}
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="default"
-                    size="sm"
-                    className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white"
-                    onClick={() => window.history.back()}
-                  >
-                    Back to Editor
-                  </Button>
-                </div>
-              </>
-            )}
-          </div>
-        </header>
-      )}
-
-      {/* Fallback Header - If no custom header is configured */}
-      {!portfolio.content?.header && (
-        <header className="sticky top-0 z-50 w-full border-b bg-white/95 dark:bg-gray-950/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:supports-[backdrop-filter]:bg-gray-950/60">
-          <div className="container flex h-16 items-center justify-between">
-            <Link href={`#`} className="text-xl font-bold bg-gradient-to-r from-violet-600 to-indigo-600 text-transparent bg-clip-text">
-              {portfolio.title || username}
+      {/* Control Panel Header */}
+      <header className="sticky top-0 z-50 w-full bg-white dark:bg-gray-950 border-b shadow-sm">
+        <div className="container flex h-16 items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <Link href="/dashboard" className="flex items-center space-x-2">
+              <LayoutDashboard className="h-5 w-5" />
+              <span className="font-medium">Dashboard</span>
             </Link>
+            <span className="text-muted-foreground">/</span>
+            <h1 className="font-semibold text-lg tracking-tight truncate max-w-[200px]">
+              {portfolio.title || 'Preview'}
+            </h1>
+          </div>
 
-            <nav className="hidden md:flex items-center gap-6">
-              <a href="#about" className="text-sm font-medium transition-colors hover:text-primary">About</a>
-              <a href="#projects" className="text-sm font-medium transition-colors hover:text-primary">Projects</a>
-              <a href="#skills" className="text-sm font-medium transition-colors hover:text-primary">Skills</a>
-              <a href="#experience" className="text-sm font-medium transition-colors hover:text-primary">Experience</a>
-              <a href="#education" className="text-sm font-medium transition-colors hover:text-primary">Education</a>
-              <a href="#contact" className="text-sm font-medium transition-colors hover:text-primary">Contact</a>
-            </nav>
+          <div className="flex items-center space-x-3">
+            <div className="hidden md:flex items-center space-x-1">
+              <Button
+                variant="outline"
+                size="sm"
+                className={viewportSize === 'desktop' ? 'bg-slate-100' : ''}
+                onClick={() => setViewportSize('desktop')}
+                title="Desktop View"
+              >
+                <Laptop className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className={viewportSize === 'tablet' ? 'bg-slate-100' : ''}
+                onClick={() => setViewportSize('tablet')}
+                title="Tablet View"
+              >
+                <Tablet className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className={viewportSize === 'mobile' ? 'bg-slate-100' : ''}
+                onClick={() => setViewportSize('mobile')}
+                title="Mobile View"
+              >
+                <Smartphone className="h-4 w-4" />
+              </Button>
+            </div>
 
-            {/* Back Button */}
-            <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="hidden sm:flex items-center space-x-2"
+              onClick={goToEditor}
+            >
+              <Pencil className="h-4 w-4" />
+              <span>Edit</span>
+            </Button>
+
+            {portfolioViewUrl && (
+              <Link href={portfolioViewUrl} target="_blank">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="hidden sm:flex items-center space-x-2"
+                >
+                  <Eye className="h-4 w-4" />
+                  <span>View Published</span>
+                </Button>
+              </Link>
+            )}
+
+            <Button
+              variant="outline"
+              size="sm"
+              className="relative"
+              onClick={() => setShowShareOptions(!showShareOptions)}
+            >
+              <Share2 className="h-4 w-4" />
+              <span className="sr-only">Share</span>
+
+              {showShareOptions && (
+                <div className="absolute right-0 top-full mt-2 w-48 rounded-md shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 p-2 z-50">
+                  <div className="py-1">
+                    <button
+                      onClick={copyToClipboard}
+                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
+                    >
+                      Copy Link
+                    </button>
+                    <button
+                      onClick={shareOnTwitter}
+                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
+                    >
+                      Twitter
+                    </button>
+                    <button
+                      onClick={shareOnLinkedIn}
+                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
+                    >
+                      LinkedIn
+                    </button>
+                    <button
+                      onClick={shareOnFacebook}
+                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
+                    >
+                      Facebook
+                    </button>
+                  </div>
+                </div>
+              )}
+            </Button>
+
+            {portfolio.isPublished ? (
+              <Button
+                variant="destructive"
+                size="sm"
+                disabled={publishLoading}
+                onClick={unpublishPortfolio}
+              >
+                {publishLoading ? 'Processing...' : 'Unpublish'}
+              </Button>
+            ) : (
               <Button
                 variant="default"
                 size="sm"
-                className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white"
-                onClick={() => window.history.back()}
+                className="bg-green-600 hover:bg-green-700"
+                disabled={publishLoading}
+                onClick={publishPortfolio}
               >
-                Back to Editor
+                {publishLoading ? 'Processing...' : 'Publish'}
+              </Button>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content Area */}
+      <div className="container py-6 flex-1 flex flex-col md:flex-row gap-6">
+        {/* Preview Panel - Takes up more space on larger screens */}
+        <div className="w-full md:w-3/4 lg:w-3/4 flex flex-col">
+          <h2 className="text-xl font-semibold mb-4">Preview</h2>
+          <div className={getPreviewContainerClasses()}>
+            <iframe
+              src={portfolioViewUrl || `/api/preview/${portfolioId}`}
+              className="w-full h-full border-0"
+              title="Portfolio Preview"
+            />
+          </div>
+        </div>
+
+        {/* Info Panel - Takes up less space */}
+        <div className="w-full md:w-1/4 lg:w-1/4 space-y-6">
+          <div>
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold">Portfolio Details</h2>
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="show-stats"
+                  checked={showStats}
+                  onCheckedChange={setShowStats}
+                />
+                <Label htmlFor="show-stats">Stats</Label>
+              </div>
+            </div>
+
+            <div className="mt-4 border rounded-lg bg-white dark:bg-gray-800 shadow-sm divide-y">
+              <div className="p-4">
+                <h3 className="font-medium">Basic Info</h3>
+                <div className="mt-2 space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Title</span>
+                    <span className="font-medium">{portfolio.title}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Subdomain</span>
+                    <span className="font-medium">{portfolio.subdomain}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Custom Domain</span>
+                    <span className="font-medium">
+                      {portfolio.customDomain ? (
+                        <span className="text-green-600">{portfolio.customDomain}</span>
+                      ) : (
+                        hasPaidPlan ? (
+                          <span className="text-amber-600">Not Set</span>
+                        ) : (
+                          <span className="text-gray-500">Premium Feature</span>
+                        )
+                      )}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Status</span>
+                    <span className={`font-medium ${portfolio.isPublished ? 'text-green-600' : 'text-amber-600'}`}>
+                      {portfolio.isPublished ? 'Published' : 'Draft'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {showStats && (
+                <div className="p-4">
+                  <h3 className="font-medium">Statistics</h3>
+                  <div className="mt-2 space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Views</span>
+                      <span className="font-medium">{portfolio.viewCount || 0}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Created</span>
+                      <span className="font-medium">
+                        {new Date(portfolio.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Last Updated</span>
+                      <span className="font-medium">
+                        {new Date(portfolio.updatedAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="p-4">
+                <h3 className="font-medium">Template</h3>
+                <div className="mt-2 space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Name</span>
+                    <span className="font-medium">{portfolio.templateId?.name || 'Custom'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Category</span>
+                    <span className="font-medium">{portfolio.templateId?.category || 'N/A'}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4">
+                <h3 className="font-medium">SEO Information</h3>
+                <div className="mt-2 space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Title</span>
+                    <span className="font-medium truncate max-w-[150px]">
+                      {portfolio.content?.seo?.title || portfolio.title || 'Not set'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Description</span>
+                    <span className="font-medium truncate max-w-[150px]">
+                      {portfolio.content?.seo?.description ? 'Set' : 'Not set'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Custom Domain Settings for paid users */}
+          {hasPaidPlan && (
+            <div className="border rounded-lg bg-white dark:bg-gray-800 shadow-sm p-4">
+              <div className="flex items-center space-x-2">
+                <Globe className="h-5 w-5 text-violet-600" />
+                <h3 className="font-medium">Custom Domain</h3>
+              </div>
+              <p className="text-sm text-muted-foreground mt-2">
+                Set up a custom domain for your portfolio.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-4 w-full"
+                onClick={() => router.push(`/profile?tab=domains&portfolioId=${portfolioId}`)}
+              >
+                Configure Domain
+              </Button>
+            </div>
+          )}
+
+          {/* Quick Actions */}
+          <div className="border rounded-lg bg-white dark:bg-gray-800 shadow-sm p-4">
+            <h3 className="font-medium">Quick Actions</h3>
+            <div className="mt-4 space-y-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full justify-start"
+                onClick={goToEditor}
+              >
+                <Pencil className="h-4 w-4 mr-2" />
+                Edit Portfolio
+              </Button>
+
+              {portfolioViewUrl && (
+                <Link href={portfolioViewUrl} target="_blank" className="w-full">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full justify-start"
+                  >
+                    <Eye className="h-4 w-4 mr-2" />
+                    View Published Version
+                  </Button>
+                </Link>
+              )}
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full justify-start"
+                onClick={() => router.push(`/dashboard`)}
+              >
+                <LayoutDashboard className="h-4 w-4 mr-2" />
+                Back to Dashboard
               </Button>
             </div>
           </div>
-        </header>
-      )}
-
-      <main className="flex-grow">
-        {/* About Section - Always visible, even if portfolio.content.about is undefined */}
-        <section id="about" className="py-24 border-b">
-          <div className="container px-4 md:px-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-              <div className="space-y-6">
-                <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tighter">
-                  {
-                    (portfolio.content?.about?.title) ||
-                    (portfolio.content?.header?.title) ||
-                    portfolio.title ||
-                    username
-                  }
-                </h1>
-                <p className="text-xl text-muted-foreground max-w-[600px]">
-                  {
-                    (portfolio.content?.about?.bio) ||
-                    (portfolio.content?.header?.subtitle) ||
-                    portfolio.subtitle ||
-                    'Portfolio'
-                  }
-                </p>
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <a href="#contact">
-                    <Button size="lg" className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white">
-                      Contact Me
-                    </Button>
-                  </a>
-                  <a
-                    href={
-                      portfolio.content?.contact?.socialLinks?.github ||
-                      portfolio.content?.about?.github ||
-                      '#'
-                    }
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <Button size="lg" variant="outline">
-                      View GitHub
-                    </Button>
-                  </a>
-                </div>
-              </div>
-              <div className="mx-auto lg:mx-0">
-                <div className="relative w-72 h-72 rounded-full overflow-hidden border-4 border-white dark:border-gray-800 shadow-xl">
-                  <Image
-                    src={
-                      portfolio.content?.about?.profileImage ||
-                      portfolio.headerImage?.url ||
-                      `https://ui-avatars.com/api/?name=${encodeURIComponent(username)}`
-                    }
-                    alt={portfolio.title || username}
-                    fill
-                    className="object-cover"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Projects Section */}
-        {portfolio.content?.projects?.items?.length > 0 && (
-          <section id="projects" className="py-24 border-b">
-            <div className="container px-4 md:px-6">
-              <div className="text-center mb-16">
-                <h2 className="text-3xl md:text-4xl font-bold">My Projects</h2>
-                <p className="text-xl text-muted-foreground max-w-[800px] mx-auto mt-4">
-                  Here are some of my recent projects.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {portfolio.content.projects.items.map((project, index) => (
-                  <div key={project.id || index} className="group overflow-hidden rounded-lg border shadow-sm transition-all hover:shadow-md">
-                    <div className="relative aspect-video overflow-hidden">
-                      <Image
-                        src={project.imageUrl || 'https://placehold.co/600x400/6d28d9/fff?text=Project'}
-                        alt={project.title}
-                        fill
-                        className="object-cover transition-transform group-hover:scale-105"
-                      />
-                    </div>
-                    <div className="p-6">
-                      <h3 className="text-xl font-bold mb-2">{project.title}</h3>
-                      <p className="text-muted-foreground mb-4">{project.description}</p>
-                      <div className="flex gap-3">
-                        {project.projectUrl && (
-                          <a href={project.projectUrl} target="_blank" rel="noopener noreferrer">
-                            <Button variant="outline" size="sm">Demo</Button>
-                          </a>
-                        )}
-                        {project.githubUrl && (
-                          <a href={project.githubUrl} target="_blank" rel="noopener noreferrer">
-                            <Button variant="outline" size="sm">Code</Button>
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* Skills Section */}
-        {portfolio.content?.skills?.categories?.length > 0 && (
-          <section id="skills" className="py-24 border-b">
-            <div className="container px-4 md:px-6">
-              <div className="text-center mb-16">
-                <h2 className="text-3xl md:text-4xl font-bold">My Skills</h2>
-                <p className="text-xl text-muted-foreground max-w-[800px] mx-auto mt-4">
-                  Here are my technical skills and areas of expertise.
-                </p>
-              </div>
-
-              <div className="space-y-12">
-                {portfolio.content.skills.categories.map((category, categoryIndex) => (
-                  <div key={categoryIndex} className="space-y-4">
-                    <h3 className="text-2xl font-bold">{category.name}</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {category.skills.map((skill, skillIndex) => (
-                        <div key={skillIndex} className="p-4 border rounded-lg bg-white dark:bg-gray-800 shadow-sm">
-                          <div className="flex justify-between items-center mb-2">
-                            <span className="font-medium">{skill.name}</span>
-                            <span className="text-sm text-muted-foreground">{skill.proficiency}%</span>
-                          </div>
-                          <div className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                            <div className="h-full bg-gradient-to-r from-violet-600 to-indigo-600"
-                              style={{ width: `${skill.proficiency}%` }} />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* Experience Section */}
-        {portfolio.content?.experience?.items?.length > 0 && (
-          <section id="experience" className="py-24 border-b">
-            <div className="container px-4 md:px-6">
-              <div className="text-center mb-16">
-                <h2 className="text-3xl md:text-4xl font-bold">Work Experience</h2>
-                <p className="text-xl text-muted-foreground max-w-[800px] mx-auto mt-4">
-                  My professional journey and work history.
-                </p>
-              </div>
-
-              <div className="space-y-8">
-                {portfolio.content.experience.items.map((exp, index) => (
-                  <div key={exp.id || index} className="bg-white dark:bg-gray-800 border rounded-lg p-6 shadow-sm">
-                    <div className="flex flex-col md:flex-row justify-between mb-4">
-                      <h3 className="text-xl font-bold">{exp.title}</h3>
-                      <div className="text-muted-foreground text-sm md:text-base">
-                        {exp.startDate} - {exp.current ? 'Present' : exp.endDate}
-                      </div>
-                    </div>
-                    <div className="flex flex-col md:flex-row justify-between mb-4">
-                      <div className="font-medium text-violet-600 dark:text-violet-400">{exp.company}</div>
-                      {exp.location && <div className="text-muted-foreground">{exp.location}</div>}
-                    </div>
-                    <p className="text-muted-foreground whitespace-pre-line">{exp.description}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* Education Section */}
-        {portfolio.content?.education?.items?.length > 0 && (
-          <section id="education" className="py-24 border-b">
-            <div className="container px-4 md:px-6">
-              <div className="text-center mb-16">
-                <h2 className="text-3xl md:text-4xl font-bold">Education</h2>
-                <p className="text-xl text-muted-foreground max-w-[800px] mx-auto mt-4">
-                  My academic background and qualifications.
-                </p>
-              </div>
-
-              <div className="space-y-8">
-                {portfolio.content.education.items.map((edu, index) => (
-                  <div key={edu.id || index} className="bg-white dark:bg-gray-800 border rounded-lg p-6 shadow-sm">
-                    <div className="flex flex-col md:flex-row justify-between mb-4">
-                      <h3 className="text-xl font-bold">{edu.degree}</h3>
-                      <div className="text-muted-foreground text-sm md:text-base">
-                        {edu.startDate} - {edu.endDate || 'Present'}
-                      </div>
-                    </div>
-                    <div className="flex flex-col md:flex-row justify-between mb-4">
-                      <div className="font-medium text-violet-600 dark:text-violet-400">{edu.institution}</div>
-                      {edu.location && <div className="text-muted-foreground">{edu.location}</div>}
-                    </div>
-                    {edu.description && (
-                      <p className="text-muted-foreground whitespace-pre-line">{edu.description}</p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* Contact Section */}
-        {portfolio.content?.contact && (
-          <section id="contact" className="py-24">
-            <div className="container px-4 md:px-6">
-              <div className="text-center mb-16">
-                <h2 className="text-3xl md:text-4xl font-bold">Contact Me</h2>
-                <p className="text-xl text-muted-foreground max-w-[800px] mx-auto mt-4">
-                  Get in touch for collaborations and opportunities.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-start">
-                <div className="space-y-6">
-                  {portfolio.content.contact.email && (
-                    <div className="flex items-center gap-3">
-                      <div className="flex-shrink-0 h-10 w-10 rounded-full bg-violet-100 dark:bg-violet-900/50 flex items-center justify-center text-violet-600 dark:text-violet-300">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="20"
-                          height="20"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <rect width="20" height="16" x="2" y="4" rx="2" />
-                          <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
-                        </svg>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Email</p>
-                        <a href={`mailto:${portfolio.content.contact.email}`} className="font-medium hover:text-violet-600">
-                          {portfolio.content.contact.email}
-                        </a>
-                      </div>
-                    </div>
-                  )}
-
-                  {portfolio.content.contact.phone && (
-                    <div className="flex items-center gap-3">
-                      <div className="flex-shrink-0 h-10 w-10 rounded-full bg-violet-100 dark:bg-violet-900/50 flex items-center justify-center text-violet-600 dark:text-violet-300">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="20"
-                          height="20"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
-                        </svg>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Phone</p>
-                        <a href={`tel:${portfolio.content.contact.phone}`} className="font-medium hover:text-violet-600">
-                          {portfolio.content.contact.phone}
-                        </a>
-                      </div>
-                    </div>
-                  )}
-
-                  {portfolio.content.contact.address && (
-                    <div className="flex items-center gap-3">
-                      <div className="flex-shrink-0 h-10 w-10 rounded-full bg-violet-100 dark:bg-violet-900/50 flex items-center justify-center text-violet-600 dark:text-violet-300">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="20"
-                          height="20"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
-                          <circle cx="12" cy="10" r="3" />
-                        </svg>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Location</p>
-                        <p className="font-medium">{portfolio.content.contact.address}</p>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Social Links */}
-                  {portfolio.content.contact.socialLinks?.links?.length > 0 && (
-                    <div className="pt-6 mt-6 border-t">
-                      <h3 className="text-lg font-medium mb-4">Connect with me</h3>
-                      <div className="flex flex-wrap gap-3">
-                        {portfolio.content.contact.socialLinks.links.map((link, index) => (
-                          <a
-                            key={index}
-                            href={link.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="px-4 py-2 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition-colors"
-                          >
-                            {link.label}
-                          </a>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Contact Form */}
-                {portfolio.content.contact.showContactForm && (
-                  <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border shadow-sm">
-                    <h3 className="text-xl font-bold mb-4">Send me a message</h3>
-                    <form className="space-y-4">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <label htmlFor="name" className="text-sm font-medium">
-                            Name
-                          </label>
-                          <input
-                            id="name"
-                            className="w-full px-3 py-2 border rounded-md dark:bg-gray-950 dark:border-gray-800"
-                            placeholder="Your name"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label htmlFor="email" className="text-sm font-medium">
-                            Email
-                          </label>
-                          <input
-                            id="email"
-                            type="email"
-                            className="w-full px-3 py-2 border rounded-md dark:bg-gray-950 dark:border-gray-800"
-                            placeholder="Your email"
-                          />
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <label htmlFor="subject" className="text-sm font-medium">
-                          Subject
-                        </label>
-                        <input
-                          id="subject"
-                          className="w-full px-3 py-2 border rounded-md dark:bg-gray-950 dark:border-gray-800"
-                          placeholder="Message subject"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label htmlFor="message" className="text-sm font-medium">
-                          Message
-                        </label>
-                        <textarea
-                          id="message"
-                          className="w-full min-h-[120px] px-3 py-2 border rounded-md resize-y dark:bg-gray-950 dark:border-gray-800"
-                          placeholder="Your message"
-                        ></textarea>
-                      </div>
-                      <Button className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 text-white">
-                        Send Message
-                      </Button>
-                    </form>
-                  </div>
-                )}
-              </div>
-            </div>
-          </section>
-        )}
-      </main>
-
-      {/* Footer */}
-      <footer className="border-t py-6">
-        <div className="container px-4 md:px-6">
-          <div className="flex flex-col md:flex-row items-center justify-between">
-            <p className="text-sm text-muted-foreground">
-              © {new Date().getFullYear()} {portfolio.title}. All rights reserved.
-            </p>
-            <div className="text-sm text-muted-foreground">
-              <span className="text-sm font-medium bg-yellow-500 text-white py-1 px-2 rounded">Preview Mode</span>
-              <span className="ml-2">Powered by <Link href="/" className="text-primary hover:underline">PortfolioHub</Link></span>
-            </div>
-          </div>
         </div>
-      </footer>
+      </div>
     </div>
   );
 }

@@ -54,6 +54,20 @@ interface Project {
   tags: string[];
 }
 
+// Interface for subscription plan
+interface SubscriptionPlan {
+  type: "free" | "premium" | "professional";
+  startDate: Date;
+  endDate?: Date;
+  isActive: boolean;
+  features?: {
+    customDomain: boolean;
+    analytics: boolean;
+    multiplePortfolios: boolean;
+    removeWatermark: boolean;
+  };
+}
+
 // Interface for user profile
 interface UserProfile {
   title?: string;
@@ -80,6 +94,8 @@ export interface IUser extends Document {
   favoriteTemplates: mongoose.Types.ObjectId[];
   createdAt: Date;
   updatedAt: Date;
+  // Add subscription plan
+  subscriptionPlan?: SubscriptionPlan;
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
 
@@ -146,6 +162,41 @@ const ProjectSchema = new Schema(
     projectUrl: { type: String },
     githubUrl: { type: String },
     tags: [{ type: String }],
+  },
+  { _id: false }
+);
+
+// Define schema for subscription features
+const SubscriptionFeaturesSchema = new Schema(
+  {
+    customDomain: { type: Boolean, default: false },
+    analytics: { type: Boolean, default: false },
+    multiplePortfolios: { type: Boolean, default: false },
+    removeWatermark: { type: Boolean, default: false },
+  },
+  { _id: false }
+);
+
+// Define schema for subscription plan
+const SubscriptionPlanSchema = new Schema(
+  {
+    type: {
+      type: String,
+      enum: ["free", "premium", "professional"],
+      default: "free"
+    },
+    startDate: { type: Date, default: Date.now },
+    endDate: { type: Date },
+    isActive: { type: Boolean, default: true },
+    features: {
+      type: SubscriptionFeaturesSchema,
+      default: () => ({
+        customDomain: false,
+        analytics: false,
+        multiplePortfolios: false,
+        removeWatermark: false
+      })
+    },
   },
   { _id: false }
 );
@@ -220,6 +271,21 @@ const UserSchema = new Schema<IUser>(
       type: Schema.Types.ObjectId,
       ref: 'Template',
     }],
+    // Add subscription plan to the schema
+    subscriptionPlan: {
+      type: SubscriptionPlanSchema,
+      default: () => ({
+        type: "free",
+        startDate: new Date(),
+        isActive: true,
+        features: {
+          customDomain: false,
+          analytics: false,
+          multiplePortfolios: false,
+          removeWatermark: false
+        }
+      })
+    },
   },
   {
     timestamps: true,

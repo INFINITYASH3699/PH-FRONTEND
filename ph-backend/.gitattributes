@@ -1,5 +1,0 @@
-# create a clean .gitattributes
-echo "* text=auto" > .gitattributes
-git add .gitattributes
-git commit -m "Re-added clean .gitattributes"
-git push origin main
