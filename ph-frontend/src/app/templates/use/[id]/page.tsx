@@ -191,27 +191,78 @@ export interface Template {
   updatedAt?: string;
 }
 
-export default function PortfolioEditorPage() {
+export default function TemplateUseEditor() {
   const router = useRouter();
   const params = useParams();
-  const templateId = typeof params.id === "string" ? params.id : "";
   const { user, isAuthenticated, isLoading } = useAuth();
 
-  // Template state
+  // Get the template ID from the URL
+  const templateId = typeof params.id === "string" ? params.id : "";
+
+  // State for search params (query string)
+  const [searchParams, setSearchParams] = useState<URLSearchParams | null>(null);
+
+  // Template and portfolio state
   const [template, setTemplate] = useState<Template | null>(null);
-  const [templateLoading, setTemplateLoading] = useState(true);
-
-  // Portfolio state
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<string>("about");
   const [portfolioId, setPortfolioId] = useState<string | null>(null);
-  const [existingPortfolioFetched, setExistingPortfolioFetched] =
-    useState<boolean>(false);
-  const [initializationComplete, setInitializationComplete] =
-    useState<boolean>(false);
 
-  // Fetch template data from API
+  const [loading, setLoading] = useState<boolean>(true);
+  const [publishLoading, setPublishLoading] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState<string>("about");
+
+  // Helper function to generate a unique subdomain
+  const generateUniqueSubdomain = (baseSubdomain: string, templateName?: string): string => {
+    let subdomain = baseSubdomain;
+
+    // If username is available, use it as base for subdomain
+    if (user?.username) {
+      // Try to make the subdomain unique by adding a template identifier or random string
+      const templateNameSlug = templateName
+        ? templateName.toLowerCase().replace(/[^a-z0-9]/g, "-").replace(/-+/g, "-")
+        : "";
+
+      // Create a unique subdomain using template name or random string
+      if (templateNameSlug) {
+        subdomain = `${user.username}-${templateNameSlug}`;
+      } else {
+        // Use random characters if template name isn't available
+        const randomStr = Math.random().toString(36).substring(2, 7);
+        subdomain = `${user.username}-${randomStr}`;
+      }
+    } else {
+      // If no username, append random string to whatever subdomain we have
+      const randomStr = Math.random().toString(36).substring(2, 7);
+      subdomain = `${subdomain || 'user'}-${randomStr}`;
+    }
+
+    return subdomain;
+  };
+
+  // Generate a completely random subdomain as fallback
+  const generateRandomSubdomain = (): string => {
+    const randomStr = Math.random().toString(36).substring(2, 8);
+    return `${user?.username || 'user'}-${randomStr}`;
+  };
+
+  // Load search params on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setSearchParams(new URLSearchParams(window.location.search));
+    }
+  }, []);
+
+  // If we have a portfolioId in the query string, use it
+  useEffect(() => {
+    if (searchParams) {
+      const portfolioParam = searchParams.get("portfolioId");
+      if (portfolioParam) {
+        setPortfolioId(portfolioParam);
+      }
+    }
+  }, [searchParams]);
+
+  // Load template data
   useEffect(() => {
     const fetchTemplate = async () => {
       if (!templateId) {
@@ -219,250 +270,70 @@ export default function PortfolioEditorPage() {
         router.push("/templates");
         return;
       }
-
-      // Skip if initialization is already complete
-      if (initializationComplete) {
-        console.log(
-          "Template initialization already complete, skipping re-fetch"
-        );
-        return;
-      }
-
       try {
-        setTemplateLoading(true);
-        console.log("Fetching template data for ID:", templateId);
-        const templateData = await apiClient.getTemplateById(templateId);
-        console.log("Template data fetched successfully:", templateData.name);
+        setLoading(true);
+        const response = await apiClient.request<{ success: boolean; template: Template }>(
+          `/templates/${templateId}`,
+          "GET"
+        );
 
-        // Ensure the template has sections property
-        if (!templateData.sections) {
-          templateData.sections = [
-            "header",
-            "about",
-            "projects",
-            "skills",
-            "experience",
-            "education",
-            "contact",
-          ];
-        }
-
-        setTemplate(templateData);
-
-        // If user is authenticated, check for existing portfolios using this template
-        if (isAuthenticated && user && !existingPortfolioFetched) {
-          try {
-            console.log("User authenticated, checking for existing portfolios");
-            // Get user's portfolios
-            const userPortfolios = await apiClient.request<{
-              success: boolean;
-              portfolios: Portfolio[];
-            }>("/portfolios", "GET");
-
-            console.log(
-              `Found ${userPortfolios.portfolios.length} portfolios for user`
-            );
-
-            // Find portfolio with this template
-            const existingPortfolio = userPortfolios.portfolios.find(
-              (p) =>
-                p.templateId === templateId ||
-                (typeof p.templateId === "object" &&
-                  p.templateId._id === templateId)
-            );
-
-            if (existingPortfolio) {
-              console.log(
-                "Found existing portfolio for template:",
-                existingPortfolio._id
-              );
-              setPortfolioId(existingPortfolio._id);
-
-              try {
-                // Initialize with existing data
-                console.log("Fetching detailed portfolio data...");
-                const portfolioData = await apiClient.request<{
-                  success: boolean;
-                  portfolio: any;
-                }>(`/portfolios/${existingPortfolio._id}`, "GET");
-
-                if (portfolioData.success && portfolioData.portfolio) {
-                  console.log("Portfolio data fetched successfully");
-
-                  // Extract the content from the portfolio data
-                  // Make sure we're getting all sections properly
-                  const portfolioContent =
-                    portfolioData.portfolio.content || {};
-                  console.log(
-                    "Portfolio content keys:",
-                    Object.keys(portfolioContent)
-                  );
-
-                  // Create a function to safely extract and create a deep copy of section data
-                  const extractSectionData = (sectionName, defaultValue) => {
-                    try {
-                      if (portfolioContent[sectionName]) {
-                        // Log that we found this section data
-                        console.log(
-                          `Found existing data for section: ${sectionName}`
-                        );
-                        // Deep clone to avoid reference issues
-                        return JSON.parse(
-                          JSON.stringify(portfolioContent[sectionName])
-                        );
-                      }
-                      console.log(
-                        `No existing data for section: ${sectionName}, using default`
-                      );
-                      return defaultValue;
-                    } catch (err) {
-                      console.error(
-                        `Error extracting section data for ${sectionName}:`,
-                        err
-                      );
-                      return defaultValue;
-                    }
-                  };
-
-                  // Create portfolio with existing data, safely copying all nested arrays
-                  const savedPortfolio: Portfolio = {
-                    id: portfolioData.portfolio._id,
-                    templateId: templateId,
-                    title: portfolioData.portfolio.title || "My Portfolio",
-                    subtitle:
-                      portfolioData.portfolio.subtitle ||
-                      user?.profile?.title ||
-                      "Web Developer",
-                    subdomain:
-                      portfolioData.portfolio.subdomain || user?.username || "",
-                    isPublished: portfolioData.portfolio.isPublished || false,
-                    settings: extractSectionData("settings", {
-                      colors: {
-                        primary: "#6366f1",
-                        secondary: "#8b5cf6",
-                        background: "#ffffff",
-                        text: "#111827",
-                      },
-                      fonts: {
-                        heading: "Inter",
-                        body: "Inter",
-                      },
-                      layout: {
-                        sections: templateData.sections,
-                        showHeader: true,
-                        showFooter: true,
-                      },
-                    }),
-                    sectionContent: {
-                      // Safely extract each section's content using the helper function
-                      header: extractSectionData("header", {
-                        title: "",
-                        subtitle: "",
-                        showNavigation: true,
-                        navItems: [
-                          { label: "Home", link: "#home" },
-                          { label: "About", link: "#about" },
-                          { label: "Projects", link: "#projects" },
-                          { label: "Contact", link: "#contact" },
-                        ],
-                        style: "default",
-                        logoUrl: "",
-                      }),
-                      about: extractSectionData("about", {
-                        title: "About Me",
-                        bio:
-                          user?.profile?.bio ||
-                          "I am a passionate professional with experience in my field.",
-                        profileImage: user?.profilePicture || "",
-                      }),
-                      projects: extractSectionData("projects", { items: [] }),
-                      skills: extractSectionData("skills", {
-                        categories: [
-                          {
-                            name: "Frontend",
-                            skills: [
-                              { name: "React", proficiency: 90 },
-                              { name: "JavaScript", proficiency: 85 },
-                              { name: "CSS", proficiency: 80 },
-                            ],
-                          },
-                        ],
-                      }),
-                      experience: extractSectionData("experience", {
-                        items: [],
-                      }),
-                      education: extractSectionData("education", { items: [] }),
-                      contact: extractSectionData("contact", {
-                        email: user?.email || "",
-                        phone: "",
-                        address: user?.profile?.location || "",
-                        showContactForm: true,
-                        socialLinks: { links: [] },
-                      }),
-                      gallery: extractSectionData("gallery", { items: [] }),
-                      customCSS: extractSectionData("customCSS", {
-                        styles: "",
-                      }),
-                      seo: extractSectionData("seo", {
-                        metaTitle: "",
-                        metaDescription: "",
-                        keywords: "",
-                      }),
-                    },
-                  };
-
-                  console.log("Setting up portfolio state with existing data");
-                  // Set portfolio state with the loaded data
-                  setPortfolio(savedPortfolio);
-                  setExistingPortfolioFetched(true);
-                  setInitializationComplete(true);
-                  return;
-                } else {
-                  console.warn(
-                    "Portfolio data fetch succeeded but data is invalid:",
-                    portfolioData
-                  );
-                }
-              } catch (innerError) {
-                console.error(
-                  "Error fetching specific portfolio data:",
-                  innerError
-                );
-                // Continue with template initialization below if specific portfolio fetch fails
-              }
-            } else {
-              console.log(
-                "No existing portfolio found for this template, initializing new one"
-              );
-            }
-          } catch (error) {
-            console.error("Error fetching user portfolios:", error);
-            // Continue with template initialization if portfolio fetch fails
+        if (response.success && response.template) {
+          const t = response.template;
+          // Ensure the template has sections property
+          if (!t.sections) {
+            t.sections = [
+              "header",
+              "about",
+              "projects",
+              "skills",
+              "experience",
+              "education",
+              "contact",
+            ];
+          }
+          setTemplate(t);
+        } else {
+          // Use fallback templates if API fails
+          const fallbackTemplate =
+            fallbackTemplates.find((t) => t._id === templateId) ||
+            fallbackTemplates.find((t) => t.id === templateId);
+          if (fallbackTemplate) {
+            setTemplate({
+              _id: fallbackTemplate._id || fallbackTemplate.id,
+              name: fallbackTemplate.name,
+              description: fallbackTemplate.description,
+              category: fallbackTemplate.category,
+              previewImage: fallbackTemplate.previewImage,
+              defaultStructure: fallbackTemplate.settings || {},
+              sections: fallbackTemplate.sections || [
+                "header",
+                "about",
+                "projects",
+                "skills",
+                "experience",
+                "education",
+                "contact",
+              ],
+              isPublished: true,
+            });
+          } else {
+            toast.error("Template not found");
+            router.push("/templates");
           }
         }
-
-        // If no existing portfolio was found or fetch failed, initialize with template defaults
-        console.log("Initializing new portfolio with template defaults");
-        initializePortfolio(templateData);
-        setInitializationComplete(true);
       } catch (error) {
-        console.error("Error fetching template:", error);
-        toast.error("Failed to load template from API. Using demo data.");
-
-        // Fallback to local data
-        const fallbackTemplate = fallbackTemplates.find(
-          (t) => t._id === templateId
-        );
-
+        // Try fallback templates
+        const fallbackTemplate =
+          fallbackTemplates.find((t) => t._id === templateId) ||
+          fallbackTemplates.find((t) => t.id === templateId);
         if (fallbackTemplate) {
-          const template = {
-            _id: fallbackTemplate._id,
+          setTemplate({
+            _id: fallbackTemplate._id || fallbackTemplate.id,
             name: fallbackTemplate.name,
             description: fallbackTemplate.description,
             category: fallbackTemplate.category,
             previewImage: fallbackTemplate.previewImage,
             defaultStructure: fallbackTemplate.settings || {},
-            // Add default sections if they don't exist
             sections: fallbackTemplate.sections || [
               "header",
               "about",
@@ -473,33 +344,171 @@ export default function PortfolioEditorPage() {
               "contact",
             ],
             isPublished: true,
-          } as Template;
-
-          setTemplate(template);
-          initializePortfolio(template);
-          setInitializationComplete(true);
+          });
         } else {
           toast.error("Template not found");
           router.push("/templates");
         }
       } finally {
-        setTemplateLoading(false);
+        setLoading(false);
       }
     };
 
-    fetchTemplate();
-  }, [
-    templateId,
-    router,
-    isAuthenticated,
-    user,
-    existingPortfolioFetched,
-    initializationComplete,
-  ]);
+    if (templateId) {
+      fetchTemplate();
+    }
+    // eslint-disable-next-line
+  }, [templateId]);
 
-  // Initialize portfolio with template data
-  const initializePortfolio = (templateData: Template) => {
-    // Extract sections from template data
+  // Load portfolio data by ID if we have it, or look for portfolio by template ID
+  useEffect(() => {
+    const fetchPortfolio = async () => {
+      if (!user || !templateId || !template) return;
+
+      try {
+        setLoading(true);
+
+        // If we have a portfolioId (from query param), fetch that specific portfolio
+        if (portfolioId) {
+          const response = await apiClient.request<{ success: boolean; portfolio: any }>(
+            `/portfolios/${portfolioId}`,
+            "GET"
+          );
+
+          if (response.success && response.portfolio) {
+            setPortfolio(convertApiPortfolio(response.portfolio, template));
+            return;
+          }
+        }
+
+        // If no portfolioId or portfolio not found, check if user has a portfolio with this template
+        const portfoliosResponse = await apiClient.request<{ success: boolean; portfolios: any[] }>(
+          "/portfolios",
+          "GET"
+        );
+
+        if (portfoliosResponse.success && portfoliosResponse.portfolios) {
+          // Find portfolio with this template
+          const existingPortfolio = portfoliosResponse.portfolios.find(
+            (p: any) =>
+              p.templateId &&
+              (typeof p.templateId === "string"
+                ? p.templateId === templateId
+                : p.templateId._id === templateId)
+          );
+
+          if (existingPortfolio) {
+            setPortfolioId(existingPortfolio._id);
+            setPortfolio(convertApiPortfolio(existingPortfolio, template));
+            return;
+          }
+        }
+
+        // Create a new portfolio with template defaults
+        setPortfolio(initializePortfolio(template));
+      } catch (error) {
+        setPortfolio(initializePortfolio(template));
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (user && !isLoading && templateId && template) {
+      fetchPortfolio();
+    }
+    // eslint-disable-next-line
+  }, [user, isLoading, templateId, template, portfolioId]);
+
+  // Helper: Convert API portfolio to local Portfolio type
+  function convertApiPortfolio(apiPortfolio: any, template: Template): Portfolio {
+    // Defensive: If already a Portfolio type, just return
+    if (apiPortfolio.sectionContent && apiPortfolio.settings) {
+      return apiPortfolio;
+    }
+    // The content may be in apiPortfolio.content
+    const content = apiPortfolio.content || {};
+    return {
+      id: apiPortfolio._id,
+      templateId: typeof apiPortfolio.templateId === "object" ? apiPortfolio.templateId._id : apiPortfolio.templateId,
+      title: apiPortfolio.title || "My Portfolio",
+      subtitle: apiPortfolio.subtitle || "",
+      subdomain: apiPortfolio.subdomain || "",
+      isPublished: apiPortfolio.isPublished || false,
+      settings: content.settings || {
+        colors: {
+          primary: "#6366f1",
+          secondary: "#8b5cf6",
+          background: "#ffffff",
+          text: "#111827",
+        },
+        fonts: {
+          heading: "Inter",
+          body: "Inter",
+        },
+        layout: {
+          sections: template.sections || [
+            "header",
+            "about",
+            "projects",
+            "skills",
+            "experience",
+            "education",
+            "contact",
+          ],
+          showHeader: true,
+          showFooter: true,
+        },
+      },
+      sectionContent: {
+        header: content.header || {
+          title: "",
+          subtitle: "",
+          showNavigation: true,
+          navItems: [
+            { label: "Home", link: "#home" },
+            { label: "About", link: "#about" },
+            { label: "Projects", link: "#projects" },
+            { label: "Contact", link: "#contact" },
+          ],
+          style: "default",
+          logoUrl: "",
+        },
+        about: content.about || {
+          title: "About Me",
+          bio: "",
+          profileImage: "",
+        },
+        projects: content.projects || { items: [] },
+        skills: content.skills || {
+          categories: [
+            {
+              name: "Frontend",
+              skills: [
+                { name: "React", proficiency: 90 },
+                { name: "JavaScript", proficiency: 85 },
+                { name: "CSS", proficiency: 80 },
+              ],
+            },
+          ],
+        },
+        experience: content.experience || { items: [] },
+        education: content.education || { items: [] },
+        contact: content.contact || {
+          email: "",
+          phone: "",
+          address: "",
+          showContactForm: true,
+          socialLinks: { links: [] },
+        },
+        gallery: content.gallery || { items: [] },
+        customCSS: content.customCSS || { styles: "" },
+        seo: content.seo || { metaTitle: "", metaDescription: "", keywords: "" },
+      },
+    };
+  }
+
+  // Helper: Initialize a new portfolio from template
+  function initializePortfolio(templateData: Template): Portfolio {
     const sections =
       templateData.defaultStructure?.layout?.sections ||
       templateData.sections || [
@@ -512,27 +521,15 @@ export default function PortfolioEditorPage() {
         "contact",
       ];
 
-    // Extract colors from template data
     const defaultColors =
       templateData.defaultStructure?.layout?.defaultColors ||
-      templateData.customizationOptions?.colorSchemes?.[0] || [
-        "#6366f1",
-        "#8b5cf6",
-        "#ffffff",
-        "#111827",
-      ];
+      ["#6366f1", "#8b5cf6", "#ffffff", "#111827"];
 
-    // Extract fonts from template data
     const defaultFonts =
       templateData.defaultStructure?.layout?.defaultFonts ||
-      templateData.customizationOptions?.fontPairings?.[0] || [
-        "Inter",
-        "Roboto",
-        "Montserrat",
-      ];
+      ["Inter", "Roboto"];
 
-    // Create portfolio object with template settings
-    const newPortfolio: Portfolio = {
+    return {
       templateId: templateData._id,
       title: "My Portfolio",
       subtitle: user?.profile?.title || "Web Developer",
@@ -611,9 +608,7 @@ export default function PortfolioEditorPage() {
         seo: { metaTitle: "", metaDescription: "", keywords: "" },
       },
     };
-
-    setPortfolio(newPortfolio);
-  };
+  }
 
   // Check if user is authenticated
   useEffect(() => {
@@ -626,7 +621,6 @@ export default function PortfolioEditorPage() {
   // Handle text input changes
   const handleInputChange = (field: string, value: string) => {
     if (!portfolio) return;
-
     setPortfolio((prev) => {
       if (!prev) return prev;
       return {
@@ -739,7 +733,7 @@ export default function PortfolioEditorPage() {
     }
   };
 
-  // Save portfolio as draft - updated to work with SaveDraftButton
+  // Save portfolio as draft - updated to use the helper function
   const saveAsDraft = async (): Promise<void> => {
     if (!isAuthenticated || !user || !portfolio) {
       toast.error("Please sign in to save your portfolio");
@@ -747,8 +741,6 @@ export default function PortfolioEditorPage() {
     }
 
     try {
-      console.log("Saving portfolio as draft...");
-
       // Track template usage - use the new method which handles errors
       if (!portfolioId && template?._id) {
         await apiClient.incrementTemplateUsage(template._id);
@@ -765,15 +757,9 @@ export default function PortfolioEditorPage() {
         })
       );
 
-      console.log(
-        "Content data prepared for saving:",
-        Object.keys(contentData)
-      );
-
       let savedPortfolio;
 
       if (portfolioId) {
-        console.log("Updating existing portfolio:", portfolioId);
         // Update existing portfolio with proper structure
         savedPortfolio = await apiClient.request(
           `/portfolios/${portfolioId}`,
@@ -794,40 +780,77 @@ export default function PortfolioEditorPage() {
           savedPortfolio.portfolio._id
         ) {
           setPortfolioId(savedPortfolio.portfolio._id);
-          console.log(
-            "Portfolio updated with ID:",
-            savedPortfolio.portfolio._id
-          );
         }
 
         toast.success("Portfolio draft updated successfully");
       } else {
-        console.log("Creating new portfolio with template:", portfolio.templateId);
         // Create new portfolio with proper structure
         try {
+          // Generate a unique subdomain for this new template
+          const subdomain = generateUniqueSubdomain(portfolio.subdomain, template?.name);
+
           savedPortfolio = await apiClient.createPortfolio({
             title: portfolio.title,
             subtitle: portfolio.subtitle,
-            subdomain: portfolio.subdomain,
+            subdomain: subdomain,
             templateId: portfolio.templateId,
             content: contentData,
           });
 
           if (savedPortfolio && savedPortfolio._id) {
             setPortfolioId(savedPortfolio._id);
-            console.log("Portfolio created with ID:", savedPortfolio._id);
+
+            // Update the local portfolio state with the new subdomain
+            setPortfolio(prev => {
+              if (!prev) return prev;
+              return {
+                ...prev,
+                subdomain: savedPortfolio.subdomain || subdomain
+              };
+            });
+
             toast.success("Portfolio draft created successfully");
           }
         } catch (portfolioError: any) {
-          console.error("Portfolio creation error:", portfolioError);
-
-          // Show a more descriptive error message to the user
           const errorMessage = portfolioError.message || "Failed to create portfolio";
           toast.error(errorMessage);
 
-          // If there's a subdomain conflict, suggest a different subdomain
           if (errorMessage.includes("subdomain is already taken")) {
             toast.error("Please choose a different subdomain and try again");
+          } else if (errorMessage.includes("Cannot change a portfolio's template")) {
+            toast.error("Creating a new portfolio with a unique subdomain...");
+
+            // Try again with a completely random subdomain
+            try {
+              const uniqueSubdomain = generateRandomSubdomain();
+
+              savedPortfolio = await apiClient.createPortfolio({
+                title: portfolio.title,
+                subtitle: portfolio.subtitle,
+                subdomain: uniqueSubdomain,
+                templateId: portfolio.templateId,
+                content: contentData,
+              });
+
+              if (savedPortfolio && savedPortfolio._id) {
+                setPortfolioId(savedPortfolio._id);
+
+                // Update the local portfolio state with the new subdomain
+                setPortfolio(prev => {
+                  if (!prev) return prev;
+                  return {
+                    ...prev,
+                    subdomain: savedPortfolio.subdomain || uniqueSubdomain
+                  };
+                });
+
+                toast.success("Portfolio created with a unique subdomain");
+                return Promise.resolve();
+              }
+            } catch (retryError) {
+              console.error("Error in retry attempt:", retryError);
+              toast.error("Still unable to create portfolio. Please try again later.");
+            }
           }
 
           throw portfolioError;
@@ -842,7 +865,7 @@ export default function PortfolioEditorPage() {
     }
   };
 
-  // Publish portfolio - updated to work with PublishButton
+  // Publish portfolio - updated to use the helper function
   const publishPortfolio = async (): Promise<void> => {
     if (!isAuthenticated || !user || !portfolio) {
       toast.error("Please sign in to publish your portfolio");
@@ -891,12 +914,14 @@ export default function PortfolioEditorPage() {
         toast.success("Portfolio published successfully");
       } else {
         // Create new portfolio with proper structure
-        console.log("Creating and publishing new portfolio with template:", portfolio.templateId);
         try {
+          // Generate a unique subdomain for this new template
+          const subdomain = generateUniqueSubdomain(portfolio.subdomain, template?.name);
+
           savedPortfolio = await apiClient.createPortfolio({
             title: portfolio.title,
             subtitle: portfolio.subtitle,
-            subdomain: portfolio.subdomain,
+            subdomain: subdomain,
             templateId: portfolio.templateId,
             content: contentData,
             isPublished: true,
@@ -904,18 +929,59 @@ export default function PortfolioEditorPage() {
 
           if (savedPortfolio && savedPortfolio._id) {
             setPortfolioId(savedPortfolio._id);
+
+            // Update the local portfolio state with the new subdomain
+            setPortfolio(prev => {
+              if (!prev) return prev;
+              return {
+                ...prev,
+                subdomain: savedPortfolio.subdomain || subdomain
+              };
+            });
+
             toast.success("Portfolio created and published successfully");
           }
         } catch (portfolioError: any) {
-          console.error("Portfolio creation/publication error:", portfolioError);
-
-          // Show a more descriptive error message to the user
           const errorMessage = portfolioError.message || "Failed to create portfolio";
           toast.error(errorMessage);
 
-          // If there's a subdomain conflict, suggest a different subdomain
           if (errorMessage.includes("subdomain is already taken")) {
             toast.error("Please choose a different subdomain and try again");
+          } else if (errorMessage.includes("Cannot change a portfolio's template")) {
+            toast.error("Creating a new portfolio with a unique subdomain...");
+
+            // Try again with a completely random subdomain
+            try {
+              const uniqueSubdomain = generateRandomSubdomain();
+
+              savedPortfolio = await apiClient.createPortfolio({
+                title: portfolio.title,
+                subtitle: portfolio.subtitle,
+                subdomain: uniqueSubdomain,
+                templateId: portfolio.templateId,
+                content: contentData,
+                isPublished: true,
+              });
+
+              if (savedPortfolio && savedPortfolio._id) {
+                setPortfolioId(savedPortfolio._id);
+
+                // Update the local portfolio state with the new subdomain
+                setPortfolio(prev => {
+                  if (!prev) return prev;
+                  return {
+                    ...prev,
+                    subdomain: savedPortfolio.subdomain || uniqueSubdomain
+                  };
+                });
+
+                toast.success("Portfolio created and published with a unique subdomain");
+                return Promise.resolve();
+              }
+            } catch (retryError) {
+              console.error("Error in retry attempt:", retryError);
+              toast.error("Still unable to create portfolio. Please try again later.");
+            }
           }
 
           throw portfolioError;
@@ -976,8 +1042,7 @@ export default function PortfolioEditorPage() {
     }
   }, [template]);
 
-  // Show loading state
-  if (templateLoading || !template || !portfolio) {
+  if (loading || !template || !portfolio) {
     return (
       <div className="min-h-screen flex flex-col">
         <NavBar />
@@ -1644,26 +1709,31 @@ export default function PortfolioEditorPage() {
                 </CardContent>
                 <CardFooter className="flex justify-between border-t pt-6">
                   <SaveDraftButton onSave={saveAsDraft} variant="outline" />
-                  <PublishButton
-                    onPublish={publishPortfolio}
-                    requireValidation={true}
-                    validationChecks={[
-                      {
-                        condition: Boolean(portfolio?.subdomain),
-                        message:
-                          "Subdomain is required to publish your portfolio",
-                      },
-                      {
-                        condition: Boolean(portfolio?.title),
-                        message: "Portfolio title is required",
-                      },
-                    ]}
-                    successRedirectUrl={
-                      portfolio
-                        ? `/portfolio/${portfolio.subdomain}`
-                        : undefined
-                    }
-                  />
+                  <div className="flex flex-col items-end gap-2">
+                    <div className="text-xs text-muted-foreground max-w-[300px] text-right">
+                      <span className="font-semibold">Note:</span> Publishing this portfolio will automatically unpublish any other published portfolio.
+                    </div>
+                    <PublishButton
+                      onPublish={publishPortfolio}
+                      requireValidation={true}
+                      validationChecks={[
+                        {
+                          condition: Boolean(portfolio?.subdomain),
+                          message:
+                            "Subdomain is required to publish your portfolio",
+                        },
+                        {
+                          condition: Boolean(portfolio?.title),
+                          message: "Portfolio title is required",
+                        },
+                      ]}
+                      successRedirectUrl={
+                        portfolio
+                          ? `/portfolio/${portfolio.subdomain}`
+                          : undefined
+                      }
+                    />
+                  </div>
                 </CardFooter>
               </Card>
             </div>

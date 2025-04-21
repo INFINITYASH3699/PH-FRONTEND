@@ -19,7 +19,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Trash2 } from 'lucide-react'; // Import the trash icon
+import { Trash2 } from 'lucide-react';
 
 // Portfolio interface
 interface Portfolio {
@@ -117,19 +117,51 @@ export default function DashboardPage() {
   // Function to handle portfolio publishing state change
   const handlePublishToggle = async (portfolioId: string, currentState: boolean) => {
     try {
+      // If we're publishing a portfolio (currently unpublished)
+      if (!currentState) {
+        // First, show a confirmation if other portfolios are already published
+        const publishedPortfolios = portfolios.filter(p => p.isPublished && p._id !== portfolioId);
+
+        if (publishedPortfolios.length > 0) {
+          if (!window.confirm(
+            `Publishing this portfolio will unpublish your currently published portfolio "${publishedPortfolios[0].title}". Continue?`
+          )) {
+            return; // User canceled the action
+          }
+
+          // Optimistically update UI to show the change in publish state
+          setPortfolios(prevPortfolios =>
+            prevPortfolios.map(portfolio => ({
+              ...portfolio,
+              isPublished: portfolio._id === portfolioId ? true : false
+            }))
+          );
+        } else {
+          // No other published portfolios, just update this one
+          setPortfolios(prevPortfolios =>
+            prevPortfolios.map(portfolio =>
+              portfolio._id === portfolioId
+                ? { ...portfolio, isPublished: !currentState }
+                : portfolio
+            )
+          );
+        }
+      } else {
+        // Just unpublishing, update only this portfolio
+        setPortfolios(prevPortfolios =>
+          prevPortfolios.map(portfolio =>
+            portfolio._id === portfolioId
+              ? { ...portfolio, isPublished: !currentState }
+              : portfolio
+          )
+        );
+      }
+
+      // Make the API request
       await apiClient.request<{ success: boolean; portfolio: Portfolio }>(
         `/portfolios/${portfolioId}`,
         'PUT',
         { isPublished: !currentState }
-      );
-
-      // Update local state
-      setPortfolios(prevPortfolios =>
-        prevPortfolios.map(portfolio =>
-          portfolio._id === portfolioId
-            ? { ...portfolio, isPublished: !currentState }
-            : portfolio
-        )
       );
 
       toast.success(
@@ -137,9 +169,32 @@ export default function DashboardPage() {
           ? 'Portfolio unpublished successfully'
           : 'Portfolio published successfully'
       );
+
+      // After a short delay, refresh the portfolios to get the latest state from the server
+      setTimeout(async () => {
+        const response = await apiClient.request<{
+          success: boolean;
+          portfolios: Portfolio[];
+        }>("/portfolios", "GET");
+
+        if (response.success) {
+          setPortfolios(response.portfolios);
+        }
+      }, 300);
+
     } catch (error) {
       console.error('Error toggling publish state:', error);
       toast.error('Failed to update portfolio');
+
+      // Revert the optimistic update if there was an error
+      const response = await apiClient.request<{
+        success: boolean;
+        portfolios: Portfolio[];
+      }>("/portfolios", "GET");
+
+      if (response.success) {
+        setPortfolios(response.portfolios);
+      }
     }
   };
 
@@ -194,7 +249,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Portfolio Policy Banner */}
+          {/* Portfolio Policy Banner - Updated with clearer information */}
           <div className="mb-6 p-3 bg-blue-50 border border-blue-100 rounded-md flex items-center gap-3 text-blue-800">
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -214,7 +269,7 @@ export default function DashboardPage() {
             </svg>
             <div>
               <p className="text-sm">
-                <strong>Multiple Portfolios:</strong> You can create different portfolios using different templates (one portfolio per template) to showcase various aspects of your work. However, only one portfolio can be published at a time. Publishing a new portfolio will automatically unpublish any previously published portfolio.
+                <strong>Multiple Portfolios Management:</strong> You can create different portfolios using different templates to showcase various aspects of your work. <span className="font-semibold">Only one portfolio can be published at a time</span>. Publishing a new portfolio will automatically unpublish any previously published portfolio.
               </p>
             </div>
           </div>
@@ -548,8 +603,8 @@ function PortfolioCard({ portfolio, onPublishToggle, onDelete }: { portfolio: Po
             </DialogContent>
           </Dialog>
         </div>
-        {/* Fix the Edit button link to direct to the portfolio editor based on portfolio ID */}
-        <Link href={`/portfolio/preview/${portfolio._id}`}>
+        {/* Pass the portfolio ID as a query parameter to the edit page */}
+        <Link href={`/templates/use/${portfolio.templateId?._id}?portfolioId=${portfolio._id}`}>
           <Button variant="default" size="sm">
             Edit
           </Button>

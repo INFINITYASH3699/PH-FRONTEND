@@ -18,7 +18,9 @@ export const createPortfolio = async (
 ): Promise<Response> => {
   try {
     const { title, subtitle, subdomain, templateId, content } = req.body;
-    console.log(`Creating portfolio: title=${title}, subdomain=${subdomain}, templateId=${templateId}, userId=${req.user.id}`);
+    console.log(
+      `Creating portfolio: title=${title}, subdomain=${subdomain}, templateId=${templateId}, userId=${req.user.id}`
+    );
 
     // Validate required fields
     if (!title || !subdomain) {
@@ -50,7 +52,22 @@ export const createPortfolio = async (
           message: "Template not found",
         });
       }
-      console.log(`Template found: ${template.name}, proceeding with portfolio creation`);
+      console.log(
+        `Template found: ${template.name}, proceeding with portfolio creation`
+      );
+
+      // NEW CODE: Check if user already has a portfolio with this template
+      const existingTemplatePortfolio = await Portfolio.findOne({
+        userId: req.user.id,
+        templateId: templateId,
+      });
+
+      if (existingTemplatePortfolio) {
+        return res.status(400).json({
+          success: false,
+          message: "You already have a portfolio with this template",
+        });
+      }
     }
 
     // Check if the user already has a portfolio with this subdomain
@@ -61,19 +78,37 @@ export const createPortfolio = async (
 
     // If user already has a portfolio with this subdomain, update it instead of creating a new one
     if (userExistingPortfolio) {
+      // MODIFIED CODE: Only update if the template is the same or if no templateId is provided
+      if (
+        userExistingPortfolio.templateId &&
+        templateId &&
+        userExistingPortfolio.templateId.toString() !== templateId
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Cannot change a portfolio's template. Please create a new portfolio for this template.",
+        });
+      }
+
       userExistingPortfolio.title = title;
       userExistingPortfolio.subtitle = subtitle;
-      userExistingPortfolio.templateId = templateId || null;
       userExistingPortfolio.content = content || {};
       userExistingPortfolio.isPublished = req.body.isPublished || false;
 
       // If this portfolio is being published, unpublish any other published portfolios
       if (userExistingPortfolio.isPublished) {
         await Portfolio.updateMany(
-          { userId: req.user.id, isPublished: true, _id: { $ne: userExistingPortfolio._id } },
+          {
+            userId: req.user.id,
+            isPublished: true,
+            _id: { $ne: userExistingPortfolio._id },
+          },
           { $set: { isPublished: false } }
         );
-        console.log(`Unpublished all other portfolios for user ${req.user.id}`);
+        console.log(
+          `Unpublished all other portfolios for user ${req.user.id}`
+        );
       }
 
       const updatedPortfolio = await userExistingPortfolio.save();
@@ -95,7 +130,11 @@ export const createPortfolio = async (
     }
 
     // Create a completely new portfolio document
-    console.log(`Creating new portfolio for user ${req.user.id} with template ${templateId || 'none'}`);
+    console.log(
+      `Creating new portfolio for user ${req.user.id} with template ${
+        templateId || "none"
+      }`
+    );
     const newPortfolio = new Portfolio({
       title,
       subtitle,
@@ -233,12 +272,15 @@ export const updatePortfolio = async (
     }
 
     // If this portfolio is being published, unpublish any other published portfolios
-    if (isPublished && !portfolio.isPublished) {
-      await Portfolio.updateMany(
+    if (isPublished && (!portfolio.isPublished || isPublished !== portfolio.isPublished)) {
+      console.log(`User ${req.user.id} is publishing portfolio ${portfolio._id}. Unpublishing other portfolios.`);
+
+      const result = await Portfolio.updateMany(
         { userId: req.user.id, isPublished: true, _id: { $ne: portfolio._id } },
         { $set: { isPublished: false } }
       );
-      console.log(`Unpublished all other portfolios for user ${req.user.id}`);
+
+      console.log(`Unpublished ${result.modifiedCount} other portfolios for user ${req.user.id}`);
     }
 
     // Update fields
@@ -260,6 +302,7 @@ export const updatePortfolio = async (
         if (content[key] && typeof content[key] === "object") {
           // For objects that contain arrays like 'items', we need special handling
           if (content[key].items && Array.isArray(content[key].items)) {
+            // No-op, handled by direct assignment below
           }
 
           // For objects that contain the 'categories' array property
@@ -267,6 +310,7 @@ export const updatePortfolio = async (
             content[key].categories &&
             Array.isArray(content[key].categories)
           ) {
+            // No-op, handled by direct assignment below
           }
         }
 
@@ -538,7 +582,9 @@ export const uploadPortfolioImage = async (
 
     return res.status(200).json({
       success: true,
-      message: `${imageType === "header" ? "Header" : "Gallery"} image uploaded successfully`,
+      message: `${
+        imageType === "header" ? "Header" : "Gallery"
+      } image uploaded successfully`,
       image: {
         url: cloudinaryResult.success ? cloudinaryResult.url : "",
         publicId: cloudinaryResult.success ? cloudinaryResult.publicId : "",
@@ -636,7 +682,9 @@ export const deletePortfolioImage = async (
 
     return res.status(200).json({
       success: true,
-      message: `${imageType === "header" ? "Header" : "Gallery"} image deleted successfully`,
+      message: `${
+        imageType === "header" ? "Header" : "Gallery"
+      } image deleted successfully`,
     });
   } catch (error: any) {
     console.error("Portfolio image deletion error:", error);
