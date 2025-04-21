@@ -40,7 +40,7 @@ export const createPortfolio = async (
     if (existingPortfolio) {
       return res.status(400).json({
         success: false,
-        message: "This subdomain is already taken",
+        message: "This subdomain is already taken by another user",
       });
     }
 
@@ -57,7 +57,7 @@ export const createPortfolio = async (
         `Template found: ${template.name}, proceeding with portfolio creation`
       );
 
-      // NEW CODE: Check if user already has a portfolio with this template
+      // Check if user already has a portfolio with this template
       const existingTemplatePortfolio = await Portfolio.findOne({
         userId: req.user.id,
         templateId: templateId,
@@ -69,56 +69,6 @@ export const createPortfolio = async (
           message: "You already have a portfolio with this template",
         });
       }
-    }
-
-    // Check if the user already has a portfolio with this subdomain
-    const userExistingPortfolio = await Portfolio.findOne({
-      subdomain: subdomain.toLowerCase(),
-      userId: req.user.id,
-    });
-
-    // If user already has a portfolio with this subdomain, update it instead of creating a new one
-    if (userExistingPortfolio) {
-      // MODIFIED CODE: Only update if the template is the same or if no templateId is provided
-      if (
-        userExistingPortfolio.templateId &&
-        templateId &&
-        userExistingPortfolio.templateId.toString() !== templateId
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Cannot change a portfolio's template. Please create a new portfolio for this template.",
-        });
-      }
-
-      userExistingPortfolio.title = title;
-      userExistingPortfolio.subtitle = subtitle;
-      userExistingPortfolio.content = content || {};
-      userExistingPortfolio.isPublished = req.body.isPublished || false;
-
-      // If this portfolio is being published, unpublish any other published portfolios
-      if (userExistingPortfolio.isPublished) {
-        await Portfolio.updateMany(
-          {
-            userId: req.user.id,
-            isPublished: true,
-            _id: { $ne: userExistingPortfolio._id },
-          },
-          { $set: { isPublished: false } }
-        );
-        console.log(
-          `Unpublished all other portfolios for user ${req.user.id}`
-        );
-      }
-
-      const updatedPortfolio = await userExistingPortfolio.save();
-
-      return res.status(200).json({
-        success: true,
-        portfolio: updatedPortfolio,
-        message: "Portfolio updated successfully",
-      });
     }
 
     // If this portfolio is being published, unpublish any other published portfolios
@@ -272,16 +222,24 @@ export const updatePortfolio = async (
       });
     }
 
-    // If this portfolio is being published, unpublish any other published portfolios
-    if (isPublished && (!portfolio.isPublished || isPublished !== portfolio.isPublished)) {
-      console.log(`User ${req.user.id} is publishing portfolio ${portfolio._id}. Unpublishing other portfolios.`);
+    // If this portfolio is being published, unpublish any other published portfolios for this user, regardless of subdomain
+    if (isPublished === true) {
+      console.log(
+        `User ${req.user.id} is publishing portfolio ${portfolio._id}. Unpublishing all other portfolios for this user.`
+      );
 
       const result = await Portfolio.updateMany(
-        { userId: req.user.id, isPublished: true, _id: { $ne: portfolio._id } },
+        {
+          userId: req.user.id,
+          isPublished: true,
+          _id: { $ne: portfolio._id },
+        },
         { $set: { isPublished: false } }
       );
 
-      console.log(`Unpublished ${result.modifiedCount} other portfolios for user ${req.user.id}`);
+      console.log(
+        `Unpublished ${result.modifiedCount} other portfolios for user ${req.user.id}`
+      );
     }
 
     // Update fields
@@ -302,17 +260,19 @@ export const updatePortfolio = async (
       }
 
       // Check if attempting to set a custom domain
-      if (customDomain && customDomain.trim() !== '') {
+      if (customDomain && customDomain.trim() !== "") {
         // Verify if user has paid plan with custom domain feature
-        const hasCustomDomainFeature = user.subscriptionPlan?.type !== "free" &&
-                                      user.subscriptionPlan?.isActive &&
-                                      user.subscriptionPlan?.features?.customDomain;
+        const hasCustomDomainFeature =
+          user.subscriptionPlan?.type !== "free" &&
+          user.subscriptionPlan?.isActive &&
+          user.subscriptionPlan?.features?.customDomain;
 
         if (!hasCustomDomainFeature) {
           return res.status(402).json({
             success: false,
-            message: "Custom domains are only available in paid plans. Please upgrade your subscription to use this feature.",
-            portfolio: portfolio
+            message:
+              "Custom domains are only available in paid plans. Please upgrade your subscription to use this feature.",
+            portfolio: portfolio,
           });
         }
 
@@ -322,27 +282,29 @@ export const updatePortfolio = async (
           return res.status(400).json({
             success: false,
             message: "Please provide a valid domain name (e.g., example.com).",
-            portfolio: portfolio
+            portfolio: portfolio,
           });
         }
 
         // Check if domain is already in use
         const existingPortfolioWithDomain = await Portfolio.findOne({
           customDomain: customDomain.toLowerCase(),
-          _id: { $ne: portfolio._id }
+          _id: { $ne: portfolio._id },
         });
 
         if (existingPortfolioWithDomain) {
           return res.status(400).json({
             success: false,
             message: "This domain is already in use. Please choose a different one.",
-            portfolio: portfolio
+            portfolio: portfolio,
           });
         }
       }
 
       // If we reach here, either the domain is empty (removing it) or valid and available
-      portfolio.customDomain = customDomain ? customDomain.toLowerCase() : undefined;
+      portfolio.customDomain = customDomain
+        ? customDomain.toLowerCase()
+        : undefined;
     }
 
     // Handle content updates - ensure proper merging
@@ -500,11 +462,11 @@ export const getPortfolioBySubdomain = async (
 ): Promise<Response> => {
   try {
     const { subdomain } = req.params;
-    const customDomain = req.query.customDomain as string;
+    const customDomain = req.query.customDomain as string | undefined;
 
-    let portfolio;
+    let portfolio = null;
 
-    // First try to find by custom domain if provided
+    // If customDomain is provided, try to find by custom domain first
     if (customDomain) {
       portfolio = await Portfolio.findOne({
         customDomain: customDomain.toLowerCase(),
@@ -512,12 +474,14 @@ export const getPortfolioBySubdomain = async (
       }).populate("templateId", "name category");
     }
 
-    // If not found by custom domain or no custom domain provided, look for subdomain
+    // If not found by custom domain or no custom domain provided, look for published portfolio with subdomain
     if (!portfolio) {
       portfolio = await Portfolio.findOne({
         subdomain: subdomain.toLowerCase(),
         isPublished: true,
-      }).populate("templateId", "name category");
+      })
+        .sort({ updatedAt: -1 }) // Use the most recently updated if multiple (should not happen)
+        .populate("templateId", "name category");
     }
 
     if (!portfolio) {

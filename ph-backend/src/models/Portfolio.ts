@@ -50,7 +50,7 @@ const PortfolioSchema = new Schema<IPortfolio>(
       required: [true, 'Subdomain is required'],
       trim: true,
       lowercase: true,
-      unique: false, // Allow multiple subdomains with same name IF they're by the same user
+      unique: false, // Allow multiple portfolios with the same subdomain for the same user
       match: [/^[a-z0-9-]{3,30}$/, 'Subdomain can only contain lowercase letters, numbers, and hyphens'],
       index: true, // Add index for faster lookups
     },
@@ -98,14 +98,14 @@ const PortfolioSchema = new Schema<IPortfolio>(
   }
 );
 
-// Create compound index for userId + subdomain to ensure uniqueness per user
-PortfolioSchema.index({ userId: 1, subdomain: 1 }, { unique: true });
+// Remove the compound index for userId + subdomain to allow multiple portfolios with the same subdomain for the same user
+// PortfolioSchema.index({ userId: 1, subdomain: 1 }, { unique: true });
 
 // Create indexes
 PortfolioSchema.index({ userId: 1 });
 
-// Remove the unique index on subdomain since we're now using a compound index
-// PortfolioSchema.index({ subdomain: 1 }, { unique: true });
+// Add index on subdomain (not unique)
+PortfolioSchema.index({ subdomain: 1 });
 
 PortfolioSchema.index({ customDomain: 1 }, { sparse: true, unique: true });
 
