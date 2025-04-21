@@ -6,7 +6,7 @@ import User, { IUser } from "../models/User";
 import {
   uploadToCloudinary,
   deleteFromCloudinary,
-  CloudinaryUploadResult
+  CloudinaryUploadResult,
 } from "../config/cloudinary";
 
 // Generate JWT token
@@ -31,12 +31,10 @@ export const register = async (
     const { fullName, username, email, password } = req.body;
 
     if (!fullName || !username || !email || !password) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Please provide all required fields",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Please provide all required fields",
+      });
     }
 
     const userExists = await User.findOne({
@@ -193,7 +191,10 @@ export const updateUserProfile = async (
   res: Response
 ): Promise<Response> => {
   try {
-    console.log("Profile update request received:", JSON.stringify(req.body, null, 2));
+    console.log(
+      "Profile update request received:",
+      JSON.stringify(req.body, null, 2)
+    );
 
     const userId = req.user.id;
 
@@ -209,7 +210,7 @@ export const updateUserProfile = async (
       skills,
       education,
       experience,
-      projects
+      projects,
     } = req.body;
 
     // Create the update document for MongoDB
@@ -227,16 +228,22 @@ export const updateUserProfile = async (
     if (website !== undefined) profileUpdate["profile.website"] = website;
 
     // Handle arrays and nested objects directly
-    if (socialLinks !== undefined) profileUpdate["profile.socialLinks"] = socialLinks;
+    if (socialLinks !== undefined)
+      profileUpdate["profile.socialLinks"] = socialLinks;
     if (skills !== undefined) profileUpdate["profile.skills"] = skills;
     if (education !== undefined) profileUpdate["profile.education"] = education;
-    if (experience !== undefined) profileUpdate["profile.experience"] = experience;
+    if (experience !== undefined)
+      profileUpdate["profile.experience"] = experience;
     if (projects !== undefined) profileUpdate["profile.projects"] = projects;
 
     // Handle profile picture update separately
     if (profilePicture !== undefined) {
       const user = await User.findById(userId);
-      if (user && user.profilePictureId && profilePicture !== user.profilePicture) {
+      if (
+        user &&
+        user.profilePictureId &&
+        profilePicture !== user.profilePicture
+      ) {
         try {
           await deleteFromCloudinary(user.profilePictureId);
         } catch (err) {
@@ -244,33 +251,40 @@ export const updateUserProfile = async (
         }
       }
       updateFields.profilePicture = profilePicture;
-      if (req.body.profilePictureId) updateFields.profilePictureId = req.body.profilePictureId;
+      if (req.body.profilePictureId)
+        updateFields.profilePictureId = req.body.profilePictureId;
     }
 
     // Combine all updates
     const finalUpdate = { ...updateFields, ...profileUpdate };
 
-    console.log("Updating user with fields:", Object.keys(finalUpdate).join(', '));
+    console.log(
+      "Updating user with fields:",
+      Object.keys(finalUpdate).join(", ")
+    );
 
     // Directly update the document in the database using MongoDB's update operators
     const result = await User.findByIdAndUpdate(
       userId,
       { $set: finalUpdate },
       {
-        new: true,                // Return the updated document
-        runValidators: true,      // Run schema validators
-        omitUndefined: true       // Don't update fields that are undefined
+        new: true, // Return the updated document
+        runValidators: true, // Run schema validators
+        omitUndefined: true, // Don't update fields that are undefined
       }
     ).select("-password");
 
     if (!result) {
       return res.status(404).json({
         success: false,
-        message: "User not found"
+        message: "User not found",
       });
     }
 
-    console.log("User profile updated successfully with fields:", Object.keys(finalUpdate).join(', '));
+    console.log(
+      "User profile updated successfully with fields:",
+      Object.keys(finalUpdate).join(", ")
+    );
 
     return res.status(200).json({
       success: true,
@@ -283,16 +297,18 @@ export const updateUserProfile = async (
         role: result.role,
         profilePicture: result.profilePicture,
         profilePictureId: result.profilePictureId,
-        profile: result.profile
-      }
+        profile: result.profile,
+      },
     });
-
   } catch (error: any) {
     console.error("Profile update error:", error);
     return res.status(500).json({
       success: false,
       message: "Server error during profile update",
-      error: process.env.NODE_ENV === "development" ? error.toString() : "Server error"
+      error:
+        process.env.NODE_ENV === "development"
+          ? error.toString()
+          : "Server error",
     });
   }
 };
@@ -309,7 +325,7 @@ export const uploadProfilePicture = async (
     if (!req.file) {
       return res.status(400).json({
         success: false,
-        message: 'No image file provided'
+        message: "No image file provided",
       });
     }
 
@@ -317,7 +333,7 @@ export const uploadProfilePicture = async (
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'User not found'
+        message: "User not found",
       });
     }
 
@@ -327,7 +343,7 @@ export const uploadProfilePicture = async (
     // Upload to Cloudinary
     const cloudinaryResult: CloudinaryUploadResult = await uploadToCloudinary(
       filePath,
-      'portfolio-hub/profile-pictures',
+      "portfolio-hub/profile-pictures",
       user.profilePictureId || undefined // Use existing ID for overwrite if available
     );
 
@@ -337,14 +353,16 @@ export const uploadProfilePicture = async (
     if (!cloudinaryResult.success) {
       return res.status(500).json({
         success: false,
-        message: 'Failed to upload image to cloud storage',
-        error: cloudinaryResult.error
+        message: "Failed to upload image to cloud storage",
+        error: cloudinaryResult.error,
       });
     }
 
     // If user already had a profile picture and we're not overwriting it
-    if (user.profilePictureId &&
-        user.profilePictureId !== cloudinaryResult.publicId) {
+    if (
+      user.profilePictureId &&
+      user.profilePictureId !== cloudinaryResult.publicId
+    ) {
       // Delete the old image from Cloudinary
       await deleteFromCloudinary(user.profilePictureId);
     }
@@ -356,16 +374,16 @@ export const uploadProfilePicture = async (
 
     return res.status(200).json({
       success: true,
-      message: 'Profile picture uploaded successfully',
+      message: "Profile picture uploaded successfully",
       imageUrl: cloudinaryResult.url,
-      publicId: cloudinaryResult.publicId
+      publicId: cloudinaryResult.publicId,
     });
   } catch (error: any) {
-    console.error('Profile picture upload error:', error);
+    console.error("Profile picture upload error:", error);
     return res.status(500).json({
       success: false,
-      message: 'Server error during profile picture upload',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: "Server error during profile picture upload",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 };
@@ -382,7 +400,7 @@ export const deleteProfilePicture = async (
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'User not found'
+        message: "User not found",
       });
     }
 
@@ -390,7 +408,7 @@ export const deleteProfilePicture = async (
     if (!user.profilePictureId) {
       return res.status(400).json({
         success: false,
-        message: 'No profile picture to delete'
+        message: "No profile picture to delete",
       });
     }
 
@@ -400,26 +418,69 @@ export const deleteProfilePicture = async (
     if (!deleteResult.success) {
       return res.status(500).json({
         success: false,
-        message: 'Failed to delete image from cloud storage',
-        error: deleteResult.error
+        message: "Failed to delete image from cloud storage",
+        error: deleteResult.error,
       });
     }
 
     // Update user
-    user.profilePicture = '';
-    user.profilePictureId = '';
+    user.profilePicture = "";
+    user.profilePictureId = "";
     await user.save();
 
     return res.status(200).json({
       success: true,
-      message: 'Profile picture deleted successfully'
+      message: "Profile picture deleted successfully",
     });
   } catch (error: any) {
-    console.error('Profile picture deletion error:', error);
+    console.error("Profile picture deletion error:", error);
     return res.status(500).json({
       success: false,
-      message: 'Server error during profile picture deletion',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: "Server error during profile picture deletion",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 };
+
+// @desc    Get user's subscription plan
+// @route   GET /api/auth/subscription
+// @access  Private
+export const getUserSubscription = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  try {
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Return subscription details
+    return res.status(200).json({
+      success: true,
+      subscription: user.subscriptionPlan || {
+        type: "free",
+        startDate: new Date(),
+        isActive: true,
+        features: {
+          customDomain: false,
+          analytics: false,
+          multiplePortfolios: false,
+          removeWatermark: false,
+        },
+      },
+    });
+  } catch (error: any) {
+    console.error("Error getting user subscription:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+

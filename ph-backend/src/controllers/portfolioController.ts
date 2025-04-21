@@ -31,6 +31,26 @@ export const createPortfolio = async (
       });
     }
 
+    // Get user to check subscription plan
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Check if user is on a free plan - if so, they can only use their username as subdomain
+    const isFreePlan = user.subscriptionPlan?.type === "free";
+
+    if (isFreePlan && subdomain.toLowerCase() !== user.username.toLowerCase()) {
+      return res.status(403).json({
+        success: false,
+        message: "Free plan users can only use their username as subdomain. Upgrade to a paid plan to use custom subdomains.",
+      });
+    }
+
     // Check if subdomain is already taken by another user
     const existingPortfolio = await Portfolio.findOne({
       subdomain: subdomain.toLowerCase(),
@@ -71,13 +91,33 @@ export const createPortfolio = async (
       }
     }
 
-    // If this portfolio is being published, unpublish any other published portfolios
+    // If this portfolio is being published, check publishing limitations
     if (req.body.isPublished) {
-      await Portfolio.updateMany(
-        { userId: req.user.id, isPublished: true },
-        { $set: { isPublished: false } }
-      );
-      console.log(`Unpublished all other portfolios for user ${req.user.id}`);
+      // For free plan users, check if they already have a published portfolio
+      if (isFreePlan) {
+        const existingPublishedPortfolio = await Portfolio.findOne({
+          userId: req.user.id,
+          isPublished: true,
+        });
+
+        if (existingPublishedPortfolio) {
+          return res.status(403).json({
+            success: false,
+            message: "Free plan users can only have one published portfolio. Unpublish your existing portfolio or upgrade to a paid plan.",
+          });
+        }
+      } else {
+        // For paid plans, unpublish other portfolios with the same subdomain
+        await Portfolio.updateMany(
+          {
+            userId: req.user.id,
+            subdomain: subdomain.toLowerCase(),
+            isPublished: true,
+            // _id: { $ne: req.params.id } // Not needed on create
+          },
+          { $set: { isPublished: false } }
+        );
+      }
     }
 
     // Create a completely new portfolio document
@@ -197,6 +237,7 @@ export const updatePortfolio = async (
     const {
       title,
       subtitle,
+      subdomain,
       content,
       isPublished,
       customDomain,
@@ -222,24 +263,78 @@ export const updatePortfolio = async (
       });
     }
 
-    // If this portfolio is being published, unpublish any other published portfolios for this user, regardless of subdomain
-    if (isPublished === true) {
-      console.log(
-        `User ${req.user.id} is publishing portfolio ${portfolio._id}. Unpublishing all other portfolios for this user.`
-      );
+    // Get user to check subscription plan
+    const user = await User.findById(req.user.id);
 
-      const result = await Portfolio.updateMany(
-        {
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Check if user is on a free plan
+    const isFreePlan = user.subscriptionPlan?.type === "free";
+
+    // If subdomain is being changed
+    if (subdomain && subdomain.toLowerCase() !== portfolio.subdomain) {
+      // Free plan users can only use their username as subdomain
+      if (isFreePlan && subdomain.toLowerCase() !== user.username.toLowerCase()) {
+        return res.status(403).json({
+          success: false,
+          message: "Free plan users can only use their username as subdomain. Upgrade to a paid plan to use custom subdomains.",
+        });
+      }
+
+      // Check if the new subdomain is taken by another user
+      const existingPortfolio = await Portfolio.findOne({
+        subdomain: subdomain.toLowerCase(),
+        userId: { $ne: req.user.id },
+      });
+
+      if (existingPortfolio) {
+        return res.status(400).json({
+          success: false,
+          message: "This subdomain is already taken by another user",
+        });
+      }
+
+      // Update the subdomain
+      portfolio.subdomain = subdomain.toLowerCase();
+    }
+
+    // If this portfolio is being published
+    if (isPublished === true && !portfolio.isPublished) {
+      // For free plan users, check if they already have a published portfolio
+      if (isFreePlan) {
+        const existingPublishedPortfolio = await Portfolio.findOne({
           userId: req.user.id,
           isPublished: true,
-          _id: { $ne: portfolio._id },
-        },
-        { $set: { isPublished: false } }
-      );
+          _id: { $ne: portfolio._id }
+        });
 
-      console.log(
-        `Unpublished ${result.modifiedCount} other portfolios for user ${req.user.id}`
-      );
+        if (existingPublishedPortfolio) {
+          return res.status(403).json({
+            success: false,
+            message: "Free plan users can only have one published portfolio. Unpublish your existing portfolio or upgrade to a paid plan.",
+          });
+        }
+      } else {
+        // For paid plans, unpublish other portfolios with the same subdomain to avoid conflict
+        console.log(
+          `User ${req.user.id} is publishing portfolio ${portfolio._id} with subdomain ${portfolio.subdomain}. Unpublishing other portfolios with the same subdomain.`
+        );
+
+        await Portfolio.updateMany(
+          {
+            userId: req.user.id,
+            subdomain: portfolio.subdomain,
+            isPublished: true,
+            _id: { $ne: portfolio._id },
+          },
+          { $set: { isPublished: false } }
+        );
+      }
     }
 
     // Update fields
@@ -247,18 +342,17 @@ export const updatePortfolio = async (
     if (subtitle !== undefined) portfolio.subtitle = subtitle;
     if (isPublished !== undefined) portfolio.isPublished = isPublished;
 
-    // Check for custom domain request
+    // Handle content updates properly
+    if (content) {
+      // Ensure we merge the content object properly rather than overwrite it
+      portfolio.content = {
+        ...(typeof portfolio.content === 'object' ? portfolio.content : {}),
+        ...content
+      };
+    }
+
+    // Update custom domain if provided, or reset it if empty string
     if (customDomain !== undefined) {
-      // Get user to check subscription plan
-      const user = await User.findById(req.user.id);
-
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          message: "User not found",
-        });
-      }
-
       // Check if attempting to set a custom domain
       if (customDomain && customDomain.trim() !== "") {
         // Verify if user has paid plan with custom domain feature
@@ -305,36 +399,6 @@ export const updatePortfolio = async (
       portfolio.customDomain = customDomain
         ? customDomain.toLowerCase()
         : undefined;
-    }
-
-    // Handle content updates - ensure proper merging
-    if (content) {
-      // Initialize portfolio.content if it doesn't exist
-      if (!portfolio.content) {
-        portfolio.content = {};
-      }
-
-      // Deep merge the content
-      Object.keys(content).forEach((key) => {
-        // Special handling for arrays in content to ensure they're completely replaced
-        if (content[key] && typeof content[key] === "object") {
-          // For objects that contain arrays like 'items', we need special handling
-          if (content[key].items && Array.isArray(content[key].items)) {
-            // No-op, handled by direct assignment below
-          }
-
-          // For objects that contain the 'categories' array property
-          if (
-            content[key].categories &&
-            Array.isArray(content[key].categories)
-          ) {
-            // No-op, handled by direct assignment below
-          }
-        }
-
-        // Use direct assignment to completely replace the content for this section
-        portfolio.content[key] = JSON.parse(JSON.stringify(content[key]));
-      });
     }
 
     // Handle header image update

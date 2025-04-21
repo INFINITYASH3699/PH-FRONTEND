@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter, notFound, useParams } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,13 +33,25 @@ import ContactEditor from "./ContactEditor";
 import SEOEditor from "./SEOEditor";
 import CustomCSSEditor from "./CustomCSSEditor";
 import apiClient, { Template } from "@/lib/apiClient";
-import { templates as fallbackTemplates } from "@/data/templates"; // Use as fallback
+import { templates as fallbackTemplates } from "@/data/templates";
 import { SaveDraftButton } from "@/components/ui/save-draft-button";
 import { PreviewButton } from "@/components/ui/preview-button";
 import { PublishButton } from "@/components/ui/publish-button";
 import { FetchProfileButton } from "@/components/ui/fetch-profile-button";
 
-// Define the portfolio structure
+// User plan interface
+interface UserPlan {
+  type: "free" | "premium" | "professional";
+  isActive: boolean;
+  features: {
+    customDomain: boolean;
+    analytics: boolean;
+    multiplePortfolios: boolean;
+    removeWatermark: boolean;
+  };
+}
+
+// Portfolio structure
 interface PortfolioSettings {
   colors?: {
     primary?: string;
@@ -58,7 +70,6 @@ interface PortfolioSettings {
   };
 }
 
-// Section content interfaces
 interface HeaderContent {
   title?: string;
   subtitle?: string;
@@ -177,7 +188,6 @@ interface Portfolio {
   sectionContent: SectionContent;
 }
 
-// Enhance the fallbackTemplates with sections information to avoid undefined access
 export interface Template {
   _id: string;
   name: string;
@@ -191,6 +201,121 @@ export interface Template {
   updatedAt?: string;
 }
 
+// Portfolio Settings component
+function PortfolioSettings({
+  portfolio,
+  onUpdate,
+  userPlan,
+}: {
+  portfolio: Portfolio;
+  onUpdate: (key: string, value: any) => void;
+  userPlan: UserPlan;
+}) {
+  const isFreePlan = userPlan.type === "free";
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Portfolio Settings</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="portfolio-title">Portfolio Title</Label>
+          <Input
+            id="portfolio-title"
+            value={portfolio.title || ""}
+            onChange={(e) => onUpdate("title", e.target.value)}
+            placeholder="My Portfolio"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="portfolio-subtitle">Portfolio Subtitle</Label>
+          <Input
+            id="portfolio-subtitle"
+            value={portfolio.subtitle || ""}
+            onChange={(e) => onUpdate("subtitle", e.target.value)}
+            placeholder="Web Developer & Designer"
+          />
+        </div>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="portfolio-subdomain">Portfolio Subdomain</Label>
+            {isFreePlan && (
+              <span className="text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded dark:bg-amber-900 dark:text-amber-200">
+                Free Plan
+              </span>
+            )}
+          </div>
+          <Input
+            id="portfolio-subdomain"
+            value={portfolio.subdomain || ""}
+            onChange={(e) => onUpdate("subdomain", e.target.value)}
+            placeholder="my-portfolio"
+            disabled={isFreePlan}
+          />
+          {isFreePlan && (
+            <p className="text-xs text-amber-600 dark:text-amber-400">
+              Free plan users can only use their username as subdomain. Upgrade to a paid plan to use custom subdomains.
+            </p>
+          )}
+        </div>
+        {userPlan.features.customDomain && (
+          <div className="space-y-2">
+            <Label htmlFor="custom-domain">Custom Domain (Pro feature)</Label>
+            <Input
+              id="custom-domain"
+              value={portfolio.customDomain || ""}
+              onChange={(e) => onUpdate("customDomain", e.target.value)}
+              placeholder="example.com"
+            />
+            <p className="text-xs text-muted-foreground">
+              Enter your domain name without http:// or www. (e.g., example.com)
+            </p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// Section Tab Component
+function SectionTab({
+  section,
+  activeTab,
+  disabled = false,
+}: {
+  section: string;
+  activeTab: string;
+  disabled?: boolean;
+}) {
+  return (
+    <TabsTrigger
+      value={section}
+      onClick={() => setActiveTab(section)}
+      className={`rounded-lg px-3 py-2 capitalize ${
+        activeTab === section ? "bg-primary text-white" : ""
+      }`}
+      disabled={disabled}
+    >
+      {section}
+    </TabsTrigger>
+  );
+}
+
+// Portfolio Settings Tab
+function PortfolioSettingsTab({ activeTab, template }: { activeTab: string; template: Template | null }) {
+  return (
+    <TabsTrigger
+      value="settings"
+      onClick={() => setActiveTab("settings")}
+      className={`rounded-lg px-3 py-2 ${
+        activeTab === "settings" ? "bg-primary text-white" : ""
+      }`}
+    >
+      Portfolio Settings
+    </TabsTrigger>
+  );
+}
+
 export default function TemplateUseEditor() {
   const router = useRouter();
   const params = useParams();
@@ -200,7 +325,9 @@ export default function TemplateUseEditor() {
   const templateId = typeof params.id === "string" ? params.id : "";
 
   // State for search params (query string)
-  const [searchParams, setSearchParams] = useState<URLSearchParams | null>(null);
+  const [searchParams, setSearchParams] = useState<URLSearchParams | null>(
+    null
+  );
 
   // Template and portfolio state
   const [template, setTemplate] = useState<Template | null>(null);
@@ -211,38 +338,98 @@ export default function TemplateUseEditor() {
   const [publishLoading, setPublishLoading] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<string>("about");
 
+  // User plan state
+  const [userPlan, setUserPlan] = useState<UserPlan>({
+    type: "free",
+    isActive: true,
+    features: {
+      customDomain: false,
+      analytics: false,
+      multiplePortfolios: false,
+      removeWatermark: false,
+    },
+  });
+
+  // Fetch user's subscription plan
+  useEffect(() => {
+    if (isAuthenticated) {
+      const fetchUserPlan = async () => {
+        try {
+          const subscription = await apiClient.getUserSubscriptionPlan();
+          setUserPlan(subscription);
+          //console.log("User subscription plan:", subscription);
+        } catch (error) {
+          console.error("Error fetching user subscription plan:", error);
+        }
+      };
+
+      fetchUserPlan();
+    }
+  }, [isAuthenticated]);
+
   // Helper function to generate a unique subdomain
-  const generateUniqueSubdomain = (baseSubdomain: string, templateName?: string): string => {
+  const generateUniqueSubdomain = async (
+    baseSubdomain: string,
+    templateName?: string
+  ): Promise<string> => {
     let subdomain = baseSubdomain;
 
-    // If username is available, use it as base for subdomain
-    if (user?.username) {
-      // Try to make the subdomain unique by adding a template identifier or random string
-      const templateNameSlug = templateName
-        ? templateName.toLowerCase().replace(/[^a-z0-9]/g, "-").replace(/-+/g, "-")
-        : "";
+    try {
+      const subscription = await apiClient.getUserSubscriptionPlan();
+      const isFreePlan = subscription.type === "free";
 
-      // Create a unique subdomain using template name or random string
-      if (templateNameSlug) {
-        subdomain = `${user.username}-${templateNameSlug}`;
+      if (user?.username) {
+        if (isFreePlan) {
+          // Free plan: use username
+          return user.username;
+        }
+        const templateNameSlug = templateName
+          ? templateName
+              .toLowerCase()
+              .replace(/[^a-z0-9]/g, "-")
+              .replace(/-+/g, "-")
+          : "";
+        if (templateNameSlug) {
+          subdomain = `${user.username}-${templateNameSlug}`;
+        } else {
+          const randomStr = Math.random().toString(36).substring(2, 7);
+          subdomain = `${user.username}-${randomStr}`;
+        }
       } else {
-        // Use random characters if template name isn't available
         const randomStr = Math.random().toString(36).substring(2, 7);
-        subdomain = `${user.username}-${randomStr}`;
+        subdomain = `${subdomain || "user"}-${randomStr}`;
       }
-    } else {
-      // If no username, append random string to whatever subdomain we have
-      const randomStr = Math.random().toString(36).substring(2, 7);
-      subdomain = `${subdomain || 'user'}-${randomStr}`;
+    } catch (error) {
+      console.error("Error determining user plan for subdomain generation:", error);
+
+      if (user?.username) {
+        subdomain = user.username;
+      } else {
+        const randomStr = Math.random().toString(36).substring(2, 7);
+        subdomain = `${baseSubdomain || "user"}-${randomStr}`;
+      }
     }
 
     return subdomain;
   };
 
-  // Generate a completely random subdomain as fallback
-  const generateRandomSubdomain = (): string => {
-    const randomStr = Math.random().toString(36).substring(2, 8);
-    return `${user?.username || 'user'}-${randomStr}`;
+  const generateRandomSubdomain = async (): Promise<string> => {
+    try {
+      const subscription = await apiClient.getUserSubscriptionPlan();
+      const isFreePlan = subscription.type === "free";
+      if (isFreePlan && user?.username) {
+        return user.username;
+      }
+      const randomStr = Math.random().toString(36).substring(2, 8);
+      return `${user?.username || "user"}-${randomStr}`;
+    } catch (error) {
+      if (user?.username) {
+        return user.username;
+      } else {
+        const randomStr = Math.random().toString(36).substring(2, 8);
+        return `user-${randomStr}`;
+      }
+    }
   };
 
   // Load search params on mount
@@ -272,14 +459,13 @@ export default function TemplateUseEditor() {
       }
       try {
         setLoading(true);
-        const response = await apiClient.request<{ success: boolean; template: Template }>(
-          `/templates/${templateId}`,
-          "GET"
-        );
+        const response = await apiClient.request<{
+          success: boolean;
+          template: Template;
+        }>(`/templates/${templateId}`, "GET");
 
         if (response.success && response.template) {
           const t = response.template;
-          // Ensure the template has sections property
           if (!t.sections) {
             t.sections = [
               "header",
@@ -293,7 +479,6 @@ export default function TemplateUseEditor() {
           }
           setTemplate(t);
         } else {
-          // Use fallback templates if API fails
           const fallbackTemplate =
             fallbackTemplates.find((t) => t._id === templateId) ||
             fallbackTemplates.find((t) => t.id === templateId);
@@ -305,15 +490,16 @@ export default function TemplateUseEditor() {
               category: fallbackTemplate.category,
               previewImage: fallbackTemplate.previewImage,
               defaultStructure: fallbackTemplate.settings || {},
-              sections: fallbackTemplate.sections || [
-                "header",
-                "about",
-                "projects",
-                "skills",
-                "experience",
-                "education",
-                "contact",
-              ],
+              sections:
+                fallbackTemplate.sections || [
+                  "header",
+                  "about",
+                  "projects",
+                  "skills",
+                  "experience",
+                  "education",
+                  "contact",
+                ],
               isPublished: true,
             });
           } else {
@@ -322,7 +508,6 @@ export default function TemplateUseEditor() {
           }
         }
       } catch (error) {
-        // Try fallback templates
         const fallbackTemplate =
           fallbackTemplates.find((t) => t._id === templateId) ||
           fallbackTemplates.find((t) => t.id === templateId);
@@ -334,15 +519,16 @@ export default function TemplateUseEditor() {
             category: fallbackTemplate.category,
             previewImage: fallbackTemplate.previewImage,
             defaultStructure: fallbackTemplate.settings || {},
-            sections: fallbackTemplate.sections || [
-              "header",
-              "about",
-              "projects",
-              "skills",
-              "experience",
-              "education",
-              "contact",
-            ],
+            sections:
+              fallbackTemplate.sections || [
+                "header",
+                "about",
+                "projects",
+                "skills",
+                "experience",
+                "education",
+                "contact",
+              ],
             isPublished: true,
           });
         } else {
@@ -357,8 +543,7 @@ export default function TemplateUseEditor() {
     if (templateId) {
       fetchTemplate();
     }
-    // eslint-disable-next-line
-  }, [templateId]);
+  }, [templateId, router]);
 
   // Load portfolio data by ID if we have it, or look for portfolio by template ID
   useEffect(() => {
@@ -368,12 +553,11 @@ export default function TemplateUseEditor() {
       try {
         setLoading(true);
 
-        // If we have a portfolioId (from query param), fetch that specific portfolio
         if (portfolioId) {
-          const response = await apiClient.request<{ success: boolean; portfolio: any }>(
-            `/portfolios/${portfolioId}`,
-            "GET"
-          );
+          const response = await apiClient.request<{
+            success: boolean;
+            portfolio: any;
+          }>(`/portfolios/${portfolioId}`, "GET");
 
           if (response.success && response.portfolio) {
             setPortfolio(convertApiPortfolio(response.portfolio, template));
@@ -381,14 +565,12 @@ export default function TemplateUseEditor() {
           }
         }
 
-        // If no portfolioId or portfolio not found, check if user has a portfolio with this template
-        const portfoliosResponse = await apiClient.request<{ success: boolean; portfolios: any[] }>(
-          "/portfolios",
-          "GET"
-        );
+        const portfoliosResponse = await apiClient.request<{
+          success: boolean;
+          portfolios: any[];
+        }>("/portfolios", "GET");
 
         if (portfoliosResponse.success && portfoliosResponse.portfolios) {
-          // Find portfolio with this template
           const existingPortfolio = portfoliosResponse.portfolios.find(
             (p: any) =>
               p.templateId &&
@@ -404,7 +586,6 @@ export default function TemplateUseEditor() {
           }
         }
 
-        // Create a new portfolio with template defaults
         setPortfolio(initializePortfolio(template));
       } catch (error) {
         setPortfolio(initializePortfolio(template));
@@ -416,49 +597,51 @@ export default function TemplateUseEditor() {
     if (user && !isLoading && templateId && template) {
       fetchPortfolio();
     }
-    // eslint-disable-next-line
   }, [user, isLoading, templateId, template, portfolioId]);
 
-  // Helper: Convert API portfolio to local Portfolio type
   function convertApiPortfolio(apiPortfolio: any, template: Template): Portfolio {
-    // Defensive: If already a Portfolio type, just return
     if (apiPortfolio.sectionContent && apiPortfolio.settings) {
       return apiPortfolio;
     }
-    // The content may be in apiPortfolio.content
     const content = apiPortfolio.content || {};
     return {
       id: apiPortfolio._id,
-      templateId: typeof apiPortfolio.templateId === "object" ? apiPortfolio.templateId._id : apiPortfolio.templateId,
+      templateId:
+        typeof apiPortfolio.templateId === "object"
+          ? apiPortfolio.templateId._id
+          : apiPortfolio.templateId,
       title: apiPortfolio.title || "My Portfolio",
       subtitle: apiPortfolio.subtitle || "",
       subdomain: apiPortfolio.subdomain || "",
+      customDomain: apiPortfolio.customDomain || "",
       isPublished: apiPortfolio.isPublished || false,
-      settings: content.settings || {
-        colors: {
-          primary: "#6366f1",
-          secondary: "#8b5cf6",
-          background: "#ffffff",
-          text: "#111827",
+      settings:
+        content.settings || {
+          colors: {
+            primary: "#6366f1",
+            secondary: "#8b5cf6",
+            background: "#ffffff",
+            text: "#111827",
+          },
+          fonts: {
+            heading: "Inter",
+            body: "Inter",
+          },
+          layout: {
+            sections:
+              template.sections || [
+                "header",
+                "about",
+                "projects",
+                "skills",
+                "experience",
+                "education",
+                "contact",
+              ],
+            showHeader: true,
+            showFooter: true,
+          },
         },
-        fonts: {
-          heading: "Inter",
-          body: "Inter",
-        },
-        layout: {
-          sections: template.sections || [
-            "header",
-            "about",
-            "projects",
-            "skills",
-            "experience",
-            "education",
-            "contact",
-          ],
-          showHeader: true,
-          showFooter: true,
-        },
-      },
       sectionContent: {
         header: content.header || {
           title: "",
@@ -507,7 +690,6 @@ export default function TemplateUseEditor() {
     };
   }
 
-  // Helper: Initialize a new portfolio from template
   function initializePortfolio(templateData: Template): Portfolio {
     const sections =
       templateData.defaultStructure?.layout?.sections ||
@@ -534,6 +716,7 @@ export default function TemplateUseEditor() {
       title: "My Portfolio",
       subtitle: user?.profile?.title || "Web Developer",
       subdomain: user?.username || "",
+      customDomain: "",
       isPublished: false,
       settings: {
         colors: {
@@ -618,8 +801,8 @@ export default function TemplateUseEditor() {
     }
   }, [isAuthenticated, isLoading, router]);
 
-  // Handle text input changes
-  const handleInputChange = (field: string, value: string) => {
+  // Handle portfolio settings change
+  const handlePortfolioChange = (field: string, value: any) => {
     if (!portfolio) return;
     setPortfolio((prev) => {
       if (!prev) return prev;
@@ -668,36 +851,29 @@ export default function TemplateUseEditor() {
       };
     });
 
-    // If portfolio already exists, update section content immediately
     if (portfolioId) {
       updateSectionContent(section, content);
     }
   };
 
-  // Update a specific section content
   const updateSectionContent = async (section: string, content: any) => {
     if (!portfolioId || !user) return;
 
     try {
-      // Deep clone the content to avoid reference issues with nested arrays
       const safeContent = JSON.parse(JSON.stringify(content));
-
-      // Create a proper content update structure that matches what the backend expects
       const contentUpdate = {
         content: {
           [section]: safeContent,
         },
       };
 
-      // Make direct API request to update only this section
       const response = await apiClient.request(
         `/portfolios/${portfolioId}`,
         "PUT",
         contentUpdate
       );
 
-      if (response.success) {
-      } else {
+      if (!response.success) {
         console.error(`Failed to update ${section} section:`, response);
         toast.error(`Failed to update ${section} section`);
       }
@@ -733,7 +909,7 @@ export default function TemplateUseEditor() {
     }
   };
 
-  // Save portfolio as draft - updated to use the helper function
+  // Save portfolio as draft
   const saveAsDraft = async (): Promise<void> => {
     if (!isAuthenticated || !user || !portfolio) {
       toast.error("Please sign in to save your portfolio");
@@ -741,18 +917,13 @@ export default function TemplateUseEditor() {
     }
 
     try {
-      // Track template usage - use the new method which handles errors
       if (!portfolioId && template?._id) {
         await apiClient.incrementTemplateUsage(template._id);
       }
 
-      // Prepare content data structure to ensure all sections are saved
-      // Deep clone to avoid reference issues with nested arrays
       const contentData = JSON.parse(
         JSON.stringify({
-          // Include settings
           settings: portfolio.settings,
-          // Include all section content
           ...portfolio.sectionContent,
         })
       );
@@ -760,7 +931,6 @@ export default function TemplateUseEditor() {
       let savedPortfolio;
 
       if (portfolioId) {
-        // Update existing portfolio with proper structure
         savedPortfolio = await apiClient.request(
           `/portfolios/${portfolioId}`,
           "PUT",
@@ -768,12 +938,12 @@ export default function TemplateUseEditor() {
             title: portfolio.title,
             subtitle: portfolio.subtitle,
             subdomain: portfolio.subdomain,
+            customDomain: portfolio.customDomain,
             isPublished: false,
             content: contentData,
           }
         );
 
-        // Update local portfolioId in case it's changed
         if (
           savedPortfolio &&
           savedPortfolio.portfolio &&
@@ -784,15 +954,17 @@ export default function TemplateUseEditor() {
 
         toast.success("Portfolio draft updated successfully");
       } else {
-        // Create new portfolio with proper structure
         try {
-          // Generate a unique subdomain for this new template
-          const subdomain = generateUniqueSubdomain(portfolio.subdomain, template?.name);
+          const subdomain = await generateUniqueSubdomain(
+            portfolio.subdomain,
+            template?.name
+          );
 
           savedPortfolio = await apiClient.createPortfolio({
             title: portfolio.title,
             subtitle: portfolio.subtitle,
             subdomain: subdomain,
+            customDomain: portfolio.customDomain,
             templateId: portfolio.templateId,
             content: contentData,
           });
@@ -800,34 +972,35 @@ export default function TemplateUseEditor() {
           if (savedPortfolio && savedPortfolio._id) {
             setPortfolioId(savedPortfolio._id);
 
-            // Update the local portfolio state with the new subdomain
-            setPortfolio(prev => {
+            setPortfolio((prev) => {
               if (!prev) return prev;
               return {
                 ...prev,
-                subdomain: savedPortfolio.subdomain || subdomain
+                subdomain: savedPortfolio.subdomain || subdomain,
               };
             });
 
             toast.success("Portfolio draft created successfully");
           }
         } catch (portfolioError: any) {
-          const errorMessage = portfolioError.message || "Failed to create portfolio";
+          const errorMessage =
+            portfolioError.message || "Failed to create portfolio";
           toast.error(errorMessage);
 
           if (errorMessage.includes("subdomain is already taken")) {
             toast.error("Please choose a different subdomain and try again");
-          } else if (errorMessage.includes("Cannot change a portfolio's template")) {
+          } else if (
+            errorMessage.includes("Cannot change a portfolio's template")
+          ) {
             toast.error("Creating a new portfolio with a unique subdomain...");
-
-            // Try again with a completely random subdomain
             try {
-              const uniqueSubdomain = generateRandomSubdomain();
+              const uniqueSubdomain = await generateRandomSubdomain();
 
               savedPortfolio = await apiClient.createPortfolio({
                 title: portfolio.title,
                 subtitle: portfolio.subtitle,
                 subdomain: uniqueSubdomain,
+                customDomain: portfolio.customDomain,
                 templateId: portfolio.templateId,
                 content: contentData,
               });
@@ -835,12 +1008,11 @@ export default function TemplateUseEditor() {
               if (savedPortfolio && savedPortfolio._id) {
                 setPortfolioId(savedPortfolio._id);
 
-                // Update the local portfolio state with the new subdomain
-                setPortfolio(prev => {
+                setPortfolio((prev) => {
                   if (!prev) return prev;
                   return {
                     ...prev,
-                    subdomain: savedPortfolio.subdomain || uniqueSubdomain
+                    subdomain: savedPortfolio.subdomain || uniqueSubdomain,
                   };
                 });
 
@@ -849,7 +1021,9 @@ export default function TemplateUseEditor() {
               }
             } catch (retryError) {
               console.error("Error in retry attempt:", retryError);
-              toast.error("Still unable to create portfolio. Please try again later.");
+              toast.error(
+                "Still unable to create portfolio. Please try again later."
+              );
             }
           }
 
@@ -865,32 +1039,26 @@ export default function TemplateUseEditor() {
     }
   };
 
-  // Publish portfolio - updated to use the helper function
+  // Publish portfolio
   const publishPortfolio = async (): Promise<void> => {
     if (!isAuthenticated || !user || !portfolio) {
       toast.error("Please sign in to publish your portfolio");
       throw new Error("Authentication required");
     }
 
-    // Validate subdomain
     if (!portfolio.subdomain) {
       toast.error("Subdomain is required");
       throw new Error("Subdomain is required");
     }
 
     try {
-      // Track template usage if this is a new portfolio - use the new method
       if (!portfolioId && template?._id) {
         await apiClient.incrementTemplateUsage(template._id);
       }
 
-      // Prepare content data structure to ensure all sections are saved
-      // Deep clone to avoid reference issues with nested arrays
       const contentData = JSON.parse(
         JSON.stringify({
-          // Include settings
           settings: portfolio.settings,
-          // Include all section content
           ...portfolio.sectionContent,
         })
       );
@@ -898,7 +1066,6 @@ export default function TemplateUseEditor() {
       let savedPortfolio;
 
       if (portfolioId) {
-        // Update existing portfolio with proper structure
         savedPortfolio = await apiClient.request(
           `/portfolios/${portfolioId}`,
           "PUT",
@@ -906,6 +1073,7 @@ export default function TemplateUseEditor() {
             title: portfolio.title,
             subtitle: portfolio.subtitle,
             subdomain: portfolio.subdomain,
+            customDomain: portfolio.customDomain,
             isPublished: true,
             content: contentData,
           }
@@ -913,15 +1081,17 @@ export default function TemplateUseEditor() {
 
         toast.success("Portfolio published successfully");
       } else {
-        // Create new portfolio with proper structure
         try {
-          // Generate a unique subdomain for this new template
-          const subdomain = generateUniqueSubdomain(portfolio.subdomain, template?.name);
+          const subdomain = await generateUniqueSubdomain(
+            portfolio.subdomain,
+            template?.name
+          );
 
           savedPortfolio = await apiClient.createPortfolio({
             title: portfolio.title,
             subtitle: portfolio.subtitle,
             subdomain: subdomain,
+            customDomain: portfolio.customDomain,
             templateId: portfolio.templateId,
             content: contentData,
             isPublished: true,
@@ -930,34 +1100,36 @@ export default function TemplateUseEditor() {
           if (savedPortfolio && savedPortfolio._id) {
             setPortfolioId(savedPortfolio._id);
 
-            // Update the local portfolio state with the new subdomain
-            setPortfolio(prev => {
+            setPortfolio((prev) => {
               if (!prev) return prev;
               return {
                 ...prev,
-                subdomain: savedPortfolio.subdomain || subdomain
+                subdomain: savedPortfolio.subdomain || subdomain,
               };
             });
 
             toast.success("Portfolio created and published successfully");
           }
         } catch (portfolioError: any) {
-          const errorMessage = portfolioError.message || "Failed to create portfolio";
+          const errorMessage =
+            portfolioError.message || "Failed to create portfolio";
           toast.error(errorMessage);
 
           if (errorMessage.includes("subdomain is already taken")) {
             toast.error("Please choose a different subdomain and try again");
-          } else if (errorMessage.includes("Cannot change a portfolio's template")) {
+          } else if (
+            errorMessage.includes("Cannot change a portfolio's template")
+          ) {
             toast.error("Creating a new portfolio with a unique subdomain...");
 
-            // Try again with a completely random subdomain
             try {
-              const uniqueSubdomain = generateRandomSubdomain();
+              const uniqueSubdomain = await generateRandomSubdomain();
 
               savedPortfolio = await apiClient.createPortfolio({
                 title: portfolio.title,
                 subtitle: portfolio.subtitle,
                 subdomain: uniqueSubdomain,
+                customDomain: portfolio.customDomain,
                 templateId: portfolio.templateId,
                 content: contentData,
                 isPublished: true,
@@ -966,21 +1138,24 @@ export default function TemplateUseEditor() {
               if (savedPortfolio && savedPortfolio._id) {
                 setPortfolioId(savedPortfolio._id);
 
-                // Update the local portfolio state with the new subdomain
-                setPortfolio(prev => {
+                setPortfolio((prev) => {
                   if (!prev) return prev;
                   return {
                     ...prev,
-                    subdomain: savedPortfolio.subdomain || uniqueSubdomain
+                    subdomain: savedPortfolio.subdomain || uniqueSubdomain,
                   };
                 });
 
-                toast.success("Portfolio created and published with a unique subdomain");
+                toast.success(
+                  "Portfolio created and published with a unique subdomain"
+                );
                 return Promise.resolve();
               }
             } catch (retryError) {
               console.error("Error in retry attempt:", retryError);
-              toast.error("Still unable to create portfolio. Please try again later.");
+              toast.error(
+                "Still unable to create portfolio. Please try again later."
+              );
             }
           }
 
@@ -990,9 +1165,15 @@ export default function TemplateUseEditor() {
 
       return Promise.resolve();
     } catch (error: any) {
-      // Check if the error is related to custom domains and show a toast
-      if (error.message && error.message.includes("Custom domains are only available in paid plans")) {
-        toast.error("Custom domains are only available in paid plans, which are not currently available. Your portfolio will be published with the default subdomain.");
+      if (
+        error.message &&
+        error.message.includes(
+          "Custom domains are only available in paid plans"
+        )
+      ) {
+        toast.error(
+          "Custom domains are only available in paid plans, which are not currently available. Your portfolio will be published with the default subdomain."
+        );
       } else {
         console.error("Error publishing portfolio:", error);
         toast.error("Failed to publish portfolio. Please try again.");
@@ -1001,63 +1182,13 @@ export default function TemplateUseEditor() {
     }
   };
 
-  // Save and publish portfolio - updated to handle custom domain errors
-  const saveAndPublish = async (): Promise<void> => {
-    try {
-      // Save as draft first
-      await saveAsDraft();
-
-      // Now attempt to publish
-      if (!portfolio || !portfolioId) {
-        toast.error("Portfolio must be saved before publishing");
-        return;
-      }
-
-      setLoading(true);
-      const response = await apiClient.request(
-        `/portfolios/${portfolioId}`,
-        "PUT",
-        {
-          isPublished: true,
-        }
-      );
-
-      if (response.success) {
-        toast.success("Portfolio published successfully!");
-
-        // Update portfolio state
-        setPortfolio((prev) => {
-          if (!prev) return prev;
-          return {
-            ...prev,
-            isPublished: true,
-          };
-        });
-      } else {
-        toast.error(
-          response.message || "Failed to publish portfolio"
-        );
-      }
-    } catch (error: any) {
-      // Check if the error is related to custom domains
-      if (error.message && error.message.includes("Custom domains are only available in paid plans")) {
-        toast.error("Custom domains are only available in paid plans, which are not currently available. Your portfolio will be published with the default subdomain.");
-      } else {
-        toast.error(error.message || "Failed to publish portfolio");
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Preview the portfolio - updated to work with PreviewButton
+  // Preview the portfolio
   const previewPortfolio = async (): Promise<string | null> => {
     if (!portfolio?.subdomain) {
       toast.error("Please set a subdomain for your portfolio");
       return null;
     }
 
-    // If it's not saved yet, we need to save it first
     if (!portfolioId) {
       try {
         await saveAsDraft();
@@ -1068,31 +1199,18 @@ export default function TemplateUseEditor() {
       }
     }
 
-    // Return the preview URL using the portfolio ID instead of subdomain
     return `/portfolio/preview/${portfolioId}`;
   };
 
-  // Debug useEffect to log portfolio state on change
   useEffect(() => {
     if (portfolio) {
-      console.log("Portfolio state updated:", {
-        id: portfolio.id || "New Portfolio",
-        title: portfolio.title,
-        templateId: portfolio.templateId,
-        sectionCount: Object.keys(portfolio.sectionContent).length,
-        sections: Object.keys(portfolio.sectionContent),
-      });
+      //console.log("Portfolio state updated:", portfolio);
     }
   }, [portfolio]);
 
-  // Debug useEffect to log template state on change
   useEffect(() => {
     if (template) {
-      console.log("Template state updated:", {
-        id: template._id,
-        name: template.name,
-        sections: template.sections,
-      });
+      //console.log("Template state updated:", template);
     }
   }, [template]);
 
@@ -1174,9 +1292,9 @@ export default function TemplateUseEditor() {
                 strokeLinejoin="round"
                 className="h-5 w-5 mr-2"
               >
-                <circle cx="12" cy="12" r="10"/>
-                <path d="M12 16v-4"/>
-                <path d="M12 8h.01"/>
+                <circle cx="12" cy="12" r="10" />
+                <path d="M12 16v-4" />
+                <path d="M12 8h.01" />
               </svg>
               <span>
                 <strong>Note:</strong> You can create multiple portfolios using the same template with different content and styling. Only one portfolio can be published at a time. Publishing a new portfolio will automatically unpublish any previously published portfolio.
@@ -1233,563 +1351,253 @@ export default function TemplateUseEditor() {
           </div>
 
           {/* Main Editor */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Sidebar */}
-            <div className="lg:col-span-1">
-              <Card className="sticky top-8 shadow-md">
-                <CardHeader>
-                  <CardTitle>Portfolio Settings</CardTitle>
-                  <CardDescription>
-                    Configure your portfolio settings
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <label htmlFor="title" className="text-sm font-medium">
-                        Portfolio Title
-                      </label>
-                      <Input
-                        id="title"
-                        placeholder="My Portfolio"
-                        value={portfolio.title}
-                        onChange={(e) =>
-                          handleInputChange("title", e.target.value)
-                        }
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <label htmlFor="subtitle" className="text-sm font-medium">
-                        Subtitle
-                      </label>
-                      <Input
-                        id="subtitle"
-                        placeholder="Full Stack Developer"
-                        value={portfolio.subtitle || ""}
-                        onChange={(e) =>
-                          handleInputChange("subtitle", e.target.value)
-                        }
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <label
-                        htmlFor="subdomain"
-                        className="text-sm font-medium"
-                      >
-                        Subdomain
-                      </label>
-                      <div className="relative">
-                        <Input
-                          id="subdomain"
-                          placeholder="johndoe"
-                          value={portfolio.subdomain}
-                          onChange={(e) =>
-                            handleInputChange(
-                              "subdomain",
-                              e.target.value
-                                .toLowerCase()
-                                .replace(/[^a-z0-9-]/g, "")
-                            )
-                          }
-                          className={
-                            !portfolio.subdomain
-                              ? "border-orange-300 focus:ring-orange-500"
-                              : ""
-                          }
-                        />
-                        <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none text-sm text-muted-foreground">
-                          .portfoliohub.com
-                        </div>
-                      </div>
-                      {!portfolio.subdomain && (
-                        <p className="text-xs text-orange-500 mt-1">
-                          A subdomain is required to publish your portfolio
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="space-y-2 border-t pt-4">
-                      <span className="text-sm font-medium">Fetch Profile Data</span>
-                      <FetchProfileButton
-                        onFetch={(profileData) => {
-                          if (!portfolio) return;
-
-                          // Create a deep copy of the current portfolio to avoid reference issues
-                          const updatedPortfolio = JSON.parse(JSON.stringify(portfolio));
-
-                          // Update sections with profile data
-                          if (profileData.about) {
-                            updatedPortfolio.sectionContent.about = profileData.about;
-                          }
-
-                          if (profileData.skills) {
-                            updatedPortfolio.sectionContent.skills = profileData.skills;
-                          }
-
-                          if (profileData.experience) {
-                            updatedPortfolio.sectionContent.experience = profileData.experience;
-                          }
-
-                          if (profileData.education) {
-                            updatedPortfolio.sectionContent.education = profileData.education;
-                          }
-
-                          if (profileData.projects) {
-                            updatedPortfolio.sectionContent.projects = profileData.projects;
-                          }
-
-                          setPortfolio(updatedPortfolio);
-
-                          // If portfolio already exists, update content for each section
-                          if (portfolioId) {
-                            Object.keys(profileData).forEach(section => {
-                              if (profileData[section]) {
-                                updateSectionContent(section, profileData[section]);
-                              }
-                            });
-                          }
-
-                          toast.success("Profile data imported successfully to your template.");
-                        }}
-                        section="all"
-                        variant="default"
-                        disabled={loading}
-                      />
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Import all your profile data at once to quickly populate your portfolio.
-                      </p>
-                    </div>
-
-                    <div className="space-y-2 pt-4 border-t">
-                      <span className="text-sm font-medium">Colors</span>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <label htmlFor="primaryColor" className="text-xs">
-                            Primary
-                          </label>
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="color"
-                              id="primaryColor"
-                              value={
-                                portfolio.settings.colors?.primary || "#6366f1"
-                              }
-                              onChange={(e) =>
-                                handleSettingsChange(
-                                  "colors",
-                                  "primary",
-                                  e.target.value
-                                )
-                              }
-                              className="w-8 h-8 rounded cursor-pointer"
-                            />
-                            <Input
-                              value={
-                                portfolio.settings.colors?.primary || "#6366f1"
-                              }
-                              onChange={(e) =>
-                                handleSettingsChange(
-                                  "colors",
-                                  "primary",
-                                  e.target.value
-                                )
-                              }
-                              className="h-8 font-mono text-sm"
-                            />
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                          <label htmlFor="secondaryColor" className="text-xs">
-                            Secondary
-                          </label>
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="color"
-                              id="secondaryColor"
-                              value={
-                                portfolio.settings.colors?.secondary ||
-                                "#8b5cf6"
-                              }
-                              onChange={(e) =>
-                                handleSettingsChange(
-                                  "colors",
-                                  "secondary",
-                                  e.target.value
-                                )
-                              }
-                              className="w-8 h-8 rounded cursor-pointer"
-                            />
-                            <Input
-                              value={
-                                portfolio.settings.colors?.secondary ||
-                                "#8b5cf6"
-                              }
-                              onChange={(e) =>
-                                handleSettingsChange(
-                                  "colors",
-                                  "secondary",
-                                  e.target.value
-                                )
-                              }
-                              className="h-8 font-mono text-sm"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2 pt-4 border-t">
-                      <span className="text-sm font-medium">
-                        Template Sections
-                      </span>
-                      <div className="grid grid-cols-1 gap-2">
-                        {template.sections &&
-                          template.sections.map((section) => (
-                            <div
-                              key={section}
-                              className={`flex items-center justify-between py-2 px-3 rounded-lg ${
-                                template.defaultStructure?.config?.requiredSections?.includes(
-                                  section
-                                )
-                                  ? "bg-violet-50 border border-violet-100"
-                                  : "bg-muted/50"
-                              }`}
-                            >
-                              <div>
-                                <span className="capitalize">{section}</span>
-                                {template.defaultStructure?.config?.requiredSections?.includes(
-                                  section
-                                ) && (
-                                  <span className="ml-2 text-xs px-1.5 py-0.5 rounded bg-violet-100 text-violet-800">
-                                    Required
-                                  </span>
-                                )}
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <Switch
-                                  id={`section-${section}`}
-                                  checked={
-                                    portfolio.settings.layout?.sections?.includes(
-                                      section
-                                    ) || false
-                                  }
-                                  onCheckedChange={(checked) => {
-                                    // Don't allow unchecking required sections
-                                    if (
-                                      !checked &&
-                                      template.defaultStructure?.config?.requiredSections?.includes(
-                                        section
-                                      )
-                                    ) {
-                                      toast.error(
-                                        `The ${section} section is required for this template`
-                                      );
-                                      return;
-                                    }
-
-                                    const currentSections =
-                                      portfolio.settings.layout?.sections || [];
-                                    const newSections = checked
-                                      ? [...currentSections, section]
-                                      : currentSections.filter(
-                                          (s) => s !== section
-                                        );
-
-                                    handleSettingsChange(
-                                      "layout",
-                                      "sections",
-                                      newSections
-                                    );
-
-                                    // If newly enabled, set that section as active
-                                    if (checked) {
-                                      setActiveTab(section);
-                                    }
-                                  }}
-                                  disabled={template.defaultStructure?.config?.requiredSections?.includes(
-                                    section
-                                  )}
-                                />
-                              </div>
-                            </div>
-                          ))}
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Main Editor Area */}
-            <div className="lg:col-span-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Content Editor</CardTitle>
-                  <CardDescription>
-                    Edit your portfolio content section by section
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Tabs
-                    defaultValue="about"
-                    value={activeTab}
-                    onValueChange={setActiveTab}
-                    className="space-y-4"
-                  >
-                    <TabsList className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7">
-                      {portfolio.settings.layout?.sections?.map((section) => (
-                        <TabsTrigger
-                          key={section}
-                          value={section}
-                          className="capitalize"
-                        >
-                          {section}
-                        </TabsTrigger>
-                      ))}
-                    </TabsList>
-
-                    {/* About Section */}
-                    <TabsContent value="about" className="space-y-4">
-                      <AboutEditor
-                        content={
-                          portfolio.sectionContent.about || {
-                            title: "About Me",
-                            bio: "",
-                            profileImage: "",
-                          }
-                        }
-                        onSave={(content) =>
-                          handleSectionContentChange("about", content)
-                        }
-                        isLoading={loading}
-                        onImageUpload={handleProfileImageUpload}
-                      />
-                    </TabsContent>
-
-                    {/* Header Section */}
-                    {portfolio.settings.layout?.sections?.includes(
-                      "header"
-                    ) && (
-                      <TabsContent value="header" className="space-y-4">
-                        <HeaderEditor
-                          content={
-                            portfolio.sectionContent.header || {
-                              title: "",
-                              subtitle: "",
-                              showNavigation: true,
-                              navItems: [
-                                { label: "Home", link: "#home" },
-                                { label: "About", link: "#about" },
-                                { label: "Projects", link: "#projects" },
-                                { label: "Contact", link: "#contact" },
-                              ],
-                              style: "default",
-                              logoUrl: "",
-                            }
-                          }
-                          onSave={(content) =>
-                            handleSectionContentChange("header", content)
-                          }
-                          isLoading={loading}
-                        />
-                      </TabsContent>
-                    )}
-
-                    {/* Projects Section */}
-                    <TabsContent value="projects" className="space-y-4">
-                      <ProjectsEditor
-                        content={
-                          portfolio.sectionContent.projects || { items: [] }
-                        }
-                        onSave={(content) =>
-                          handleSectionContentChange("projects", content)
-                        }
-                        isLoading={loading}
-                      />
-                    </TabsContent>
-
-                    {/* Skills Section */}
-                    <TabsContent value="skills" className="space-y-4">
-                      <SkillsEditor
-                        content={
-                          portfolio.sectionContent.skills || { categories: [] }
-                        }
-                        onSave={(content) =>
-                          handleSectionContentChange("skills", content)
-                        }
-                        isLoading={loading}
-                      />
-                    </TabsContent>
-
-                    {/* Experience Section */}
-                    {portfolio.settings.layout?.sections?.includes(
-                      "experience"
-                    ) && (
-                      <TabsContent value="experience" className="space-y-4">
-                        <ExperienceEditor
-                          content={
-                            portfolio.sectionContent.experience || { items: [] }
-                          }
-                          onSave={(content) =>
-                            handleSectionContentChange("experience", content)
-                          }
-                          isLoading={loading}
-                        />
-                      </TabsContent>
-                    )}
-
-                    {/* Education Section */}
-                    {portfolio.settings.layout?.sections?.includes(
-                      "education"
-                    ) && (
-                      <TabsContent value="education" className="space-y-4">
-                        <EducationEditor
-                          content={
-                            portfolio.sectionContent.education || { items: [] }
-                          }
-                          onSave={(content) =>
-                            handleSectionContentChange("education", content)
-                          }
-                          isLoading={loading}
-                        />
-                      </TabsContent>
-                    )}
-
-                    {/* Gallery Section */}
-                    {portfolio.settings.layout?.sections?.includes(
-                      "gallery"
-                    ) && (
-                      <TabsContent value="gallery" className="space-y-4">
-                        <GalleryEditor
-                          content={
-                            portfolio.sectionContent.gallery || { items: [] }
-                          }
-                          onSave={(content) =>
-                            handleSectionContentChange("gallery", content)
-                          }
-                          isLoading={loading}
-                        />
-                      </TabsContent>
-                    )}
-
-                    {/* Contact Section */}
-                    {portfolio.settings.layout?.sections?.includes(
-                      "contact"
-                    ) && (
-                      <TabsContent value="contact" className="space-y-4">
-                        <ContactEditor
-                          content={portfolio.sectionContent.contact || {}}
-                          onSave={(content) =>
-                            handleSectionContentChange("contact", content)
-                          }
-                          isLoading={loading}
-                        />
-                      </TabsContent>
-                    )}
-
-                    {/* Custom CSS Section */}
-                    {portfolio.settings.layout?.sections?.includes(
-                      "customCSS"
-                    ) && (
-                      <TabsContent value="customCSS" className="space-y-4">
-                        <CustomCSSEditor
-                          content={
-                            portfolio.sectionContent.customCSS || { styles: "" }
-                          }
-                          onSave={(content) =>
-                            handleSectionContentChange("customCSS", content)
-                          }
-                          isLoading={loading}
-                        />
-                      </TabsContent>
-                    )}
-
-                    {/* SEO Settings Section */}
-                    {portfolio.settings.layout?.sections?.includes("seo") && (
-                      <TabsContent value="seo" className="space-y-4">
-                        <SEOEditor
-                          content={
-                            portfolio.sectionContent.seo || {
-                              metaTitle: "",
-                              metaDescription: "",
-                              keywords: "",
-                            }
-                          }
-                          onSave={(content) =>
-                            handleSectionContentChange("seo", content)
-                          }
-                          isLoading={loading}
-                        />
-                      </TabsContent>
-                    )}
-
-                    {/* Other template-specific sections */}
-                    {portfolio.settings.layout?.sections
-                      ?.filter(
-                        (s) =>
-                          ![
-                            "about",
-                            "projects",
-                            "skills",
-                            "gallery",
-                            "contact",
-                            "experience",
-                            "education",
-                            "customCSS",
-                            "seo",
-                            "header",
-                          ].includes(s)
-                      )
-                      .map((section) => (
-                        <TabsContent
-                          key={section}
-                          value={section}
-                          className="h-96 flex items-center justify-center border rounded-md"
-                        >
-                          <div className="text-center">
-                            <h3 className="text-lg font-medium capitalize mb-2">
-                              {section} Section
-                            </h3>
-                            <p className="text-muted-foreground">
-                              This section editor is coming soon. Edit your{" "}
-                              {section} content here.
-                            </p>
-                          </div>
-                        </TabsContent>
-                      ))}
-                  </Tabs>
-                </CardContent>
-                <CardFooter className="flex justify-between border-t pt-6">
-                  <SaveDraftButton onSave={saveAsDraft} variant="outline" />
-                  <div className="flex flex-col items-end gap-2">
-                    <div className="text-xs text-muted-foreground max-w-[300px] text-right">
-                      <span className="font-semibold">Note:</span> Publishing this portfolio will automatically unpublish any other published portfolio.
-                    </div>
-                    <PublishButton
-                      onPublish={publishPortfolio}
-                      requireValidation={true}
-                      validationChecks={[
-                        {
-                          condition: Boolean(portfolio?.subdomain),
-                          message:
-                            "Subdomain is required to publish your portfolio",
-                        },
-                        {
-                          condition: Boolean(portfolio?.title),
-                          message: "Portfolio title is required",
-                        },
-                      ]}
-                      successRedirectUrl={
-                        portfolio
-                          ? `/portfolio/${portfolio.subdomain}`
-                          : undefined
-                      }
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <div className="lg:col-span-9">
+              <Tabs value={activeTab} onValueChange={setActiveTab}>
+                <TabsList className="mb-4 flex flex-wrap">
+                  <PortfolioSettingsTab
+                    activeTab={activeTab}
+                    template={template}
+                  />
+                  {template?.sections?.map((section) => (
+                    <SectionTab
+                      key={section}
+                      section={section}
+                      activeTab={activeTab}
+                      disabled={!portfolio?.settings?.layout?.sections?.includes(section)}
                     />
-                  </div>
-                </CardFooter>
-              </Card>
+                  ))}
+                </TabsList>
+
+                <div className="rounded-lg border bg-card p-6">
+                  <TabsContent value="settings">
+                    <PortfolioSettings
+                      portfolio={portfolio}
+                      onUpdate={handlePortfolioChange}
+                      userPlan={userPlan}
+                    />
+                  </TabsContent>
+
+                  {/* About Section */}
+                  <TabsContent value="about" className="space-y-4">
+                    <AboutEditor
+                      content={
+                        portfolio.sectionContent.about || {
+                          title: "About Me",
+                          bio: "",
+                          profileImage: "",
+                        }
+                      }
+                      onSave={(content) =>
+                        handleSectionContentChange("about", content)
+                      }
+                      isLoading={loading}
+                      onImageUpload={handleProfileImageUpload}
+                    />
+                  </TabsContent>
+
+                  {/* Header Section */}
+                  {portfolio.settings.layout?.sections?.includes(
+                    "header"
+                  ) && (
+                    <TabsContent value="header" className="space-y-4">
+                      <HeaderEditor
+                        content={
+                          portfolio.sectionContent.header || {
+                            title: "",
+                            subtitle: "",
+                            showNavigation: true,
+                            navItems: [
+                              { label: "Home", link: "#home" },
+                              { label: "About", link: "#about" },
+                              { label: "Projects", link: "#projects" },
+                              { label: "Contact", link: "#contact" },
+                            ],
+                            style: "default",
+                            logoUrl: "",
+                          }
+                        }
+                        onSave={(content) =>
+                          handleSectionContentChange("header", content)
+                        }
+                        isLoading={loading}
+                      />
+                    </TabsContent>
+                  )}
+
+                  {/* Projects Section */}
+                  <TabsContent value="projects" className="space-y-4">
+                    <ProjectsEditor
+                      content={
+                        portfolio.sectionContent.projects || { items: [] }
+                      }
+                      onSave={(content) =>
+                        handleSectionContentChange("projects", content)
+                      }
+                      isLoading={loading}
+                    />
+                  </TabsContent>
+
+                  {/* Skills Section */}
+                  <TabsContent value="skills" className="space-y-4">
+                    <SkillsEditor
+                      content={
+                        portfolio.sectionContent.skills || { categories: [] }
+                      }
+                      onSave={(content) =>
+                        handleSectionContentChange("skills", content)
+                      }
+                      isLoading={loading}
+                    />
+                  </TabsContent>
+
+                  {/* Experience Section */}
+                  {portfolio.settings.layout?.sections?.includes(
+                    "experience"
+                  ) && (
+                    <TabsContent value="experience" className="space-y-4">
+                      <ExperienceEditor
+                        content={
+                          portfolio.sectionContent.experience || { items: [] }
+                        }
+                        onSave={(content) =>
+                          handleSectionContentChange("experience", content)
+                        }
+                        isLoading={loading}
+                      />
+                    </TabsContent>
+                  )}
+
+                  {/* Education Section */}
+                  {portfolio.settings.layout?.sections?.includes(
+                    "education"
+                  ) && (
+                    <TabsContent value="education" className="space-y-4">
+                      <EducationEditor
+                        content={
+                          portfolio.sectionContent.education || { items: [] }
+                        }
+                        onSave={(content) =>
+                          handleSectionContentChange("education", content)
+                        }
+                        isLoading={loading}
+                      />
+                    </TabsContent>
+                  )}
+
+                  {/* Gallery Section */}
+                  {portfolio.settings.layout?.sections?.includes(
+                    "gallery"
+                  ) && (
+                    <TabsContent value="gallery" className="space-y-4">
+                      <GalleryEditor
+                        content={
+                          portfolio.sectionContent.gallery || { items: [] }
+                        }
+                        onSave={(content) =>
+                          handleSectionContentChange("gallery", content)
+                        }
+                        isLoading={loading}
+                      />
+                    </TabsContent>
+                  )}
+
+                  {/* Contact Section */}
+                  {portfolio.settings.layout?.sections?.includes(
+                    "contact"
+                  ) && (
+                    <TabsContent value="contact" className="space-y-4">
+                      <ContactEditor
+                        content={portfolio.sectionContent.contact || {}}
+                        onSave={(content) =>
+                          handleSectionContentChange("contact", content)
+                        }
+                        isLoading={loading}
+                      />
+                    </TabsContent>
+                  )}
+
+                  {/* Custom CSS Section */}
+                  {portfolio.settings.layout?.sections?.includes(
+                    "customCSS"
+                  ) && (
+                    <TabsContent value="customCSS" className="space-y-4">
+                      <CustomCSSEditor
+                        content={
+                          portfolio.sectionContent.customCSS || { styles: "" }
+                        }
+                        onSave={(content) =>
+                          handleSectionContentChange("customCSS", content)
+                        }
+                        isLoading={loading}
+                      />
+                    </TabsContent>
+                  )}
+
+                  {/* SEO Settings Section */}
+                  {portfolio.settings.layout?.sections?.includes("seo") && (
+                    <TabsContent value="seo" className="space-y-4">
+                      <SEOEditor
+                        content={
+                          portfolio.sectionContent.seo || {
+                            metaTitle: "",
+                            metaDescription: "",
+                            keywords: "",
+                          }
+                        }
+                        onSave={(content) =>
+                          handleSectionContentChange("seo", content)
+                        }
+                        isLoading={loading}
+                      />
+                    </TabsContent>
+                  )}
+
+                  {/* Other template-specific sections */}
+                  {portfolio.settings.layout?.sections
+                    ?.filter(
+                      (s) =>
+                        ![
+                          "about",
+                          "projects",
+                          "skills",
+                          "gallery",
+                          "contact",
+                          "experience",
+                          "education",
+                          "customCSS",
+                          "seo",
+                          "header",
+                        ].includes(s)
+                    )
+                    .map((section) => (
+                      <TabsContent
+                        key={section}
+                        value={section}
+                        className="h-96 flex items-center justify-center border rounded-md"
+                      >
+                        <div className="text-center">
+                          <h3 className="text-lg font-medium capitalize mb-2">
+                            {section} Section
+                          </h3>
+                          <p className="text-muted-foreground">
+                            This section editor is coming soon. Edit your{" "}
+                            {section} content here.
+                          </p>
+                        </div>
+                      </TabsContent>
+                    ))}
+                </div>
+              </Tabs>
+            </div>
+            {/* Sidebar */}
+            <div className="lg:col-span-3">
+              <PortfolioSettings
+                portfolio={portfolio}
+                onUpdate={handlePortfolioChange}
+                userPlan={userPlan}
+              />
+              {/* Additional settings (colors, sections, fetch profile, etc.) can be added here as needed */}
             </div>
           </div>
         </div>

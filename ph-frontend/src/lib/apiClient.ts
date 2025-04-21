@@ -219,7 +219,6 @@ export const clearAuthData = (): void => {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
 
-
     // Only try to clear the specific auth cookie, not all cookies
     // This is the cookie that middleware is checking
 
@@ -262,8 +261,6 @@ export const clearAuthData = (): void => {
 export const isAuthenticated = (): boolean => {
   const token = getToken();
   const isAuth = !!token && token.trim() !== '';
-
-
   return isAuth;
 };
 
@@ -437,6 +434,49 @@ export const getCurrentUser = async (): Promise<User> => {
   } catch (error) {
     clearAuthData();
     throw error;
+  }
+};
+
+// Get user's subscription plan
+export const getUserSubscriptionPlan = async (): Promise<{
+  type: "free" | "premium" | "professional";
+  isActive: boolean;
+  features: {
+    customDomain: boolean;
+    analytics: boolean;
+    multiplePortfolios: boolean;
+    removeWatermark: boolean;
+  };
+}> => {
+  try {
+    const response = await apiRequest<{
+      success: boolean;
+      subscription: {
+        type: "free" | "premium" | "professional";
+        isActive: boolean;
+        features: {
+          customDomain: boolean;
+          analytics: boolean;
+          multiplePortfolios: boolean;
+          removeWatermark: boolean;
+        };
+      };
+    }>("/auth/subscription", "GET");
+
+    return response.subscription;
+  } catch (error) {
+    console.error('Error fetching user subscription:', error);
+    // Return default free plan if API fails
+    return {
+      type: "free",
+      isActive: true,
+      features: {
+        customDomain: false,
+        analytics: false,
+        multiplePortfolios: false,
+        removeWatermark: false
+      }
+    };
   }
 };
 
@@ -755,7 +795,7 @@ async function getTemplateReviews(templateId: string): Promise<Template['reviews
   }
 }
 
-// Portfolio-related functions
+// Enhanced createPortfolio to automatically handle free plan restrictions
 async function createPortfolio(data: {
   title: string;
   subtitle?: string;
@@ -773,6 +813,35 @@ async function createPortfolio(data: {
       contentKeys: data.content ? Object.keys(data.content) : 'none',
       isPublished: data.isPublished || false
     });
+
+    // Get the current user to help with subdomain generation
+    let user = null;
+    try {
+      user = await getCurrentUser();
+    } catch (error) {
+      console.error('Failed to get current user for subdomain validation:', error);
+      // Continue anyway, backend will handle validation
+    }
+
+    // If user is on free plan, enforce username as subdomain
+    if (user) {
+      try {
+        const subscription = await getUserSubscriptionPlan();
+
+        if (subscription.type === "free") {
+          // Free users must use their username as subdomain
+          if (data.subdomain !== user.username) {
+            console.log('Free plan user must use username as subdomain, updating from:',
+              data.subdomain, 'to:', user.username);
+
+            data.subdomain = user.username;
+          }
+        }
+      } catch (error) {
+        console.error('Error checking subscription plan:', error);
+        // Continue with request, backend will validate
+      }
+    }
 
     const response = await apiRequest<{ success: boolean; portfolio: Portfolio; message?: string }>(
       '/portfolios',
@@ -949,6 +1018,7 @@ const apiClient = {
   getToken,
   getUser,
   debugAuthState, // Add the debug function to the exported object
+  getUserSubscriptionPlan,
 
   // Profile
   updateProfile,
