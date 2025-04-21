@@ -1235,22 +1235,9 @@ export default function TemplateUseEditor() {
       }
     }
 
-    // For proper preview, use relative URL path
-    if (typeof window !== "undefined") {
-      // Ensure the API endpoint exists and is accessible
-      try {
-        // Use the correct API path for preview
-        return `/portfolio/preview/${portfolioId}`;
-      } catch (error) {
-        console.error("Error setting up preview:", error);
-        // Fallback to direct API URL
-        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://portfolio-hub-yqp0.onrender.com/api';
-        toast.info("Using direct API connection for preview");
-
-        // Open in a new tab to avoid CORS issues
-        window.open(`${API_BASE_URL}/portfolios/preview/${portfolioId}`, '_blank');
-        return null;
-      }
+    // Return the frontend preview page URL
+    if (typeof window !== "undefined" && portfolioId) {
+      return `/portfolio/preview/${portfolioId}`;
     }
 
     return null;

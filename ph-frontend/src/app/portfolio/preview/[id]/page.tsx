@@ -106,7 +106,7 @@ export default function PortfolioPreviewPage() {
     fetchPortfolio();
   }, [portfolioId]);
 
-  // Set iframe URL for preview (fix absolute URL)
+  // Set iframe URL for preview
   useEffect(() => {
     if (!portfolioId) return;
 
@@ -126,12 +126,13 @@ export default function PortfolioPreviewPage() {
 
     try {
       setPublishLoading(true);
-      const response = await apiClient.request(`/portfolios/${portfolioId}`, {
-        method: 'PUT',
-        data: {
+      const response = await apiClient.request(
+        `/portfolios/${portfolioId}`,
+        "PUT",
+        {
           isPublished: true,
-        },
-      });
+        }
+      );
 
       if (response.success) {
         setPortfolio({ ...portfolio, isPublished: true });
@@ -153,12 +154,13 @@ export default function PortfolioPreviewPage() {
 
     try {
       setPublishLoading(true);
-      const response = await apiClient.request(`/portfolios/${portfolioId}`, {
-        method: 'PUT',
-        data: {
+      const response = await apiClient.request(
+        `/portfolios/${portfolioId}`,
+        "PUT",
+        {
           isPublished: false,
-        },
-      });
+        }
+      );
 
       if (response.success) {
         setPortfolio({ ...portfolio, isPublished: false });
@@ -223,7 +225,6 @@ export default function PortfolioPreviewPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-gray-900">
-      {/* Preview Banner */}
       <div className="bg-yellow-500 text-white py-2 px-4 text-center">
         <p className="text-sm font-medium">
           {portfolio.isPublished
@@ -232,7 +233,6 @@ export default function PortfolioPreviewPage() {
         </p>
       </div>
 
-      {/* Control Panel Header */}
       <header className="sticky top-0 z-50 w-full bg-white dark:bg-gray-950 border-b shadow-sm">
         <div className="container flex h-16 items-center justify-between">
           <div className="flex items-center space-x-4">
@@ -365,23 +365,22 @@ export default function PortfolioPreviewPage() {
         </div>
       </header>
 
-      {/* Main Content Area */}
       <div className="container py-6 flex-1 flex flex-col md:flex-row gap-6">
-        {/* Preview Panel - Takes up more space on larger screens */}
         <div className="w-full md:w-3/4 lg:w-3/4 flex flex-col">
           <h2 className="text-xl font-semibold mb-4">Preview</h2>
           <div className={getPreviewContainerClasses()}>
             {iframeUrl && (
               <iframe
                 src={iframeUrl}
-                className="w-full h-full border-0"
+                className="w-full h-full border-0 bg-white"
                 title="Portfolio Preview"
+                sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+                allow="clipboard-write"
               />
             )}
           </div>
         </div>
 
-        {/* Info Panel - Takes up less space */}
         <div className="w-full md:w-1/4 lg:w-1/4 space-y-6">
           <div>
             <div className="flex items-center justify-between">
@@ -491,7 +490,6 @@ export default function PortfolioPreviewPage() {
             </div>
           </div>
 
-          {/* Custom Domain Settings for paid users */}
           {hasPaidPlan && (
             <div className="border rounded-lg bg-white dark:bg-gray-800 shadow-sm p-4">
               <div className="flex items-center space-x-2">
@@ -512,7 +510,6 @@ export default function PortfolioPreviewPage() {
             </div>
           )}
 
-          {/* Quick Actions */}
           <div className="border rounded-lg bg-white dark:bg-gray-800 shadow-sm p-4">
             <h3 className="font-medium">Quick Actions</h3>
             <div className="mt-4 space-y-2">

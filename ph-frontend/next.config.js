@@ -25,8 +25,9 @@ const nextConfig = {
       { protocol: "https", hostname: "designshack.net" },
       { protocol: "https", hostname: "templatefor.net" },
       { protocol: "https", hostname: "via.placeholder.com" },
+      { protocol: "https", hostname: "portfolio-hub-yqp0.onrender.com" },
     ],
-    domains: ["localhost", "https://portfolio-hub-yqp0.onrender.com", ],
+    domains: ["localhost", "portfolio-hub-yqp0.onrender.com"],
   },
 
   // Disable X-Powered-By header
@@ -69,7 +70,7 @@ const nextConfig = {
     ];
   },
 
-  // Configure headers
+  // Configure headers for CORS
   async headers() {
     return [
       {
@@ -81,11 +82,24 @@ const nextConfig = {
           },
           {
             key: "X-Frame-Options",
-            value: "DENY",
+            value: "SAMEORIGIN", // Changed from DENY to SAMEORIGIN to allow iframe loading
           },
           {
             key: "X-XSS-Protection",
             value: "1; mode=block",
+          },
+          // Add CORS headers
+          {
+            key: "Access-Control-Allow-Origin",
+            value: "*",
+          },
+          {
+            key: "Access-Control-Allow-Methods",
+            value: "GET, POST, PUT, DELETE, OPTIONS",
+          },
+          {
+            key: "Access-Control-Allow-Headers",
+            value: "X-Requested-With, Content-Type, Authorization",
           },
         ],
       },

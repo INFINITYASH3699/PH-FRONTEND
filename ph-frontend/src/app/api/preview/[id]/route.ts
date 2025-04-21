@@ -1,5 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+// Handle CORS preflight requests
+export async function OPTIONS(request: NextRequest) {
+  return new NextResponse(null, {
+    status: 204,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Max-Age': '86400',
+    },
+  });
+}
+
 // This API route will fetch portfolio data from the backend and render it for preview
 export async function GET(
   request: NextRequest,
@@ -11,16 +24,32 @@ export async function GET(
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://portfolio-hub-yqp0.onrender.com/api';
 
   try {
-    // Fetch portfolio data from the backend - use the correct preview endpoint
-    const response = await fetch(`${API_BASE_URL}/portfolios/preview/${id}`);
+    // First, try to fetch the portfolio data from the standard endpoint
+    const portfolioResponse = await fetch(`${API_BASE_URL}/portfolios/${id}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      cache: 'no-store', // Disable caching to ensure fresh data
+    });
 
-    if (!response.ok) {
-      throw new Error('Failed to fetch portfolio data');
+    if (!portfolioResponse.ok) {
+      console.error('API response not OK:', await portfolioResponse.text());
+      throw new Error(`Failed to fetch portfolio data: ${portfolioResponse.status} ${portfolioResponse.statusText}`);
     }
 
-    const data = await response.json();
+    // Safely parse the JSON
+    let data;
+    try {
+      const text = await portfolioResponse.text();
+      data = JSON.parse(text);
+    } catch (parseError) {
+      console.error('Failed to parse JSON response:', parseError);
+      throw new Error('Invalid JSON response from API');
+    }
 
     if (!data.success || !data.portfolio) {
+      console.error('No portfolio data in response:', data);
       return new NextResponse('Portfolio not found', { status: 404 });
     }
 
@@ -28,15 +57,29 @@ export async function GET(
     const portfolio = data.portfolio;
     const html = generatePortfolioHTML(portfolio);
 
-    // Return the HTML response
+    // Return the HTML response with CORS headers
     return new NextResponse(html, {
       headers: {
         'Content-Type': 'text/html',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
       },
     });
   } catch (error) {
     console.error('Error in preview API route:', error);
-    return new NextResponse('Failed to generate preview', { status: 500 });
+    return new NextResponse(
+      'Failed to generate preview: ' + (error instanceof Error ? error.message : String(error)),
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'text/plain',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type',
+        }
+      }
+    );
   }
 }
 
