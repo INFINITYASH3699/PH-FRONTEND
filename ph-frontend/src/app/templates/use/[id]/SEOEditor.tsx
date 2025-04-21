@@ -160,6 +160,15 @@ export default function SEOEditor({ content, onSave, isLoading = false }: SEOEdi
             </p>
           </div>
 
+          {/* Custom Domain Notice */}
+          <div className="p-3 bg-amber-50 text-amber-800 rounded-md text-sm">
+            <p className="font-medium">Custom Domain Notice</p>
+            <p className="text-xs mt-1">
+              Custom domains are only available in paid plans, which are not currently available.
+              Your portfolio will be accessible via a PortfolioHub subdomain (username.portfoliohub.com).
+            </p>
+          </div>
+
           {/* Open Graph Image */}
           <div className="space-y-2">
             <label htmlFor="ogImage" className="text-sm font-medium">

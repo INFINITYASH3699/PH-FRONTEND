@@ -21,9 +21,10 @@ interface HeaderEditorProps {
   content: HeaderContent;
   onSave: (content: HeaderContent) => void;
   isLoading?: boolean;
+  onImageUpload?: (file: File) => void;
 }
 
-export default function HeaderEditor({ content, onSave, isLoading = false }: HeaderEditorProps) {
+export default function HeaderEditor({ content, onSave, isLoading = false, onImageUpload }: HeaderEditorProps) {
   const [headerInfo, setHeaderInfo] = useState<HeaderContent>(content || {
     title: '',
     subtitle: '',
@@ -263,6 +264,15 @@ export default function HeaderEditor({ content, onSave, isLoading = false }: Hea
           </div>
         </CardContent>
       </Card>
+
+      {/* Custom Domain Notice */}
+      <div className="p-3 bg-amber-50 text-amber-800 rounded-md text-sm">
+        <p className="font-medium">Custom Domain Notice</p>
+        <p className="text-xs mt-1">
+          Custom domains are only available in paid plans, which are not currently available.
+          Your portfolio will be accessible via a PortfolioHub subdomain (username.portfoliohub.com).
+        </p>
+      </div>
     </div>
   );
 }

@@ -990,9 +990,63 @@ export default function TemplateUseEditor() {
 
       return Promise.resolve();
     } catch (error: any) {
-      console.error("Error publishing portfolio:", error);
-      toast.error("Failed to publish portfolio. Please try again.");
+      // Check if the error is related to custom domains and show a toast
+      if (error.message && error.message.includes("Custom domains are only available in paid plans")) {
+        toast.error("Custom domains are only available in paid plans, which are not currently available. Your portfolio will be published with the default subdomain.");
+      } else {
+        console.error("Error publishing portfolio:", error);
+        toast.error("Failed to publish portfolio. Please try again.");
+      }
       throw new Error("Failed to publish portfolio");
+    }
+  };
+
+  // Save and publish portfolio - updated to handle custom domain errors
+  const saveAndPublish = async (): Promise<void> => {
+    try {
+      // Save as draft first
+      await saveAsDraft();
+
+      // Now attempt to publish
+      if (!portfolio || !portfolioId) {
+        toast.error("Portfolio must be saved before publishing");
+        return;
+      }
+
+      setLoading(true);
+      const response = await apiClient.request(
+        `/portfolios/${portfolioId}`,
+        "PUT",
+        {
+          isPublished: true,
+        }
+      );
+
+      if (response.success) {
+        toast.success("Portfolio published successfully!");
+
+        // Update portfolio state
+        setPortfolio((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            isPublished: true,
+          };
+        });
+      } else {
+        toast.error(
+          response.message || "Failed to publish portfolio"
+        );
+      }
+    } catch (error: any) {
+      // Check if the error is related to custom domains
+      if (error.message && error.message.includes("Custom domains are only available in paid plans")) {
+        toast.error("Custom domains are only available in paid plans, which are not currently available. Your portfolio will be published with the default subdomain.");
+      } else {
+        toast.error(error.message || "Failed to publish portfolio");
+      }
+    } finally {
+      setLoading(false);
     }
   };
 

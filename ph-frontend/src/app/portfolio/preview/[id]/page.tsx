@@ -200,16 +200,26 @@ export default function PortfolioPreviewPage() {
       )}
 
       <main className="flex-grow">
-        {/* About Section - Updated to use content from AboutEditor */}
+        {/* About Section - Always visible, even if portfolio.content.about is undefined */}
         <section id="about" className="py-24 border-b">
           <div className="container px-4 md:px-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
               <div className="space-y-6">
                 <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tighter">
-                  {portfolio.title || (portfolio.content?.header?.title || portfolio.content?.about?.title || username)}
+                  {
+                    (portfolio.content?.about?.title) ||
+                    (portfolio.content?.header?.title) ||
+                    portfolio.title ||
+                    username
+                  }
                 </h1>
                 <p className="text-xl text-muted-foreground max-w-[600px]">
-                  {portfolio.subtitle || portfolio.content?.header?.subtitle || portfolio.content?.about?.bio || 'Portfolio'}
+                  {
+                    (portfolio.content?.about?.bio) ||
+                    (portfolio.content?.header?.subtitle) ||
+                    portfolio.subtitle ||
+                    'Portfolio'
+                  }
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4">
                   <a href="#contact">
@@ -217,7 +227,15 @@ export default function PortfolioPreviewPage() {
                       Contact Me
                     </Button>
                   </a>
-                  <a href={portfolio.content?.contact?.socialLinks?.github || '#'} target="_blank" rel="noopener noreferrer">
+                  <a
+                    href={
+                      portfolio.content?.contact?.socialLinks?.github ||
+                      portfolio.content?.about?.github ||
+                      '#'
+                    }
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
                     <Button size="lg" variant="outline">
                       View GitHub
                     </Button>
@@ -227,7 +245,11 @@ export default function PortfolioPreviewPage() {
               <div className="mx-auto lg:mx-0">
                 <div className="relative w-72 h-72 rounded-full overflow-hidden border-4 border-white dark:border-gray-800 shadow-xl">
                   <Image
-                    src={portfolio.content?.about?.profileImage || portfolio.headerImage?.url || 'https://ui-avatars.com/api/?name=' + username}
+                    src={
+                      portfolio.content?.about?.profileImage ||
+                      portfolio.headerImage?.url ||
+                      `https://ui-avatars.com/api/?name=${encodeURIComponent(username)}`
+                    }
                     alt={portfolio.title || username}
                     fill
                     className="object-cover"

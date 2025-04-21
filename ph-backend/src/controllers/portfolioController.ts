@@ -287,7 +287,19 @@ export const updatePortfolio = async (
     if (title) portfolio.title = title;
     if (subtitle !== undefined) portfolio.subtitle = subtitle;
     if (isPublished !== undefined) portfolio.isPublished = isPublished;
-    if (customDomain !== undefined) portfolio.customDomain = customDomain;
+
+    // Check for custom domain request
+    if (customDomain !== undefined) {
+      // Check if attempting to set a custom domain
+      if (customDomain && customDomain.trim() !== '') {
+        return res.status(402).json({
+          success: false,
+          message: "Custom domains are only available in paid plans, which are not currently available. Please use the default subdomain for now.",
+          portfolio: portfolio
+        });
+      }
+      portfolio.customDomain = customDomain;
+    }
 
     // Handle content updates - ensure proper merging
     if (content) {
