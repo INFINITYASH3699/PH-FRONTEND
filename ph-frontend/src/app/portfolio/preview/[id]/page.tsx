@@ -1,42 +1,52 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import Image from 'next/image';
-import { notFound, useParams, useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
-import { toast } from 'sonner';
-import { Laptop, Smartphone, Tablet, Eye, Share2, Pencil, LayoutDashboard, Globe } from 'lucide-react';
-import apiClient from '@/lib/apiClient';
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import Image from "next/image";
+import { notFound, useParams, useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
+import {
+  Laptop,
+  Smartphone,
+  Tablet,
+  Eye,
+  Share2,
+  Pencil,
+  LayoutDashboard,
+  Globe,
+} from "lucide-react";
+import apiClient from "@/lib/apiClient";
 
 export default function PortfolioPreviewPage() {
   const [showShareOptions, setShowShareOptions] = useState(false);
   const [portfolio, setPortfolio] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [viewportSize, setViewportSize] = useState('desktop');
+  const [viewportSize, setViewportSize] = useState("desktop");
   const [showStats, setShowStats] = useState(true);
   const [publishLoading, setPublishLoading] = useState(false);
   const [user, setUser] = useState(null);
-  const [iframeUrl, setIframeUrl] = useState('');
+  const [iframeUrl, setIframeUrl] = useState("");
+  const [iframeError, setIframeError] = useState("");
 
   const router = useRouter();
 
   // Get portfolio ID from route params
   const params = useParams();
-  const portfolioId = typeof params.id === 'string' ? params.id : '';
+  const portfolioId = typeof params.id === "string" ? params.id : "";
 
   // Share functionality
-  const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
+  const shareUrl = typeof window !== "undefined" ? window.location.href : "";
 
   const copyToClipboard = async () => {
     try {
       await navigator.clipboard.writeText(shareUrl);
-      toast.success('Portfolio URL copied to clipboard!');
+      toast.success("Portfolio URL copied to clipboard!");
     } catch (err) {
-      toast.error('Failed to copy URL to clipboard');
+      toast.error("Failed to copy URL to clipboard");
     }
   };
 
@@ -44,21 +54,21 @@ export default function PortfolioPreviewPage() {
     const text = `Check out ${portfolio?.title}'s portfolio`;
     window.open(
       `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(shareUrl)}`,
-      '_blank'
+      "_blank"
     );
   };
 
   const shareOnLinkedIn = () => {
     window.open(
       `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`,
-      '_blank'
+      "_blank"
     );
   };
 
   const shareOnFacebook = () => {
     window.open(
       `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`,
-      '_blank'
+      "_blank"
     );
   };
 
@@ -66,12 +76,12 @@ export default function PortfolioPreviewPage() {
   useEffect(() => {
     const fetchUserData = async () => {
       try {
-        const response = await apiClient.request('/auth/me');
+        const response = await apiClient.request("/auth/me");
         if (response.success && response.user) {
           setUser(response.user);
         }
       } catch (error) {
-        console.error('Error fetching user data:', error);
+        console.error("Error fetching user data:", error);
       }
     };
 
@@ -90,13 +100,13 @@ export default function PortfolioPreviewPage() {
 
         if (response.success && response.portfolio) {
           setPortfolio(response.portfolio);
-          console.log('Portfolio data loaded:', response.portfolio);
+          console.log("Portfolio data loaded:", response.portfolio);
         } else {
           // If no portfolio is found, show 404
           notFound();
         }
       } catch (error) {
-        console.error('Error fetching portfolio:', error);
+        console.error("Error fetching portfolio:", error);
         notFound();
       } finally {
         setLoading(false);
@@ -106,17 +116,29 @@ export default function PortfolioPreviewPage() {
     fetchPortfolio();
   }, [portfolioId]);
 
-  // Set iframe URL for preview
+  // Set iframe URL for preview with token for authentication
   useEffect(() => {
     if (!portfolioId) return;
 
     // Only run client side
-    if (typeof window !== 'undefined') {
-      setIframeUrl(
+    if (typeof window !== "undefined") {
+      const token = apiClient.getToken();
+
+      if (!token) {
+        setIframeError("Authentication required to preview portfolio");
+        return;
+      }
+
+      // Reset error if we have a token
+      setIframeError("");
+
+      // Create the preview URL, ensuring we use the current origin
+      const previewUrl =
         portfolio && portfolio.isPublished
-          ? `/portfolio/${portfolio.subdomain || 'preview'}`
-          : `/api/preview/${portfolioId}`
-      );
+          ? `/portfolio/${portfolio.subdomain || "preview"}`
+          : `/api/preview/${portfolioId}`;
+
+      setIframeUrl(previewUrl);
     }
   }, [portfolio, portfolioId]);
 
@@ -136,13 +158,15 @@ export default function PortfolioPreviewPage() {
 
       if (response.success) {
         setPortfolio({ ...portfolio, isPublished: true });
-        toast.success('Portfolio published successfully! It is now publicly visible.');
+        toast.success(
+          "Portfolio published successfully! It is now publicly visible."
+        );
       } else {
-        toast.error(response.message || 'Failed to publish portfolio');
+        toast.error(response.message || "Failed to publish portfolio");
       }
     } catch (error) {
-      console.error('Error publishing portfolio:', error);
-      toast.error('Something went wrong. Please try again.');
+      console.error("Error publishing portfolio:", error);
+      toast.error("Something went wrong. Please try again.");
     } finally {
       setPublishLoading(false);
     }
@@ -164,13 +188,15 @@ export default function PortfolioPreviewPage() {
 
       if (response.success) {
         setPortfolio({ ...portfolio, isPublished: false });
-        toast.success('Portfolio unpublished. It is no longer publicly visible.');
+        toast.success(
+          "Portfolio unpublished. It is no longer publicly visible."
+        );
       } else {
-        toast.error(response.message || 'Failed to unpublish portfolio');
+        toast.error(response.message || "Failed to unpublish portfolio");
       }
     } catch (error) {
-      console.error('Error unpublishing portfolio:', error);
-      toast.error('Something went wrong. Please try again.');
+      console.error("Error unpublishing portfolio:", error);
+      toast.error("Something went wrong. Please try again.");
     } finally {
       setPublishLoading(false);
     }
@@ -179,11 +205,13 @@ export default function PortfolioPreviewPage() {
   // Go to editor
   const goToEditor = () => {
     if (!portfolio?.templateId?._id) {
-      toast.error('Template information not found');
+      toast.error("Template information not found");
       return;
     }
 
-    router.push(`/templates/use/${portfolio.templateId._id}?portfolioId=${portfolioId}`);
+    router.push(
+      `/templates/use/${portfolio.templateId._id}?portfolioId=${portfolioId}`
+    );
   };
 
   // Show loading state
@@ -193,7 +221,9 @@ export default function PortfolioPreviewPage() {
         <div className="flex-grow flex items-center justify-center">
           <div className="text-center">
             <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]"></div>
-            <p className="mt-4 text-muted-foreground">Loading portfolio preview...</p>
+            <p className="mt-4 text-muted-foreground">
+              Loading portfolio preview...
+            </p>
           </div>
         </div>
       </div>
@@ -206,20 +236,23 @@ export default function PortfolioPreviewPage() {
   }
 
   // Extract username for navigation links
-  const username = portfolio.subdomain || 'preview';
-  const portfolioViewUrl = portfolio.isPublished ? `/portfolio/${username}` : null;
-  const hasPaidPlan = user?.subscriptionPlan?.type !== 'free' && user?.subscriptionPlan?.isActive;
+  const username = portfolio.subdomain || "preview";
+  const portfolioViewUrl = portfolio.isPublished
+    ? `/portfolio/${username}`
+    : null;
+  const hasPaidPlan =
+    user?.subscriptionPlan?.type !== "free" && user?.subscriptionPlan?.isActive;
 
   // Determine preview container classes based on viewport size
   const getPreviewContainerClasses = () => {
     switch (viewportSize) {
-      case 'mobile':
-        return 'w-[375px] h-[667px] mx-auto border rounded-lg shadow-lg overflow-hidden';
-      case 'tablet':
-        return 'w-[768px] h-[1024px] mx-auto border rounded-lg shadow-lg overflow-hidden';
-      case 'desktop':
+      case "mobile":
+        return "w-[375px] h-[667px] mx-auto border rounded-lg shadow-lg overflow-hidden";
+      case "tablet":
+        return "w-[768px] h-[1024px] mx-auto border rounded-lg shadow-lg overflow-hidden";
+      case "desktop":
       default:
-        return 'w-full h-[calc(100vh-150px)] border rounded-lg shadow-lg overflow-hidden';
+        return "w-full h-[calc(100vh-150px)] border rounded-lg shadow-lg overflow-hidden";
     }
   };
 
@@ -228,8 +261,8 @@ export default function PortfolioPreviewPage() {
       <div className="bg-yellow-500 text-white py-2 px-4 text-center">
         <p className="text-sm font-medium">
           {portfolio.isPublished
-            ? 'This portfolio is published and publicly visible.'
-            : 'This is a preview of your portfolio. It will not be publicly visible until you publish it.'}
+            ? "This portfolio is published and publicly visible."
+            : "This is a preview of your portfolio. It will not be publicly visible until you publish it."}
         </p>
       </div>
 
@@ -242,7 +275,7 @@ export default function PortfolioPreviewPage() {
             </Link>
             <span className="text-muted-foreground">/</span>
             <h1 className="font-semibold text-lg tracking-tight truncate max-w-[200px]">
-              {portfolio.title || 'Preview'}
+              {portfolio.title || "Preview"}
             </h1>
           </div>
 
@@ -251,8 +284,8 @@ export default function PortfolioPreviewPage() {
               <Button
                 variant="outline"
                 size="sm"
-                className={viewportSize === 'desktop' ? 'bg-slate-100' : ''}
-                onClick={() => setViewportSize('desktop')}
+                className={viewportSize === "desktop" ? "bg-slate-100" : ""}
+                onClick={() => setViewportSize("desktop")}
                 title="Desktop View"
               >
                 <Laptop className="h-4 w-4" />
@@ -260,8 +293,8 @@ export default function PortfolioPreviewPage() {
               <Button
                 variant="outline"
                 size="sm"
-                className={viewportSize === 'tablet' ? 'bg-slate-100' : ''}
-                onClick={() => setViewportSize('tablet')}
+                className={viewportSize === "tablet" ? "bg-slate-100" : ""}
+                onClick={() => setViewportSize("tablet")}
                 title="Tablet View"
               >
                 <Tablet className="h-4 w-4" />
@@ -269,8 +302,8 @@ export default function PortfolioPreviewPage() {
               <Button
                 variant="outline"
                 size="sm"
-                className={viewportSize === 'mobile' ? 'bg-slate-100' : ''}
-                onClick={() => setViewportSize('mobile')}
+                className={viewportSize === "mobile" ? "bg-slate-100" : ""}
+                onClick={() => setViewportSize("mobile")}
                 title="Mobile View"
               >
                 <Smartphone className="h-4 w-4" />
@@ -348,7 +381,7 @@ export default function PortfolioPreviewPage() {
                 disabled={publishLoading}
                 onClick={unpublishPortfolio}
               >
-                {publishLoading ? 'Processing...' : 'Unpublish'}
+                {publishLoading ? "Processing..." : "Unpublish"}
               </Button>
             ) : (
               <Button
@@ -358,7 +391,7 @@ export default function PortfolioPreviewPage() {
                 disabled={publishLoading}
                 onClick={publishPortfolio}
               >
-                {publishLoading ? 'Processing...' : 'Publish'}
+                {publishLoading ? "Processing..." : "Publish"}
               </Button>
             )}
           </div>
@@ -369,7 +402,28 @@ export default function PortfolioPreviewPage() {
         <div className="w-full md:w-3/4 lg:w-3/4 flex flex-col">
           <h2 className="text-xl font-semibold mb-4">Preview</h2>
           <div className={getPreviewContainerClasses()}>
-            {iframeUrl && (
+            {iframeError ? (
+              <div className="w-full h-full flex items-center justify-center bg-white">
+                <div className="text-center p-8">
+                  <p className="text-red-500 font-medium mb-4">{iframeError}</p>
+                  <p className="text-gray-600">
+                    Please make sure you are logged in to view the preview.
+                  </p>
+                  <Button
+                    variant="outline"
+                    className="mt-4"
+                    onClick={() =>
+                      router.push(
+                        "/auth/signin?callbackUrl=" +
+                          encodeURIComponent(window.location.pathname)
+                      )
+                    }
+                  >
+                    Sign In
+                  </Button>
+                </div>
+              </div>
+            ) : iframeUrl ? (
               <iframe
                 src={iframeUrl}
                 className="w-full h-full border-0 bg-white"
@@ -377,7 +431,7 @@ export default function PortfolioPreviewPage() {
                 sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
                 allow="clipboard-write"
               />
-            )}
+            ) : null}
           </div>
         </div>
 
@@ -411,7 +465,9 @@ export default function PortfolioPreviewPage() {
                     <span className="text-muted-foreground">Custom Domain</span>
                     <span className="font-medium">
                       {portfolio.customDomain ? (
-                        <span className="text-green-600">{portfolio.customDomain}</span>
+                        <span className="text-green-600">
+                          {portfolio.customDomain}
+                        </span>
                       ) : hasPaidPlan ? (
                         <span className="text-amber-600">Not Set</span>
                       ) : (
@@ -423,10 +479,12 @@ export default function PortfolioPreviewPage() {
                     <span className="text-muted-foreground">Status</span>
                     <span
                       className={`font-medium ${
-                        portfolio.isPublished ? 'text-green-600' : 'text-amber-600'
+                        portfolio.isPublished
+                          ? "text-green-600"
+                          : "text-amber-600"
                       }`}
                     >
-                      {portfolio.isPublished ? 'Published' : 'Draft'}
+                      {portfolio.isPublished ? "Published" : "Draft"}
                     </span>
                   </div>
                 </div>
@@ -438,7 +496,9 @@ export default function PortfolioPreviewPage() {
                   <div className="mt-2 space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Views</span>
-                      <span className="font-medium">{portfolio.viewCount || 0}</span>
+                      <span className="font-medium">
+                        {portfolio.viewCount || 0}
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Created</span>
@@ -447,7 +507,9 @@ export default function PortfolioPreviewPage() {
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Last Updated</span>
+                      <span className="text-muted-foreground">
+                        Last Updated
+                      </span>
                       <span className="font-medium">
                         {new Date(portfolio.updatedAt).toLocaleDateString()}
                       </span>
@@ -461,11 +523,15 @@ export default function PortfolioPreviewPage() {
                 <div className="mt-2 space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Name</span>
-                    <span className="font-medium">{portfolio.templateId?.name || 'Custom'}</span>
+                    <span className="font-medium">
+                      {portfolio.templateId?.name || "Custom"}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Category</span>
-                    <span className="font-medium">{portfolio.templateId?.category || 'N/A'}</span>
+                    <span className="font-medium">
+                      {portfolio.templateId?.category || "N/A"}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -476,13 +542,15 @@ export default function PortfolioPreviewPage() {
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Title</span>
                     <span className="font-medium truncate max-w-[150px]">
-                      {portfolio.content?.seo?.title || portfolio.title || 'Not set'}
+                      {portfolio.content?.seo?.title ||
+                        portfolio.title ||
+                        "Not set"}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Description</span>
                     <span className="font-medium truncate max-w-[150px]">
-                      {portfolio.content?.seo?.description ? 'Set' : 'Not set'}
+                      {portfolio.content?.seo?.description ? "Set" : "Not set"}
                     </span>
                   </div>
                 </div>
@@ -503,7 +571,9 @@ export default function PortfolioPreviewPage() {
                 variant="outline"
                 size="sm"
                 className="mt-4 w-full"
-                onClick={() => router.push(`/profile?tab=domains&portfolioId=${portfolioId}`)}
+                onClick={() =>
+                  router.push(`/profile?tab=domains&portfolioId=${portfolioId}`)
+                }
               >
                 Configure Domain
               </Button>
@@ -524,7 +594,11 @@ export default function PortfolioPreviewPage() {
               </Button>
 
               {portfolioViewUrl && (
-                <Link href={portfolioViewUrl} target="_blank" className="w-full">
+                <Link
+                  href={portfolioViewUrl}
+                  target="_blank"
+                  className="w-full"
+                >
                   <Button
                     variant="outline"
                     size="sm"

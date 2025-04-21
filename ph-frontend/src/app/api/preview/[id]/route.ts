@@ -24,17 +24,37 @@ export async function GET(
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://portfolio-hub-yqp0.onrender.com/api';
 
   try {
-    // First, try to fetch the portfolio data from the standard endpoint
+    // Extract auth token from the cookies
+    const authToken = request.cookies.get('ph_auth_token')?.value;
+
+    if (!authToken) {
+      console.error('No auth token found in cookies for preview');
+      return new NextResponse('Authentication required to preview portfolio', {
+        status: 401,
+        headers: {
+          'Content-Type': 'text/plain',
+          'Access-Control-Allow-Origin': '*',
+        }
+      });
+    }
+
+    // Fetch portfolio data with authorization header
     const portfolioResponse = await fetch(`${API_BASE_URL}/portfolios/${id}`, {
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
+        'Authorization': `Bearer ${authToken}`, // Add authorization header
       },
       cache: 'no-store', // Disable caching to ensure fresh data
     });
 
+    // Log response status for debugging
+    console.log(`Portfolio preview API response status: ${portfolioResponse.status}`);
+
     if (!portfolioResponse.ok) {
-      console.error('API response not OK:', await portfolioResponse.text());
+      // Get the response text for better error logging
+      const responseText = await portfolioResponse.text();
+      console.error('API response not OK:', responseText);
       throw new Error(`Failed to fetch portfolio data: ${portfolioResponse.status} ${portfolioResponse.statusText}`);
     }
 
