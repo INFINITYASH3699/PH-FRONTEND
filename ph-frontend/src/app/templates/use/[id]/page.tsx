@@ -350,20 +350,43 @@ export default function TemplateUseEditor() {
     },
   });
 
-  // Fetch user's subscription plan
+  // Published portfolio state
+  const [publishedPortfolio, setPublishedPortfolio] = useState<Portfolio | null>(null);
+
+  // Fetch user's subscription plan and published portfolio
   useEffect(() => {
     if (isAuthenticated) {
       const fetchUserPlan = async () => {
         try {
           const subscription = await apiClient.getUserSubscriptionPlan();
           setUserPlan(subscription);
-          //console.log("User subscription plan:", subscription);
         } catch (error) {
           console.error("Error fetching user subscription plan:", error);
         }
       };
 
       fetchUserPlan();
+
+      // Also fetch user's portfolios to find published one
+      const fetchUserPortfolios = async () => {
+        try {
+          const response = await apiClient.request<{
+            success: boolean;
+            portfolios: any[];
+          }>("/portfolios", "GET");
+
+          if (response.success && response.portfolios) {
+            const published = response.portfolios.find(p => p.isPublished);
+            if (published) {
+              setPublishedPortfolio(published);
+            }
+          }
+        } catch (error) {
+          console.error("Error fetching user portfolios:", error);
+        }
+      };
+
+      fetchUserPortfolios();
     }
   }, [isAuthenticated]);
 
@@ -1212,7 +1235,113 @@ export default function TemplateUseEditor() {
       }
     }
 
-    return `/portfolio/preview/${portfolioId}`;
+    // Use absolute URL with origin to make sure it works properly
+    const origin = window.location.origin; // Get the current origin (protocol + hostname + port)
+    return `${origin}/portfolio/preview/${portfolioId}`;
+  };
+
+  // Add this function to fetch user profile data
+  const fetchProfileData = async (): Promise<void> => {
+    if (!isAuthenticated || !user || !portfolio) {
+      toast.error("Please sign in to fetch your profile data");
+      return;
+    }
+
+    try {
+      // Create an updated portfolio with data from the user profile
+      const updatedPortfolio = { ...portfolio };
+
+      // Update about section
+      if (user.profile?.bio || user.profilePicture) {
+        updatedPortfolio.sectionContent.about = {
+          ...updatedPortfolio.sectionContent.about,
+          bio: user.profile?.bio || updatedPortfolio.sectionContent.about?.bio || "",
+          profileImage: user.profilePicture || updatedPortfolio.sectionContent.about?.profileImage || ""
+        };
+
+        // Handle section content update for about
+        handleSectionContentChange("about", updatedPortfolio.sectionContent.about);
+      }
+
+      // Update skills section
+      if (user.profile?.skills && user.profile.skills.length > 0) {
+        updatedPortfolio.sectionContent.skills = {
+          categories: [...user.profile.skills]
+        };
+
+        // Handle section content update for skills
+        handleSectionContentChange("skills", updatedPortfolio.sectionContent.skills);
+      }
+
+      // Update experience section
+      if (user.profile?.experience && user.profile.experience.length > 0) {
+        updatedPortfolio.sectionContent.experience = {
+          items: [...user.profile.experience]
+        };
+
+        // Handle section content update for experience
+        handleSectionContentChange("experience", updatedPortfolio.sectionContent.experience);
+      }
+
+      // Update education section
+      if (user.profile?.education && user.profile.education.length > 0) {
+        updatedPortfolio.sectionContent.education = {
+          items: [...user.profile.education]
+        };
+
+        // Handle section content update for education
+        handleSectionContentChange("education", updatedPortfolio.sectionContent.education);
+      }
+
+      // Update projects section
+      if (user.profile?.projects && user.profile.projects.length > 0) {
+        updatedPortfolio.sectionContent.projects = {
+          items: [...user.profile.projects]
+        };
+
+        // Handle section content update for projects
+        handleSectionContentChange("projects", updatedPortfolio.sectionContent.projects);
+      }
+
+      // Update contact section
+      if (user.email || user.profile?.location) {
+        updatedPortfolio.sectionContent.contact = {
+          ...updatedPortfolio.sectionContent.contact,
+          email: user.email || updatedPortfolio.sectionContent.contact?.email || "",
+          address: user.profile?.location || updatedPortfolio.sectionContent.contact?.address || ""
+        };
+
+        // Update social links if available
+        if (user.profile?.socialLinks) {
+          const socialLinksArray = Object.entries(user.profile.socialLinks)
+            .filter(([_, url]) => url && url.trim() !== '')
+            .map(([label, url]) => ({ label, url }));
+
+          if (socialLinksArray.length > 0) {
+            updatedPortfolio.sectionContent.contact.socialLinks = {
+              links: socialLinksArray
+            };
+          }
+        }
+
+        // Handle section content update for contact
+        handleSectionContentChange("contact", updatedPortfolio.sectionContent.contact);
+      }
+
+      // Update the title with user's name if available
+      if (user.fullName && (!portfolio.title || portfolio.title === "My Portfolio")) {
+        handlePortfolioChange("title", `${user.fullName}'s Portfolio`);
+      }
+
+      // Update subtitle with user's title if available
+      if (user.profile?.title && (!portfolio.subtitle || portfolio.subtitle === "")) {
+        handlePortfolioChange("subtitle", user.profile.title);
+      }
+
+    } catch (error) {
+      console.error("Error updating portfolio with profile data:", error);
+      throw new Error("Failed to update portfolio with profile data");
+    }
   };
 
   useEffect(() => {
@@ -1264,6 +1393,10 @@ export default function TemplateUseEditor() {
                 </p>
               </div>
               <div className="flex gap-3">
+                <FetchProfileButton
+                  onFetch={fetchProfileData}
+                  variant="outline"
+                />
                 <SaveDraftButton onSave={saveAsDraft} variant="outline" />
                 <PreviewButton
                   onPreview={previewPortfolio}
@@ -1287,6 +1420,8 @@ export default function TemplateUseEditor() {
                   successRedirectUrl={
                     portfolio ? `/portfolio/${portfolio.subdomain}` : undefined
                   }
+                  isPremiumUser={userPlan.type !== "free"}
+                  publishedPortfolioTitle={publishedPortfolio?.title}
                 />
               </div>
             </div>

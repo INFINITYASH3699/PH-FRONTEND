@@ -1,122 +1,66 @@
 'use client';
 
-import React from 'react';
-import { Button } from '@/components/ui/button';
-import { Download } from 'lucide-react';
+import * as React from 'react';
+import { Button } from './button';
+import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { useAuth } from '@/components/providers/AuthContext';
+import { UserIcon } from 'lucide-react';
 
-interface FetchProfileButtonProps {
-  onFetch: (profileData: any) => void;
-  section: 'about' | 'skills' | 'experience' | 'education' | 'projects' | 'all';
-  variant?: 'default' | 'secondary' | 'destructive' | 'outline' | 'ghost' | 'link';
-  disabled?: boolean;
+export interface FetchProfileButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  onFetch: () => Promise<void>;
+  className?: string;
+  variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';
+  size?: 'default' | 'sm' | 'lg' | 'icon';
+  fetchText?: string;
+  fetchingText?: string;
 }
 
 export function FetchProfileButton({
   onFetch,
-  section,
+  className,
   variant = 'outline',
-  disabled = false,
+  size = 'default',
+  fetchText = 'Fetch from Profile',
+  fetchingText = 'Fetching...',
+  ...props
 }: FetchProfileButtonProps) {
-  const { user, isLoading } = useAuth();
+  const [status, setStatus] = React.useState<'idle' | 'fetching'>('idle');
 
-  const handleFetchFromProfile = () => {
-    if (!user || !user.profile) {
-      toast.error('Your profile is empty. Please add information to your profile first.');
-      return;
-    }
-
+  const handleFetch = async () => {
     try {
-      let dataToFetch;
-
-      switch (section) {
-        case 'about':
-          dataToFetch = {
-            title: 'About Me',
-            bio: user.profile.bio || '',
-            profileImage: user.profilePicture || '',
-          };
-          break;
-        case 'skills':
-          if (!user.profile.skills || user.profile.skills.length === 0) {
-            toast.error('No skills found in your profile.');
-            return;
-          }
-          dataToFetch = {
-            categories: [...user.profile.skills],
-          };
-          break;
-        case 'experience':
-          if (!user.profile.experience || user.profile.experience.length === 0) {
-            toast.error('No experience found in your profile.');
-            return;
-          }
-          dataToFetch = {
-            items: [...user.profile.experience],
-          };
-          break;
-        case 'education':
-          if (!user.profile.education || user.profile.education.length === 0) {
-            toast.error('No education found in your profile.');
-            return;
-          }
-          dataToFetch = {
-            items: [...user.profile.education],
-          };
-          break;
-        case 'projects':
-          if (!user.profile.projects || user.profile.projects.length === 0) {
-            toast.error('No projects found in your profile.');
-            return;
-          }
-          dataToFetch = {
-            items: [...user.profile.projects],
-          };
-          break;
-        case 'all':
-          dataToFetch = {
-            about: {
-              title: 'About Me',
-              bio: user.profile.bio || '',
-              profileImage: user.profilePicture || '',
-            },
-            skills: user.profile.skills && user.profile.skills.length > 0
-              ? { categories: [...user.profile.skills] }
-              : undefined,
-            experience: user.profile.experience && user.profile.experience.length > 0
-              ? { items: [...user.profile.experience] }
-              : undefined,
-            education: user.profile.education && user.profile.education.length > 0
-              ? { items: [...user.profile.education] }
-              : undefined,
-            projects: user.profile.projects && user.profile.projects.length > 0
-              ? { items: [...user.profile.projects] }
-              : undefined,
-          };
-          break;
-        default:
-          toast.error('Invalid section specified.');
-          return;
-      }
-
-      onFetch(dataToFetch);
-      toast.success(`Successfully fetched ${section === 'all' ? 'profile data' : section + ' data'} from your profile.`);
+      setStatus('fetching');
+      await onFetch();
+      toast.success('Profile details fetched successfully!');
+      setStatus('idle');
     } catch (error) {
-      console.error('Error fetching profile data:', error);
-      toast.error('Failed to fetch profile data. Please try again.');
+      console.error('Fetch error:', error);
+      toast.error('Failed to fetch profile details');
+      setStatus('idle');
     }
   };
 
+  const fetchIcon = (
+    <UserIcon className="h-4 w-4 mr-2" />
+  );
+
+  const fetchingIcon = (
+    <div className="h-4 w-4 animate-spin rounded-full border-2 border-solid border-current border-r-transparent mr-2"></div>
+  );
+
   return (
     <Button
-      onClick={handleFetchFromProfile}
       variant={variant}
-      disabled={disabled || isLoading || !user}
-      className="gap-2"
+      size={size}
+      className={cn(
+        status === 'fetching' ? 'opacity-80' : '',
+        className
+      )}
+      onClick={handleFetch}
+      disabled={status === 'fetching'}
+      {...props}
     >
-      <Download className="h-4 w-4" />
-      {section === 'all' ? 'Fetch From Profile' : `Fetch ${section.charAt(0).toUpperCase() + section.slice(1)}`}
+      {status === 'fetching' ? fetchingIcon : fetchIcon}
+      {status === 'fetching' ? fetchingText : fetchText}
     </Button>
   );
 }

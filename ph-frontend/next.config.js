@@ -26,7 +26,7 @@ const nextConfig = {
       { protocol: "https", hostname: "templatefor.net" },
       { protocol: "https", hostname: "via.placeholder.com" },
     ],
-    domains: ["localhost"],
+    domains: ["localhost", "https://portfolio-hub-yqp0.onrender.com", ],
   },
 
   // Disable X-Powered-By header
