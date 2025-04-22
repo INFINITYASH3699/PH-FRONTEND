@@ -60,7 +60,22 @@ interface AuthContextType {
     socialLinks?: SocialLinks;
   }) => Promise<User>;
   uploadProfilePicture: (file: File) => Promise<string>;
+  getAuthCookieInfo: () => { exists: boolean, length: number };
 }
+
+// Helper function to check for cookie
+const getCookie = (name: string): string | null => {
+  if (typeof document === 'undefined') return null;
+
+  const cookies = document.cookie.split(';');
+  for (const cookie of cookies) {
+    const [cookieName, cookieValue] = cookie.trim().split('=');
+    if (cookieName === name) {
+      return decodeURIComponent(cookieValue);
+    }
+  }
+  return null;
+};
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -113,6 +128,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setIsLoading(false);
       return false;
     }
+  };
+
+  // Get auth cookie info for debugging
+  const getAuthCookieInfo = (): { exists: boolean, length: number } => {
+    const TOKEN_KEY = "ph_auth_token";
+    const cookie = getCookie(TOKEN_KEY);
+    return {
+      exists: !!cookie,
+      length: cookie?.length || 0
+    };
   };
 
   // Login function
@@ -261,6 +286,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     checkAuth,
     updateProfile,
     uploadProfilePicture,
+    getAuthCookieInfo,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

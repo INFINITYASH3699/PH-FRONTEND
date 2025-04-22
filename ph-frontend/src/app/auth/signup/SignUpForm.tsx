@@ -80,8 +80,8 @@ export default function SignUpForm() {
 
       // Wait a moment to ensure cookies are set before redirecting
       setTimeout(() => {
-        // Force a hard navigation to ensure middleware picks up the new auth state
-        window.location.href = "/dashboard";
+        // Go to home page and let middleware handle redirection based on auth state
+        window.location.href = "/";
       }, 100);
     } catch (error) {
       const message =

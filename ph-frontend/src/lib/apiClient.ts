@@ -106,14 +106,31 @@ export const getUser = (): any | null => {
 
 export const setAuthData = (token: string, user: any): void => {
   if (typeof window === "undefined") return;
+
+  // Set in localStorage
   localStorage.setItem(TOKEN_KEY, token);
   localStorage.setItem(USER_KEY, JSON.stringify(user));
+
+  // Also set in cookies for middleware detection
+  // Set cookie to expire in 30 days
+  const expiryDate = new Date();
+  expiryDate.setDate(expiryDate.getDate() + 30);
+  document.cookie = `${TOKEN_KEY}=${token}; path=/; expires=${expiryDate.toUTCString()}; SameSite=Lax`;
+
+  console.log(`Auth: Token set in localStorage and cookie`);
 };
 
 export const clearAuthData = (): void => {
   if (typeof window === "undefined") return;
+
+  // Clear from localStorage
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
+
+  // Clear cookie by setting expiry in the past
+  document.cookie = `${TOKEN_KEY}=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT; SameSite=Lax`;
+
+  console.log(`Auth: Token cleared from localStorage and cookie`);
 };
 
 export const isAuthenticated = (): boolean => {

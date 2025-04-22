@@ -54,7 +54,9 @@ export default function SignInForm() {
         const response = await apiClient.auth.login(values.email, values.password);
         if (response && response.user) {
           toast.success("Logged in successfully");
-          router.push("/dashboard");
+          // Let the middleware handle the redirection based on auth state
+          // The page will reload naturally due to the auth state change
+          window.location.href = '/';
         } else {
           toast.error("Invalid login credentials");
         }
@@ -62,7 +64,8 @@ export default function SignInForm() {
         // fallback for apiClient.login
         await apiClient.login(values.email, values.password);
         toast.success("Logged in successfully");
-        router.push("/dashboard");
+        // Let the middleware handle the redirection based on auth state
+        window.location.href = '/';
       } else {
         toast.error("Login function not found on apiClient");
       }
