@@ -197,22 +197,47 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
     setIsSaved(false);
   };
 
-  // Handler for saving portfolio as draft
+  // Update the handleSaveDraft function to properly prepare portfolio data
   const handleSaveDraft = async () => {
-    if (!portfolio) return;
     if (!isAuthenticated) {
-      toast.error('You must be logged in to save your portfolio.');
+      toast.error('You must be logged in to save your portfolio');
       return;
     }
 
-    try {
-      setIsSaving(true);
+    if (!portfolio) {
+      toast.error('No portfolio data to save');
+      return;
+    }
 
-      // Prepare portfolio data for saving
+    setIsSaving(true);
+    setIsSaved(false);
+
+    try {
+      // Log portfolio data for debugging
+      console.log('Preparing portfolio for saving:', portfolio);
+
+      // Ensure userId is properly set
+      const currentUser = apiClient.getUser?.();
+      const userId = currentUser?._id || user?.id;
+
+      if (!userId) {
+        throw new Error('User ID is missing');
+      }
+
+      // Prepare portfolio data for saving, making sure required fields are present
       const portfolioToSave = {
         ...portfolio,
+        userId: userId,
         templateId: template._id,
+        // Ensure these required fields are present
+        title: portfolio.title || 'My Portfolio',
+        subtitle: portfolio.subtitle || '',
+        subdomain: portfolio.subdomain || `user-${Date.now().toString().slice(-8)}`,
+        isPublished: false
       };
+
+      // Add debugging log
+      console.log('Sending portfolio data to API:', portfolioToSave);
 
       // Simulate network delay in development mode for better UX testing
       if (process.env.NODE_ENV === 'development') {
@@ -257,9 +282,21 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
         await handleSaveDraft();
       }
 
+      const currentUser = apiClient.getUser?.();
+      const userId = currentUser?._id || user?.id;
+
+      if (!userId) {
+        throw new Error('User ID is missing');
+      }
+
       const portfolioToPublish = {
         ...portfolio,
+        userId: userId,
         templateId: template._id,
+        title: portfolio.title || 'My Portfolio',
+        subtitle: portfolio.subtitle || '',
+        subdomain: portfolio.subdomain || `user-${Date.now().toString().slice(-8)}`,
+        isPublished: true
       };
 
       // Simulate network delay in development mode

@@ -3,9 +3,9 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { Plus, Trash2, X, Edit2 } from 'lucide-react';
+import { Plus, Trash2, Edit2 } from 'lucide-react';
 import { FetchProfileButton } from '@/components/ui/fetch-profile-button';
 
 // Define skill item interface
@@ -24,22 +24,23 @@ interface SkillsContent {
   categories: SkillCategory[];
 }
 
+// Updated props to match how it's being used in EditorSidebar
 interface SkillsEditorProps {
-  content: SkillsContent;
-  onSave: (content: SkillsContent) => void;
+  data: SkillsContent; // Use the correct type for data
+  onChange: (content: SkillsContent) => void; // Changed from onSave to onChange
   isLoading?: boolean;
 }
 
-export default function SkillsEditor({ content, onSave, isLoading = false }: SkillsEditorProps) {
-  const [categories, setCategories] = useState<SkillCategory[]>(content.categories || []);
+export default function SkillsEditor({ data, onChange, isLoading = false }: SkillsEditorProps) {
+  const [categories, setCategories] = useState<SkillCategory[]>(Array.isArray(data?.categories) ? data.categories : []);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newSkillName, setNewSkillName] = useState('');
   const [newSkillProficiency, setNewSkillProficiency] = useState(75);
   const [activeCategoryIndex, setActiveCategoryIndex] = useState<number | null>(null);
   const [editingSkill, setEditingSkill] = useState<{ categoryIndex: number; skillIndex: number } | null>(null);
-  const [errors, setErrors] = useState<{[key: string]: string}>({});
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
-  // Add a new category
+  // Function to add a new category
   const handleAddCategory = () => {
     if (!newCategoryName.trim()) {
       setErrors({ categoryName: 'Category name is required' });
@@ -52,7 +53,10 @@ export default function SkillsEditor({ content, onSave, isLoading = false }: Ski
       return;
     }
 
+    // Clear any errors
     setErrors({});
+
+    // Add the new category
     const updatedCategories = [
       ...categories,
       {
@@ -61,17 +65,23 @@ export default function SkillsEditor({ content, onSave, isLoading = false }: Ski
       }
     ];
 
+    // Update state
     setCategories(updatedCategories);
     setNewCategoryName('');
     setActiveCategoryIndex(updatedCategories.length - 1);
+
     toast.success('Category added successfully');
 
     // Save changes
-    onSave({ categories: updatedCategories });
+    onChange({ categories: updatedCategories });
   };
 
-  // Delete a category
+  // Function to delete a category
   const handleDeleteCategory = (index: number) => {
+    if (!window.confirm(`Are you sure you want to delete the "${categories[index].name}" category and all its skills?`)) {
+      return;
+    }
+
     const updatedCategories = [...categories];
     const categoryName = categories[index].name;
     updatedCategories.splice(index, 1);
@@ -88,7 +98,7 @@ export default function SkillsEditor({ content, onSave, isLoading = false }: Ski
     toast.success(`"${categoryName}" category deleted`);
 
     // Save changes
-    onSave({ categories: updatedCategories });
+    onChange({ categories: updatedCategories });
   };
 
   // Add or update a skill in a category
@@ -99,9 +109,12 @@ export default function SkillsEditor({ content, onSave, isLoading = false }: Ski
     }
 
     // Check if skill already exists in this category (if we're not editing it)
-    if (!editingSkill && categories[categoryIndex].skills.some(skill =>
-      skill.name.toLowerCase() === newSkillName.trim().toLowerCase()
-    )) {
+    if (
+      !editingSkill &&
+      categories[categoryIndex].skills.some(
+        skill => skill.name.toLowerCase() === newSkillName.trim().toLowerCase()
+      )
+    ) {
       setErrors({ skillName: 'Skill already exists in this category' });
       return;
     }
@@ -111,21 +124,17 @@ export default function SkillsEditor({ content, onSave, isLoading = false }: Ski
     let successMessage = '';
 
     if (editingSkill && editingSkill.categoryIndex === categoryIndex) {
-      // Update existing skill
       updatedCategories[categoryIndex].skills[editingSkill.skillIndex] = {
         name: newSkillName.trim(),
-        proficiency: newSkillProficiency
+        proficiency: newSkillProficiency,
       };
-
       successMessage = `"${newSkillName.trim()}" skill updated`;
       setEditingSkill(null);
     } else {
-      // Add new skill
       updatedCategories[categoryIndex].skills.push({
         name: newSkillName.trim(),
-        proficiency: newSkillProficiency
+        proficiency: newSkillProficiency,
       });
-
       successMessage = `"${newSkillName.trim()}" skill added`;
     }
 
@@ -134,8 +143,7 @@ export default function SkillsEditor({ content, onSave, isLoading = false }: Ski
     setNewSkillProficiency(75);
     toast.success(successMessage);
 
-    // Save changes
-    onSave({ categories: updatedCategories });
+    onChange({ categories: updatedCategories });
   };
 
   // Delete a skill
@@ -145,10 +153,11 @@ export default function SkillsEditor({ content, onSave, isLoading = false }: Ski
     updatedCategories[categoryIndex].skills.splice(skillIndex, 1);
     setCategories(updatedCategories);
 
-    // Reset editing state if we were editing this skill
-    if (editingSkill &&
-        editingSkill.categoryIndex === categoryIndex &&
-        editingSkill.skillIndex === skillIndex) {
+    if (
+      editingSkill &&
+      editingSkill.categoryIndex === categoryIndex &&
+      editingSkill.skillIndex === skillIndex
+    ) {
       setEditingSkill(null);
       setNewSkillName('');
       setNewSkillProficiency(75);
@@ -156,8 +165,7 @@ export default function SkillsEditor({ content, onSave, isLoading = false }: Ski
 
     toast.success(`"${skillName}" skill deleted`);
 
-    // Save changes
-    onSave({ categories: updatedCategories });
+    onChange({ categories: updatedCategories });
   };
 
   // Start editing a skill
@@ -171,12 +179,10 @@ export default function SkillsEditor({ content, onSave, isLoading = false }: Ski
 
   // Handle fetching skills from profile
   const handleFetchFromProfile = (profileData: SkillsContent) => {
-    if (profileData.categories && profileData.categories.length > 0) {
+    if (profileData?.categories && profileData.categories.length > 0) {
       setCategories(profileData.categories);
-      if (profileData.categories.length > 0) {
-        setActiveCategoryIndex(0);
-      }
-      onSave(profileData);
+      setActiveCategoryIndex(0);
+      onChange(profileData);
     }
   };
 
@@ -186,6 +192,11 @@ export default function SkillsEditor({ content, onSave, isLoading = false }: Ski
     if (proficiency >= 70) return 'bg-blue-500';
     if (proficiency >= 40) return 'bg-yellow-500';
     return 'bg-red-500';
+  };
+
+  // Helper function for saving changes (if needed elsewhere)
+  const handleSaveChanges = (updatedCategories: SkillCategory[]) => {
+    onChange({ categories: updatedCategories });
   };
 
   return (
@@ -222,7 +233,7 @@ export default function SkillsEditor({ content, onSave, isLoading = false }: Ski
                     handleAddCategory();
                   }
                 }}
-                className={errors.categoryName ? "border-red-500" : ""}
+                className={errors.categoryName ? 'border-red-500' : ''}
               />
               {errors.categoryName && (
                 <p className="text-red-500 text-xs mt-1">{errors.categoryName}</p>
@@ -254,7 +265,7 @@ export default function SkillsEditor({ content, onSave, isLoading = false }: Ski
                     </span>
                   </div>
                   <button
-                    onClick={(e) => {
+                    onClick={e => {
                       e.stopPropagation();
                       handleDeleteCategory(index);
                     }}
@@ -267,127 +278,133 @@ export default function SkillsEditor({ content, onSave, isLoading = false }: Ski
             </div>
           ) : (
             <div className="text-center p-4 border rounded-md">
-              <p className="text-muted-foreground">No categories yet. Add your first skill category.</p>
+              <p className="text-muted-foreground">
+                No categories yet. Add your first skill category.
+              </p>
             </div>
           )}
         </CardContent>
       </Card>
 
       {/* Skills management for selected category */}
-      {activeCategoryIndex !== null && categories[activeCategoryIndex] && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Skills in {categories[activeCategoryIndex].name}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Add/edit skill form */}
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <label htmlFor="skillName" className="text-sm font-medium">
-                  Skill Name <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  id="skillName"
-                  placeholder="E.g., React"
-                  value={newSkillName}
-                  onChange={e => setNewSkillName(e.target.value)}
-                  className={errors.skillName ? "border-red-500" : ""}
-                />
-                {errors.skillName && (
-                  <p className="text-red-500 text-xs mt-1">{errors.skillName}</p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <label htmlFor="skillProficiency" className="text-sm font-medium">
-                  Proficiency Level: {newSkillProficiency}%
-                </label>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs">0%</span>
-                  <input
-                    id="skillProficiency"
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={newSkillProficiency}
-                    onChange={e => setNewSkillProficiency(parseInt(e.target.value))}
-                    className="flex-grow"
+      {activeCategoryIndex !== null &&
+        typeof activeCategoryIndex === 'number' &&
+        categories[activeCategoryIndex] && (
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                Skills in {categories[activeCategoryIndex].name}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Add/edit skill form */}
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label htmlFor="skillName" className="text-sm font-medium">
+                    Skill Name <span className="text-red-500">*</span>
+                  </label>
+                  <Input
+                    id="skillName"
+                    placeholder="E.g., React"
+                    value={newSkillName}
+                    onChange={e => setNewSkillName(e.target.value)}
+                    className={errors.skillName ? 'border-red-500' : ''}
                   />
-                  <span className="text-xs">100%</span>
+                  {errors.skillName && (
+                    <p className="text-red-500 text-xs mt-1">{errors.skillName}</p>
+                  )}
                 </div>
-                <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden mt-2">
-                  <div
-                    className={`h-full ${getProficiencyColor(newSkillProficiency)}`}
-                    style={{ width: `${newSkillProficiency}%` }}
-                  ></div>
-                </div>
-              </div>
 
-              <div className="flex gap-2 justify-end">
-                {editingSkill && (
+                <div className="space-y-2">
+                  <label htmlFor="skillProficiency" className="text-sm font-medium">
+                    Proficiency Level: {newSkillProficiency}%
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs">0%</span>
+                    <input
+                      id="skillProficiency"
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={newSkillProficiency}
+                      onChange={e => setNewSkillProficiency(parseInt(e.target.value))}
+                      className="flex-grow"
+                    />
+                    <span className="text-xs">100%</span>
+                  </div>
+                  <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden mt-2">
+                    <div
+                      className={`h-full ${getProficiencyColor(newSkillProficiency)}`}
+                      style={{ width: `${newSkillProficiency}%` }}
+                    ></div>
+                  </div>
+                </div>
+
+                <div className="flex gap-2 justify-end">
+                  {editingSkill && (
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setEditingSkill(null);
+                        setNewSkillName('');
+                        setNewSkillProficiency(75);
+                        setErrors({});
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  )}
                   <Button
-                    variant="outline"
-                    onClick={() => {
-                      setEditingSkill(null);
-                      setNewSkillName('');
-                      setNewSkillProficiency(75);
-                      setErrors({});
-                    }}
+                    onClick={() => handleAddSkill(activeCategoryIndex)}
+                    disabled={!newSkillName.trim() || isLoading}
                   >
-                    Cancel
+                    {editingSkill ? 'Update Skill' : 'Add Skill'}
                   </Button>
-                )}
-                <Button
-                  onClick={() => handleAddSkill(activeCategoryIndex)}
-                  disabled={!newSkillName.trim() || isLoading}
-                >
-                  {editingSkill ? 'Update Skill' : 'Add Skill'}
-                </Button>
+                </div>
               </div>
-            </div>
 
-            {/* Skills list */}
-            {categories[activeCategoryIndex].skills.length > 0 ? (
-              <div className="space-y-3">
-                {categories[activeCategoryIndex].skills.map((skill, skillIndex) => (
-                  <div key={skillIndex} className="border rounded-md p-3">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="font-medium">{skill.name}</span>
-                      <div className="flex gap-1">
-                        <button
-                          onClick={() => handleEditSkill(activeCategoryIndex, skillIndex)}
-                          className="p-1 hover:text-blue-500"
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteSkill(activeCategoryIndex, skillIndex)}
-                          className="p-1 hover:text-red-500"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+              {/* Skills list */}
+              {categories[activeCategoryIndex].skills.length > 0 ? (
+                <div className="space-y-3">
+                  {categories[activeCategoryIndex].skills.map((skill, skillIndex) => (
+                    <div key={skillIndex} className="border rounded-md p-3">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="font-medium">{skill.name}</span>
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => handleEditSkill(activeCategoryIndex, skillIndex)}
+                            className="p-1 hover:text-blue-500"
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteSkill(activeCategoryIndex, skillIndex)}
+                            className="p-1 hover:text-red-500"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full ${getProficiencyColor(skill.proficiency)}`}
+                          style={{ width: `${skill.proficiency}%` }}
+                        ></div>
+                      </div>
+                      <div className="text-xs text-right mt-1 text-muted-foreground">
+                        {skill.proficiency}%
                       </div>
                     </div>
-                    <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full ${getProficiencyColor(skill.proficiency)}`}
-                        style={{ width: `${skill.proficiency}%` }}
-                      ></div>
-                    </div>
-                    <div className="text-xs text-right mt-1 text-muted-foreground">
-                      {skill.proficiency}%
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center p-4 border rounded-md">
-                <p className="text-muted-foreground">No skills in this category yet.</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center p-4 border rounded-md">
+                  <p className="text-muted-foreground">No skills in this category yet.</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
     </div>
   );
 }

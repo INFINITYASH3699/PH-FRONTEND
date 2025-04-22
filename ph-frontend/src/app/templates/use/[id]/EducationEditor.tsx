@@ -27,14 +27,15 @@ interface EducationContent {
   items: EducationItem[];
 }
 
+// Updated props to match how it's being used in EditorSidebar
 interface EducationEditorProps {
-  content: EducationContent;
-  onSave: (content: EducationContent) => void;
+  data: any; // Changed from content to data
+  onChange: (content: EducationContent) => void; // Changed from onSave to onChange
   isLoading?: boolean;
 }
 
-export default function EducationEditor({ content, onSave, isLoading = false }: EducationEditorProps) {
-  const [educationItems, setEducationItems] = useState<EducationItem[]>(content.items || []);
+export default function EducationEditor({ data, onChange, isLoading = false }: EducationEditorProps) {
+  const [educationItems, setEducationItems] = useState<EducationItem[]>(data?.items || []);
   const [currentEducation, setCurrentEducation] = useState<EducationItem>({
     degree: '',
     institution: '',
@@ -111,7 +112,7 @@ export default function EducationEditor({ content, onSave, isLoading = false }: 
     setErrors({});
 
     // Save changes
-    onSave({ items: updatedEducationItems });
+    onChange({ items: updatedEducationItems });
   };
 
   // Delete an education item
@@ -119,7 +120,7 @@ export default function EducationEditor({ content, onSave, isLoading = false }: 
     const updatedEducationItems = [...educationItems];
     updatedEducationItems.splice(index, 1);
     setEducationItems(updatedEducationItems);
-    onSave({ items: updatedEducationItems });
+    onChange({ items: updatedEducationItems });
     toast.success('Education deleted successfully');
 
     // If we're editing this education, reset the form
@@ -192,7 +193,7 @@ export default function EducationEditor({ content, onSave, isLoading = false }: 
       });
 
       setEducationItems(processedEducationItems);
-      onSave({ items: processedEducationItems });
+      onChange({ items: processedEducationItems });
     }
   };
 
@@ -219,7 +220,6 @@ export default function EducationEditor({ content, onSave, isLoading = false }: 
         </p>
       </div>
 
-      {/* Current education list */}
       {educationItems.length > 0 ? (
         <div className="space-y-4">
           {educationItems.map((education, index) => (

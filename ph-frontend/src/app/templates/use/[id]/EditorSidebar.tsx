@@ -215,8 +215,8 @@ export default function EditorSidebar({
                   </AccordionTrigger>
                   <AccordionContent>
                     <SEOEditor
-                      data={portfolio?.content?.seo || {}}
-                      onUpdate={(data) => onUpdateSection('seo', data)}
+                      data={getContentForSection('seo')}
+                      onChange={(data) => onUpdateSection('seo', data)}
                     />
                   </AccordionContent>
                 </AccordionItem>

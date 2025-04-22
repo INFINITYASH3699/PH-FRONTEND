@@ -30,9 +30,10 @@ interface SocialLinksContent {
   links: SocialLink[];
 }
 
+// Updated props to match how it's being used in EditorSidebar
 interface SocialLinksEditorProps {
-  content: SocialLinksContent;
-  onSave: (content: SocialLinksContent) => void;
+  data: any; // Change from content to data to match how it's called in EditorSidebar
+  onChange: (content: SocialLinksContent) => void; // Change from onSave to onChange
   isLoading?: boolean;
 }
 
@@ -51,8 +52,8 @@ const PLATFORMS = [
   { name: 'Other', value: 'other', icon: 'Globe' },
 ];
 
-export default function SocialLinksEditor({ content, onSave, isLoading = false }: SocialLinksEditorProps) {
-  const [socialLinks, setSocialLinks] = useState<SocialLink[]>(content.links || []);
+export default function SocialLinksEditor({ data, onChange, isLoading = false }: SocialLinksEditorProps) {
+  const [socialLinks, setSocialLinks] = useState<SocialLink[]>(data?.links || []);
   const [newPlatform, setNewPlatform] = useState<string>('');
   const [newUrl, setNewUrl] = useState<string>('');
   const [errors, setErrors] = useState<{[key: string]: string}>({});
@@ -163,7 +164,7 @@ export default function SocialLinksEditor({ content, onSave, isLoading = false }
     setNewUrl('');
 
     // Save changes
-    onSave({ links: updatedLinks });
+    onChange({ links: updatedLinks });
     toast.success('Social link added successfully');
   };
 
@@ -174,7 +175,7 @@ export default function SocialLinksEditor({ content, onSave, isLoading = false }
     updatedLinks.splice(index, 1);
 
     setSocialLinks(updatedLinks);
-    onSave({ links: updatedLinks });
+    onChange({ links: updatedLinks });
     toast.success(`${getPlatformName(removedPlatform)} link removed successfully`);
   };
 
@@ -195,6 +196,7 @@ export default function SocialLinksEditor({ content, onSave, isLoading = false }
 
       {/* Current social links */}
       {socialLinks.length > 0 ? (
+        /* List of current social links */
         <div className="space-y-4">
           {socialLinks.map((link, index) => (
             <div
@@ -229,6 +231,7 @@ export default function SocialLinksEditor({ content, onSave, isLoading = false }
           ))}
         </div>
       ) : (
+        /* Empty state if no social links */
         <div className="border rounded-lg p-8 text-center">
           <h4 className="text-lg font-medium mb-2">No social links added yet</h4>
           <p className="text-muted-foreground mb-4">

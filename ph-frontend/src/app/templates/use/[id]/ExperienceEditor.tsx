@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { Plus, Trash2, X, Edit2, Calendar } from 'lucide-react';
+import { Plus, Trash2, Edit2, Calendar } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { FetchProfileButton } from '@/components/ui/fetch-profile-button';
@@ -27,14 +27,16 @@ interface ExperienceContent {
   items: ExperienceItem[];
 }
 
+// Updated props to match how it's being used in EditorSidebar
 interface ExperienceEditorProps {
-  content: ExperienceContent;
-  onSave: (content: ExperienceContent) => void;
+  data?: ExperienceContent; // Accept undefined
+  onChange: (content: ExperienceContent) => void;
   isLoading?: boolean;
 }
 
-export default function ExperienceEditor({ content, onSave, isLoading = false }: ExperienceEditorProps) {
-  const [experiences, setExperiences] = useState<ExperienceItem[]>(content.items || []);
+export default function ExperienceEditor({ data, onChange, isLoading = false }: ExperienceEditorProps) {
+  // Defensive: always work with an array
+  const [experiences, setExperiences] = useState<ExperienceItem[]>(data?.items || []);
   const [currentExperience, setCurrentExperience] = useState<ExperienceItem>({
     title: '',
     company: '',
@@ -44,11 +46,11 @@ export default function ExperienceEditor({ content, onSave, isLoading = false }:
     description: '',
   });
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
-  const [errors, setErrors] = useState<{[key: string]: string}>({});
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
   // Validate form fields
   const validateForm = (): boolean => {
-    const newErrors: {[key: string]: string} = {};
+    const newErrors: { [key: string]: string } = {};
 
     if (!currentExperience.title.trim()) {
       newErrors.title = 'Job title is required';
@@ -76,7 +78,6 @@ export default function ExperienceEditor({ content, onSave, isLoading = false }:
 
   // Add a new experience or update an existing one
   const handleAddOrUpdateExperience = () => {
-    // Validate form
     if (!validateForm()) {
       return;
     }
@@ -99,10 +100,8 @@ export default function ExperienceEditor({ content, onSave, isLoading = false }:
       toast.success('Experience added successfully');
     }
 
-    // Update state
     setExperiences(updatedExperiences);
 
-    // Reset form
     setCurrentExperience({
       title: '',
       company: '',
@@ -115,7 +114,7 @@ export default function ExperienceEditor({ content, onSave, isLoading = false }:
     setErrors({});
 
     // Save changes
-    onSave({ items: updatedExperiences });
+    onChange({ items: updatedExperiences });
   };
 
   // Delete an experience
@@ -123,10 +122,9 @@ export default function ExperienceEditor({ content, onSave, isLoading = false }:
     const updatedExperiences = [...experiences];
     updatedExperiences.splice(index, 1);
     setExperiences(updatedExperiences);
-    onSave({ items: updatedExperiences });
+    onChange({ items: updatedExperiences });
     toast.success('Experience deleted successfully');
 
-    // If we're editing this experience, reset the form
     if (editingIndex === index) {
       setCurrentExperience({
         title: '',
@@ -144,7 +142,6 @@ export default function ExperienceEditor({ content, onSave, isLoading = false }:
   // Edit an existing experience
   const handleEditExperience = (index: number) => {
     const experience = experiences[index];
-    // Format dates for input fields
     const startDate = experience.startDate
       ? new Date(experience.startDate).toISOString().substring(0, 10)
       : '';
@@ -163,14 +160,11 @@ export default function ExperienceEditor({ content, onSave, isLoading = false }:
 
   // Handle fetching experience data from profile
   const handleFetchFromProfile = (profileData: ExperienceContent) => {
-    if (profileData.items && profileData.items.length > 0) {
-      // Process fetched experiences to ensure dates are in correct format
+    if (profileData?.items && profileData.items.length > 0) {
       const processedExperiences = profileData.items.map(exp => {
-        // Make sure we have proper date formats for form compatibility
         let startDate = exp.startDate;
         let endDate = exp.endDate;
 
-        // Try to format dates if they're not in YYYY-MM-DD format
         if (startDate && !startDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
           try {
             startDate = new Date(startDate).toISOString().substring(0, 10);
@@ -196,7 +190,7 @@ export default function ExperienceEditor({ content, onSave, isLoading = false }:
       });
 
       setExperiences(processedExperiences);
-      onSave({ items: processedExperiences });
+      onChange({ items: processedExperiences });
     }
   };
 
@@ -204,6 +198,7 @@ export default function ExperienceEditor({ content, onSave, isLoading = false }:
   const formatDate = (dateString: string) => {
     if (!dateString) return '';
     const date = new Date(dateString);
+    if (isNaN(date.getTime())) return '';
     return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
   };
 
@@ -355,7 +350,6 @@ export default function ExperienceEditor({ content, onSave, isLoading = false }:
                     onCheckedChange={(checked) => setCurrentExperience({
                       ...currentExperience,
                       current: checked,
-                      // Clear end date if current position
                       endDate: checked ? undefined : currentExperience.endDate
                     })}
                   />

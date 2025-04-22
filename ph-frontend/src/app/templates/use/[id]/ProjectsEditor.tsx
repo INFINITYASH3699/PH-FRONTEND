@@ -26,14 +26,16 @@ interface ProjectsContent {
   items: ProjectItem[];
 }
 
+// Updated props to match how it's being used in EditorSidebar
 interface ProjectsEditorProps {
-  content: ProjectsContent;
-  onSave: (content: ProjectsContent) => void;
+  data: any; // Changed from content to data
+  onChange: (content: ProjectsContent) => void; // Changed from onSave to onChange
   isLoading?: boolean;
 }
 
-export default function ProjectsEditor({ content, onSave, isLoading = false }: ProjectsEditorProps) {
-  const [projects, setProjects] = useState<ProjectItem[]>(content.items || []);
+export default function ProjectsEditor({ data, onChange, isLoading = false }: ProjectsEditorProps) {
+  // Consistently initialize projects state with data?.items || []
+  const [projects, setProjects] = useState<ProjectItem[]>(data?.items || []);
   const [currentProject, setCurrentProject] = useState<ProjectItem>({
     title: '',
     description: '',
@@ -45,11 +47,11 @@ export default function ProjectsEditor({ content, onSave, isLoading = false }: P
   const [currentTag, setCurrentTag] = useState<string>('');
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [uploadLoading, setUploadLoading] = useState<boolean>(false);
-  const [errors, setErrors] = useState<{[key: string]: string}>({});
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
   // Validate form fields
   const validateForm = (): boolean => {
-    const newErrors: {[key: string]: string} = {};
+    const newErrors: { [key: string]: string } = {};
 
     if (!currentProject.title.trim()) {
       newErrors.title = 'Project title is required';
@@ -113,7 +115,7 @@ export default function ProjectsEditor({ content, onSave, isLoading = false }: P
     setErrors({});
 
     // Save changes
-    onSave({ items: updatedProjects });
+    onChange({ items: updatedProjects });
   };
 
   // Delete a project
@@ -121,7 +123,7 @@ export default function ProjectsEditor({ content, onSave, isLoading = false }: P
     const updatedProjects = [...projects];
     updatedProjects.splice(index, 1);
     setProjects(updatedProjects);
-    onSave({ items: updatedProjects });
+    onChange({ items: updatedProjects });
     toast.success('Project deleted successfully');
 
     // If we're editing this project, reset the form
@@ -181,7 +183,7 @@ export default function ProjectsEditor({ content, onSave, isLoading = false }: P
       }));
 
       setProjects(processedProjects);
-      onSave({ items: processedProjects });
+      onChange({ items: processedProjects });
     }
   };
 

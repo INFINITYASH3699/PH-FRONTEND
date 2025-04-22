@@ -23,14 +23,15 @@ interface GalleryContent {
   items: GalleryItem[];
 }
 
+// Updated props to match how it's being used in EditorSidebar
 interface GalleryEditorProps {
-  content: GalleryContent;
-  onSave: (content: GalleryContent) => void;
+  data: any; // Changed from content to data
+  onChange: (content: GalleryContent) => void; // Changed from onSave to onChange
   isLoading?: boolean;
 }
 
-export default function GalleryEditor({ content, onSave, isLoading = false }: GalleryEditorProps) {
-  const [galleryItems, setGalleryItems] = useState<GalleryItem[]>(content.items || []);
+export default function GalleryEditor({ data, onChange, isLoading = false }: GalleryEditorProps) {
+  const [galleryItems, setGalleryItems] = useState<GalleryItem[]>(data?.items || []);
   const [currentItem, setCurrentItem] = useState<GalleryItem>({
     title: '',
     description: '',
@@ -41,7 +42,7 @@ export default function GalleryEditor({ content, onSave, isLoading = false }: Ga
   const [newCategory, setNewCategory] = useState<string>('');
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [uploadLoading, setUploadLoading] = useState<boolean>(false);
-  const [errors, setErrors] = useState<{[key: string]: string}>({});
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [activeFilter, setActiveFilter] = useState<string>('all');
 
   // Extract unique categories from gallery items
@@ -58,7 +59,7 @@ export default function GalleryEditor({ content, onSave, isLoading = false }: Ga
 
   // Validate form fields
   const validateForm = (): boolean => {
-    const newErrors: {[key: string]: string} = {};
+    const newErrors: { [key: string]: string } = {};
 
     if (!currentItem.title.trim()) {
       newErrors.title = 'Title is required';
@@ -116,7 +117,7 @@ export default function GalleryEditor({ content, onSave, isLoading = false }: Ga
     setErrors({});
 
     // Save changes
-    onSave({ items: updatedItems });
+    onChange({ items: updatedItems });
   };
 
   // Delete a gallery item
@@ -124,7 +125,7 @@ export default function GalleryEditor({ content, onSave, isLoading = false }: Ga
     const updatedItems = [...galleryItems];
     updatedItems.splice(index, 1);
     setGalleryItems(updatedItems);
-    onSave({ items: updatedItems });
+    onChange({ items: updatedItems });
     toast.success('Gallery item deleted successfully');
 
     // If we're editing this item, reset the form
