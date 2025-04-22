@@ -1,4 +1,6 @@
-import React, { useEffect, useState } from 'react';
+"use client";
+
+import React, { useEffect, useState } from "react";
 import {
   HeaderSection,
   AboutSection,
@@ -11,33 +13,33 @@ import {
   ServicesSection,
   TestimonialsSection,
   WorkSection,
-  ClientsSection
-} from './sections';
+  ClientsSection,
+} from "./sections";
 
 // Map of section types to their component implementations
 const SECTION_COMPONENTS = {
   // Common sections
-  'header': HeaderSection,
-  'about': AboutSection,
-  'contact': ContactSection,
+  header: HeaderSection,
+  about: AboutSection,
+  contact: ContactSection,
 
   // Developer sections
-  'projects': ProjectsSection,
-  'skills': SkillsSection,
-  'experience': ExperienceSection,
-  'education': EducationSection,
+  projects: ProjectsSection,
+  skills: SkillsSection,
+  experience: ExperienceSection,
+  education: EducationSection,
 
   // Designer sections
-  'gallery': GallerySection,
-  'work': WorkSection,
-  'clients': ClientsSection,
-  'testimonials': TestimonialsSection,
+  gallery: GallerySection,
+  work: WorkSection,
+  clients: ClientsSection,
+  testimonials: TestimonialsSection,
 
   // Photographer sections
-  'galleries': GallerySection,
-  'services': ServicesSection,
-  'categories': ProjectsSection, // Reuse projects component with different styling
-  'pricing': ServicesSection // Reuse services with pricing-specific styling
+  galleries: GallerySection,
+  services: ServicesSection,
+  categories: ProjectsSection, // Reuse projects component with different styling
+  pricing: ServicesSection, // Reuse services with pricing-specific styling
 };
 
 interface TemplateRendererProps {
@@ -53,7 +55,7 @@ const TemplateRenderer: React.FC<TemplateRendererProps> = ({
   portfolio,
   editable = false,
   onSectionUpdate,
-  customColors
+  customColors,
 }) => {
   const [isClient, setIsClient] = useState(false);
 
@@ -68,20 +70,25 @@ const TemplateRenderer: React.FC<TemplateRendererProps> = ({
   }
 
   // Get active layout (default to first one if not specified)
-  const activeLayoutId = portfolio.activeLayout || (template.layouts?.[0]?.id || 'default');
-  const activeLayout = template.layouts?.find(l => l.id === activeLayoutId) || template.layouts?.[0];
+  const activeLayoutId =
+    portfolio.activeLayout || template.layouts?.[0]?.id || "default";
+  const activeLayout =
+    template.layouts?.find((l) => l.id === activeLayoutId) ||
+    template.layouts?.[0];
 
   // Get active theme options
-  const activeColorSchemeId = portfolio.activeColorScheme || 'default';
-  const activeFontPairingId = portfolio.activeFontPairing || 'modern';
+  const activeColorSchemeId = portfolio.activeColorScheme || "default";
+  const activeFontPairingId = portfolio.activeFontPairing || "modern";
 
-  const colorScheme = template.themeOptions?.colorSchemes?.find(
-    c => c.id === activeColorSchemeId
-  ) || template.themeOptions?.colorSchemes?.[0];
+  const colorScheme =
+    template.themeOptions?.colorSchemes?.find(
+      (c) => c.id === activeColorSchemeId
+    ) || template.themeOptions?.colorSchemes?.[0];
 
-  const fontPairing = template.themeOptions?.fontPairings?.find(
-    f => f.id === activeFontPairingId
-  ) || template.themeOptions?.fontPairings?.[0];
+  const fontPairing =
+    template.themeOptions?.fontPairings?.find(
+      (f) => f.id === activeFontPairingId
+    ) || template.themeOptions?.fontPairings?.[0];
 
   // Generate CSS variables for the template
   const getCssVariables = () => {
@@ -112,21 +119,27 @@ const TemplateRenderer: React.FC<TemplateRendererProps> = ({
   };
 
   // Determine which sections to render based on template layout and portfolio config
-  const sectionsToRender = activeLayout?.structure?.sections ||
-    template.defaultStructure?.layout?.sections || [];
+  const sectionsToRender =
+    activeLayout?.structure?.sections ||
+    template.defaultStructure?.layout?.sections ||
+    [];
 
   // Helper to get section content from portfolio data
   const getSectionContent = (sectionType: string) => {
-    return portfolio.content?.[sectionType] ||
-      template.sectionDefinitions?.[sectionType]?.defaultData || {};
+    return (
+      portfolio.content?.[sectionType] ||
+      template.sectionDefinitions?.[sectionType]?.defaultData ||
+      {}
+    );
   };
 
   // Render the appropriate layout
   const renderLayout = () => {
     // Using the portfolio's stored layout information
-    const gridClass = activeLayout?.structure?.gridSystem === 'sidebar-main'
-      ? 'grid grid-cols-1 md:grid-cols-[300px_1fr] gap-8'
-      : 'flex flex-col gap-8';
+    const gridClass =
+      activeLayout?.structure?.gridSystem === "sidebar-main"
+        ? "grid grid-cols-1 md:grid-cols-[300px_1fr] gap-8"
+        : "flex flex-col gap-8";
 
     return (
       <div className={gridClass} style={templateStyle}>
@@ -146,7 +159,11 @@ const TemplateRenderer: React.FC<TemplateRendererProps> = ({
               data={sectionContent}
               template={template}
               editable={editable}
-              onUpdate={editable ? (data) => onSectionUpdate?.(sectionType, data) : undefined}
+              onUpdate={
+                editable
+                  ? (data) => onSectionUpdate?.(sectionType, data)
+                  : undefined
+              }
             />
           );
         })}
@@ -158,7 +175,9 @@ const TemplateRenderer: React.FC<TemplateRendererProps> = ({
     <div className="template-container">
       {/* Custom CSS (if provided in portfolio data) */}
       {portfolio.content?.customCss && (
-        <style dangerouslySetInnerHTML={{ __html: portfolio.content.customCss }} />
+        <style
+          dangerouslySetInnerHTML={{ __html: portfolio.content.customCss }}
+        />
       )}
 
       {/* Render the template with the selected layout */}
