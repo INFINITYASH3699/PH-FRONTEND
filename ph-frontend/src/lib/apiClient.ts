@@ -584,9 +584,20 @@ const api = {
 
         const method = isUpdate ? 'PUT' : 'POST';
 
+        // Get the auth token
+        const token = getToken();
+        const headers: HeadersInit = {
+          'Content-Type': 'application/json'
+        };
+
+        // Add token if available
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+
         const response = await fetch(endpoint, {
           method,
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({
             ...portfolioData,
             status: 'draft'
@@ -625,9 +636,20 @@ const api = {
 
         const method = isUpdate ? 'PUT' : 'POST';
 
+        // Get the auth token
+        const token = getToken();
+        const headers: HeadersInit = {
+          'Content-Type': 'application/json'
+        };
+
+        // Add token if available
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+
         const response = await fetch(endpoint, {
           method,
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({
             ...portfolioData,
             status: 'published'

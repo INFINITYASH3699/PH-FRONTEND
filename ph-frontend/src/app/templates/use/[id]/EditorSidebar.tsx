@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { FetchProfileButton } from '@/components/ui/fetch-profile-button';
 import ThemeSelector from './ThemeSelector';
 import LayoutSelector from './LayoutSelector';
 import HeaderEditor from './HeaderEditor';
@@ -30,6 +31,7 @@ interface EditorSidebarProps {
   onSaveDraft: () => void;
   onPreview: () => void;
   onPublish: () => void;
+  onFetchProfile?: () => Promise<void>; // Optional prop for fetching profile data
   draftSaving: boolean;
   draftSaved: boolean;
   previewLoading: boolean;
@@ -46,6 +48,7 @@ export default function EditorSidebar({
   onSaveDraft,
   onPreview,
   onPublish,
+  onFetchProfile,
   draftSaving,
   draftSaved,
   previewLoading,
@@ -88,13 +91,21 @@ export default function EditorSidebar({
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
         <TabsList className="flex justify-between px-4 py-2 bg-muted/40">
           <TabsTrigger value="content" className="flex-1">Content</TabsTrigger>
-          <TabsTrigger value="design" className="flex-1">Design</TabsTrigger>
-          <TabsTrigger value="settings" className="flex-1">Settings</TabsTrigger>
+          <TabsTrigger value="theme" className="flex-1">Theme</TabsTrigger>
+          <TabsTrigger value="layout" className="flex-1">Layout</TabsTrigger>
         </TabsList>
 
         <ScrollArea className="flex-1">
           <TabsContent value="content" className="m-0 p-4 h-full">
             <div className="space-y-6">
+              {onFetchProfile && (
+                <FetchProfileButton
+                  onFetch={onFetchProfile}
+                  fetchText="Auto-fill with Your Profile Data"
+                  fetchingText="Importing your data..."
+                  className="w-full mb-4"
+                />
+              )}
               <Accordion type="multiple" className="w-full">
                 {/* Main Sections */}
                 {mainSections.filter(section => sectionsToShow.includes(section)).map(section => (
@@ -196,26 +207,26 @@ export default function EditorSidebar({
                     />
                   </AccordionContent>
                 </AccordionItem>
+
+                {/* SEO */}
+                <AccordionItem value="seo">
+                  <AccordionTrigger className="text-sm py-2">
+                    SEO & Metadata
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <SEOEditor
+                      data={portfolio?.content?.seo || {}}
+                      onUpdate={(data) => onUpdateSection('seo', data)}
+                    />
+                  </AccordionContent>
+                </AccordionItem>
               </Accordion>
             </div>
           </TabsContent>
 
-          <TabsContent value="design" className="m-0 p-4 h-full">
+          <TabsContent value="theme" className="m-0 p-4 h-full">
             <div className="space-y-6">
-              <Accordion type="multiple" className="w-full" defaultValue={["layout", "theme"]}>
-                <AccordionItem value="layout">
-                  <AccordionTrigger className="text-sm py-2">
-                    Layout
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <LayoutSelector
-                      layouts={template?.layouts || []}
-                      activeLayoutId={portfolio?.activeLayout || template?.layouts?.[0]?.id}
-                      onChange={onUpdateLayout}
-                    />
-                  </AccordionContent>
-                </AccordionItem>
-
+              <Accordion type="multiple" className="w-full" defaultValue={["theme"]}>
                 <AccordionItem value="theme">
                   <AccordionTrigger className="text-sm py-2">
                     Colors & Fonts
@@ -229,7 +240,6 @@ export default function EditorSidebar({
                     />
                   </AccordionContent>
                 </AccordionItem>
-
                 <AccordionItem value="custom-css">
                   <AccordionTrigger className="text-sm py-2">
                     Custom CSS
@@ -245,62 +255,19 @@ export default function EditorSidebar({
             </div>
           </TabsContent>
 
-          <TabsContent value="settings" className="m-0 p-4 h-full">
+          <TabsContent value="layout" className="m-0 p-4 h-full">
             <div className="space-y-6">
-              <Accordion type="multiple" className="w-full" defaultValue={["seo"]}>
-                <AccordionItem value="seo">
+              <Accordion type="multiple" className="w-full" defaultValue={["layout"]}>
+                <AccordionItem value="layout">
                   <AccordionTrigger className="text-sm py-2">
-                    SEO & Metadata
+                    Layout
                   </AccordionTrigger>
                   <AccordionContent>
-                    <SEOEditor
-                      data={portfolio?.content?.seo || {}}
-                      onChange={(data) => onUpdateSection('seo', data)}
+                    <LayoutSelector
+                      layouts={template?.layouts || []}
+                      activeLayoutId={portfolio?.activeLayout || template?.layouts?.[0]?.id}
+                      onChange={onUpdateLayout}
                     />
-                  </AccordionContent>
-                </AccordionItem>
-
-                <AccordionItem value="domain">
-                  <AccordionTrigger className="text-sm py-2">
-                    Domain Settings
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <div className="space-y-4">
-                      <div>
-                        <label className="text-sm font-medium">Portfolio URL</label>
-                        <div className="mt-1 flex">
-                          <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-input bg-muted text-muted-foreground text-sm">
-                            portfoliohub.com/
-                          </span>
-                          <input
-                            type="text"
-                            className="flex-1 min-w-0 block w-full px-3 py-2 rounded-none rounded-r-md border border-input bg-transparent text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                            placeholder="your-username"
-                            value={portfolio?.subdomain || ''}
-                            readOnly
-                          />
-                        </div>
-                        <p className="mt-2 text-xs text-muted-foreground">
-                          This is your portfolio's URL. You can customize this in your profile settings.
-                        </p>
-                      </div>
-
-                      <div>
-                        <label className="text-sm font-medium">Custom Domain</label>
-                        <div className="mt-1">
-                          <input
-                            type="text"
-                            className="flex w-full px-3 py-2 rounded-md border border-input bg-transparent text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                            placeholder="example.com"
-                            disabled
-                          />
-                        </div>
-                        <p className="mt-2 text-xs text-muted-foreground">
-                          Custom domains are available on Premium and Professional plans.
-                          <a href="/pricing" className="text-primary ml-1">Upgrade your plan</a>
-                        </p>
-                      </div>
-                    </div>
                   </AccordionContent>
                 </AccordionItem>
               </Accordion>

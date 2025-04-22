@@ -1,8 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { NavBar } from '@/components/layout/NavBar';
-import { Footer } from '@/components/layout/Footer';
 
 // Sample example portfolios
 const examplePortfolios = [
@@ -70,8 +68,6 @@ const examplePortfolios = [
 export default function ExamplesPage() {
   return (
     <div className="min-h-screen flex flex-col">
-      <NavBar />
-
       <main className="flex-grow">
         {/* Hero Section */}
         <section className="py-16 bg-gradient-to-r from-violet-50 to-indigo-50">
@@ -162,8 +158,6 @@ export default function ExamplesPage() {
           </div>
         </section>
       </main>
-
-      <Footer />
     </div>
   );
 }

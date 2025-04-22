@@ -1,14 +1,10 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { NavBar } from '@/components/layout/NavBar';
-import { Footer } from '@/components/layout/Footer';
 
 export default function Home() {
   return (
     <div className="min-h-screen flex flex-col">
-      <NavBar />
-
       <main className="flex-grow">
         {/* Hero Section */}
         <section className="py-20 md:py-28 relative overflow-hidden">
@@ -364,8 +360,6 @@ export default function Home() {
           </div>
         </section>
       </main>
-
-      <Footer />
     </div>
   );
 }

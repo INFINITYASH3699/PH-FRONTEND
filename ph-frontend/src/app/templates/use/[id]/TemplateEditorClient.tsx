@@ -8,6 +8,7 @@ import TemplateRenderer from '@/components/template-renderer/TemplateRenderer';
 import EditorSidebar from './EditorSidebar';
 import apiClient from '@/lib/apiClient';
 import { toast } from 'sonner';
+import { FetchProfileButton } from '@/components/ui/fetch-profile-button';
 
 interface TemplateEditorClientProps {
   template: any;
@@ -22,6 +23,7 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
   const [error, setError] = useState<string | null>(null);
   const [isClient, setIsClient] = useState(false);
   const [updatedTemplate, setUpdatedTemplate] = useState(template);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   // State for UI interactions
   const [isSaving, setIsSaving] = useState(false);
@@ -31,13 +33,33 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
   const [viewportMode, setViewportMode] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
   const [savedPortfolioId, setSavedPortfolioId] = useState<string | null>(null);
 
-  // Set isClient to true when component mounts
+  // Set isClient to true when component mounts and check authentication
   useEffect(() => {
     setIsClient(true);
+
+    // Check authentication status
+    const token = apiClient.getToken?.();
+    const currentUser = apiClient.getUser?.();
+
+    if (token && currentUser) {
+      setIsAuthenticated(true);
+    } else {
+      setIsAuthenticated(false);
+      toast.error('You are not logged in. Please log in to save or publish your portfolio.');
+    }
   }, []);
 
-  // Initialize portfolio data on mount
+  // Initialize portfolio data on mount, only if authenticated
   useEffect(() => {
+    if (!isClient) return;
+
+    // Only allow portfolio editing if authenticated
+    if (!isAuthenticated) {
+      setError("You must be logged in to use the template editor.");
+      setLoading(false);
+      return;
+    }
+
     try {
       if (!template) {
         setError("Template data is missing");
@@ -47,7 +69,10 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
 
       // Generate a unique subdomain based on user and timestamp
       const generateSubdomain = () => {
-        const username = user?.username || user?.name?.toLowerCase().replace(/\s+/g, '') || '';
+        const username =
+          user?.username ||
+          user?.name?.toLowerCase().replace(/\s+/g, '') ||
+          '';
         const timestamp = new Date().getTime().toString().slice(-4);
         return `${username}${timestamp}`;
       };
@@ -63,44 +88,49 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
         content: {
           header: {
             title: user?.name || 'Your Name',
-            subtitle: template.category === 'developer'
-              ? 'Software Developer'
-              : template.category === 'designer'
-              ? 'Creative Designer'
-              : template.category === 'photographer'
-              ? 'Professional Photographer'
-              : 'Professional Portfolio',
+            subtitle:
+              template.category === 'developer'
+                ? 'Software Developer'
+                : template.category === 'designer'
+                ? 'Creative Designer'
+                : template.category === 'photographer'
+                ? 'Professional Photographer'
+                : 'Professional Portfolio',
             profileImage: '',
-            navigation: ['About', 'Projects', 'Experience', 'Contact']
+            navigation: ['About', 'Projects', 'Experience', 'Contact'],
           },
           about: {
             title: 'About Me',
             bio: 'Welcome to my portfolio. Here you can share your professional background, experience, and what makes you unique.',
-            variant: template.category === 'designer' ? 'with-image' :
-                    template.category === 'developer' ? 'with-highlights' : 'standard',
+            variant:
+              template.category === 'designer'
+                ? 'with-image'
+                : template.category === 'developer'
+                ? 'with-highlights'
+                : 'standard',
             highlights: [
               { title: 'My Expertise', description: 'Describe your main area of expertise.' },
               { title: 'Experience', description: 'Highlight your years of experience or key skills.' },
-              { title: 'Education', description: 'Share your educational background.' }
-            ]
+              { title: 'Education', description: 'Share your educational background.' },
+            ],
           },
           seo: {
             title: 'My Portfolio | Professional Website',
             description: 'Welcome to my professional portfolio showcasing my work and experience.',
-            keywords: 'portfolio, professional, skills, projects'
+            keywords: 'portfolio, professional, skills, projects',
           },
           socialLinks: {
             github: '',
             linkedin: '',
             twitter: '',
-            instagram: ''
-          }
+            instagram: '',
+          },
         },
         // Default theme settings
         activeLayout: template.layouts?.[0]?.id || 'default',
         activeColorScheme: template.themeOptions?.colorSchemes?.[0]?.id || 'default',
         activeFontPairing: template.themeOptions?.fontPairings?.[0]?.id || 'default',
-        customColors: null
+        customColors: null,
       };
 
       setPortfolio(initialPortfolioData);
@@ -110,21 +140,20 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
       setError("Failed to initialize template editor.");
       setLoading(false);
     }
-  }, [template, user]);
+  }, [template, user, isAuthenticated, isClient]);
 
   // Handler for section updates
   const handleSectionUpdate = (sectionId: string, data: any) => {
     if (!portfolio) return;
 
-    setPortfolio(prev => ({
+    setPortfolio((prev: any) => ({
       ...prev,
       content: {
         ...prev.content,
-        [sectionId]: data
-      }
+        [sectionId]: data,
+      },
     }));
 
-    // Clear saved status when changes are made
     setIsSaved(false);
   };
 
@@ -132,13 +161,12 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
   const handleThemeSelect = (colorSchemeId: string, fontPairingId: string) => {
     if (!portfolio) return;
 
-    setPortfolio(prev => ({
+    setPortfolio((prev: any) => ({
       ...prev,
       activeColorScheme: colorSchemeId,
       activeFontPairing: fontPairingId,
     }));
 
-    // Clear saved status when changes are made
     setIsSaved(false);
   };
 
@@ -146,12 +174,11 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
   const handleLayoutSelect = (layoutId: string) => {
     if (!portfolio) return;
 
-    setPortfolio(prev => ({
+    setPortfolio((prev: any) => ({
       ...prev,
       activeLayout: layoutId,
     }));
 
-    // Clear saved status when changes are made
     setIsSaved(false);
   };
 
@@ -159,21 +186,24 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
   const handleCustomCssUpdate = (css: string) => {
     if (!portfolio) return;
 
-    setPortfolio(prev => ({
+    setPortfolio((prev: any) => ({
       ...prev,
       content: {
         ...prev.content,
-        customCss: css
-      }
+        customCss: css,
+      },
     }));
 
-    // Clear saved status when changes are made
     setIsSaved(false);
   };
 
   // Handler for saving portfolio as draft
   const handleSaveDraft = async () => {
     if (!portfolio) return;
+    if (!isAuthenticated) {
+      toast.error('You must be logged in to save your portfolio.');
+      return;
+    }
 
     try {
       setIsSaving(true);
@@ -181,33 +211,31 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
       // Prepare portfolio data for saving
       const portfolioToSave = {
         ...portfolio,
-        // Make sure we have the template ID
         templateId: template._id,
       };
 
       // Simulate network delay in development mode for better UX testing
       if (process.env.NODE_ENV === 'development') {
-        await new Promise(resolve => setTimeout(resolve, 800));
+        await new Promise((resolve) => setTimeout(resolve, 800));
       }
 
       // Save portfolio as draft
       const response = await apiClient.portfolios.saveDraft(portfolioToSave);
 
-      // Update the portfolio state with the saved data
       if (response && response.portfolio) {
         setSavedPortfolioId(response.portfolio._id);
-        setPortfolio(prev => ({
+        setPortfolio((prev: any) => ({
           ...prev,
-          _id: response.portfolio._id
+          _id: response.portfolio._id,
         }));
         setIsSaved(true);
-        toast.success("Portfolio saved as draft!");
+        toast.success('Portfolio saved as draft!');
       } else {
-        throw new Error("Failed to save portfolio");
+        throw new Error('Failed to save portfolio');
       }
     } catch (err) {
-      console.error("Error saving portfolio draft:", err);
-      toast.error("Failed to save portfolio. Please try again.");
+      console.error('Error saving portfolio draft:', err);
+      toast.error('Failed to save portfolio. Please try again.');
     } finally {
       setIsSaving(false);
     }
@@ -216,6 +244,10 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
   // Handler for publishing portfolio
   const handlePublish = async () => {
     if (!portfolio) return;
+    if (!isAuthenticated) {
+      toast.error('You must be logged in to publish your portfolio.');
+      return;
+    }
 
     try {
       setIsPublishing(true);
@@ -225,42 +257,38 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
         await handleSaveDraft();
       }
 
-      // Prepare portfolio data for publishing
       const portfolioToPublish = {
         ...portfolio,
-        // Make sure we have the template ID
         templateId: template._id,
       };
 
-      // Simulate network delay in development mode for better UX testing
+      // Simulate network delay in development mode
       if (process.env.NODE_ENV === 'development') {
-        await new Promise(resolve => setTimeout(resolve, 1200));
+        await new Promise((resolve) => setTimeout(resolve, 1200));
       }
 
       // Publish portfolio
       const response = await apiClient.portfolios.publish(portfolioToPublish);
 
-      // Update the portfolio state with the published data
       if (response && response.portfolio) {
         setSavedPortfolioId(response.portfolio._id);
-        setPortfolio(prev => ({
+        setPortfolio((prev: any) => ({
           ...prev,
           _id: response.portfolio._id,
-          isPublished: true
+          isPublished: true,
         }));
 
-        toast.success("Portfolio published successfully!");
+        toast.success('Portfolio published successfully!');
 
-        // Navigate to the published portfolio
         setTimeout(() => {
           router.push(`/portfolio/${response.portfolio.subdomain}`);
         }, 1500);
       } else {
-        throw new Error("Failed to publish portfolio");
+        throw new Error('Failed to publish portfolio');
       }
     } catch (err) {
-      console.error("Error publishing portfolio:", err);
-      toast.error("Failed to publish portfolio. Please try again.");
+      console.error('Error publishing portfolio:', err);
+      toast.error('Failed to publish portfolio. Please try again.');
     } finally {
       setIsPublishing(false);
     }
@@ -269,6 +297,10 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
   // Handler for previewing the portfolio
   const handlePreview = async () => {
     if (!portfolio) return;
+    if (!isAuthenticated) {
+      toast.error('You must be logged in to preview your portfolio.');
+      return;
+    }
 
     setIsPreviewing(true);
 
@@ -281,13 +313,156 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
       if (savedPortfolioId) {
         window.open(`/portfolio/preview/${savedPortfolioId}`, '_blank');
       } else {
-        throw new Error("Failed to generate preview");
+        throw new Error('Failed to generate preview');
       }
     } catch (err) {
-      console.error("Error generating preview:", err);
-      toast.error("Failed to generate preview. Please try again.");
+      console.error('Error generating preview:', err);
+      toast.error('Failed to generate preview. Please try again.');
     } finally {
       setIsPreviewing(false);
+    }
+  };
+
+  // Function to fetch profile data and populate the template
+  const fetchProfileData = async () => {
+    if (!isAuthenticated) {
+      toast.error('You must be logged in to fetch your profile data.');
+      return;
+    }
+
+    try {
+      const response = await apiClient.user.getProfile();
+
+      if (!response || !response.user) {
+        throw new Error('Failed to fetch profile data');
+      }
+
+      const profileData = response.user;
+
+      setPortfolio(prev => {
+        if (!prev) return prev;
+        let updatedPortfolio = { ...prev };
+
+        // Update header section
+        if (profileData.fullName) {
+          updatedPortfolio.content = {
+            ...updatedPortfolio.content,
+            header: {
+              ...updatedPortfolio.content?.header,
+              title: profileData.fullName,
+            }
+          };
+        }
+
+        // Update about section if profile bio exists
+        if (profileData.profile?.bio) {
+          updatedPortfolio.content = {
+            ...updatedPortfolio.content,
+            about: {
+              ...updatedPortfolio.content?.about,
+              bio: profileData.profile.bio,
+            }
+          };
+        }
+
+        // Update skills section if profile skills exist
+        if (profileData.profile?.skills && profileData.profile.skills.length > 0) {
+          updatedPortfolio.content = {
+            ...updatedPortfolio.content,
+            skills: {
+              ...updatedPortfolio.content?.skills,
+              items: profileData.profile.skills.map((skill: any) => ({
+                name: skill.name,
+                level: skill.level || 80,
+                category: skill.category || 'Technical'
+              }))
+            }
+          };
+        }
+
+        // Update experience section if profile experience exists
+        if (profileData.profile?.experience && profileData.profile.experience.length > 0) {
+          updatedPortfolio.content = {
+            ...updatedPortfolio.content,
+            experience: {
+              ...updatedPortfolio.content?.experience,
+              items: profileData.profile.experience.map((exp: any) => ({
+                title: exp.title,
+                company: exp.company,
+                location: exp.location,
+                startDate: exp.startDate,
+                endDate: exp.endDate,
+                current: exp.current,
+                description: exp.description
+              }))
+            }
+          };
+        }
+
+        // Update education section if profile education exists
+        if (profileData.profile?.education && profileData.profile.education.length > 0) {
+          updatedPortfolio.content = {
+            ...updatedPortfolio.content,
+            education: {
+              ...updatedPortfolio.content?.education,
+              items: profileData.profile.education.map((edu: any) => ({
+                degree: edu.degree,
+                institution: edu.institution,
+                location: edu.location,
+                startDate: edu.startDate,
+                endDate: edu.endDate,
+                current: edu.current,
+                description: edu.description
+              }))
+            }
+          };
+        }
+
+        // Update projects section if profile projects exist
+        if (profileData.profile?.projects && profileData.profile.projects.length > 0) {
+          updatedPortfolio.content = {
+            ...updatedPortfolio.content,
+            projects: {
+              ...updatedPortfolio.content?.projects,
+              items: profileData.profile.projects.map((project: any) => ({
+                title: project.title,
+                description: project.description,
+                image: project.image,
+                link: project.link,
+                tags: project.tags
+              }))
+            }
+          };
+        }
+
+        // Update social links if profile social links exist
+        if (profileData.profile?.socialLinks) {
+          updatedPortfolio.content = {
+            ...updatedPortfolio.content,
+            socialLinks: profileData.profile.socialLinks
+          };
+        }
+
+        // Update subtitle with user's title if available
+        if (profileData.profile?.title) {
+          updatedPortfolio.content = {
+            ...updatedPortfolio.content,
+            header: {
+              ...updatedPortfolio.content?.header,
+              subtitle: profileData.profile.title
+            }
+          };
+        }
+
+        setIsSaved(false);
+
+        return updatedPortfolio;
+      });
+
+      toast.success('Profile data imported successfully!');
+    } catch (error) {
+      console.error('Error fetching profile data:', error);
+      toast.error('Failed to fetch profile data. Please try again.');
     }
   };
 
@@ -328,9 +503,11 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
 
   // Calculate viewport class based on selected mode
   const viewportClass =
-    viewportMode === 'mobile' ? 'max-w-[375px] mx-auto border-x shadow-lg' :
-    viewportMode === 'tablet' ? 'max-w-[768px] mx-auto border-x shadow-lg' :
-    'w-full';
+    viewportMode === 'mobile'
+      ? 'max-w-[375px] mx-auto border-x shadow-lg'
+      : viewportMode === 'tablet'
+      ? 'max-w-[768px] mx-auto border-x shadow-lg'
+      : 'w-full';
 
   return (
     <div className="flex h-screen flex-col overflow-hidden">
@@ -344,6 +521,15 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
             <h1 className="text-xl font-bold">{updatedTemplate.name}</h1>
           </div>
           <div className="flex items-center gap-3">
+            {isAuthenticated && (
+              <FetchProfileButton
+                onFetch={fetchProfileData}
+                variant="outline"
+                size="sm"
+                fetchText="Auto-fill from Profile"
+                fetchingText="Fetching Profile Data..."
+              />
+            )}
             <div className="flex border rounded-md overflow-hidden">
               <button
                 className={`px-3 py-1 text-sm ${viewportMode === 'desktop' ? 'bg-muted font-medium' : 'hover:bg-muted/50'}`}
@@ -382,7 +568,6 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
 
       {/* Main content */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Editor sidebar - contains all the editing tools */}
         <EditorSidebar
           template={updatedTemplate}
           portfolio={portfolio}
@@ -393,6 +578,7 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
           onSaveDraft={handleSaveDraft}
           onPreview={handlePreview}
           onPublish={handlePublish}
+          onFetchProfile={isAuthenticated ? fetchProfileData : undefined}
           draftSaving={isSaving}
           draftSaved={isSaved}
           previewLoading={isPreviewing}

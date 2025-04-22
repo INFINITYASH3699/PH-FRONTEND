@@ -7,8 +7,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { NavBar } from '@/components/layout/NavBar';
-import { Footer } from '@/components/layout/Footer';
 import { toast } from 'sonner';
 import { useAuth } from '@/components/providers/AuthContext';
 import apiClient, { SocialLinks, User, UserProfile, SkillCategory, Experience, Education, Project, Skill } from '@/lib/apiClient';
@@ -543,14 +541,12 @@ export default function ProfilePage() {
   if (isLoading) {
     return (
       <div className="min-h-screen flex flex-col">
-        <NavBar />
         <main className="flex-grow py-12 flex items-center justify-center">
           <div className="text-center">
             <h2 className="text-2xl font-semibold mb-2">Loading...</h2>
             <p className="text-muted-foreground">Please wait while we fetch your profile</p>
           </div>
         </main>
-        <Footer />
       </div>
     );
   }
@@ -558,7 +554,6 @@ export default function ProfilePage() {
   if (!user) {
     return (
       <div className="min-h-screen flex flex-col">
-        <NavBar />
         <main className="flex-grow py-12 flex items-center justify-center">
           <div className="text-center">
             <h2 className="text-2xl font-semibold mb-2">Access Denied</h2>
@@ -568,15 +563,12 @@ export default function ProfilePage() {
             </Button>
           </div>
         </main>
-        <Footer />
       </div>
     );
   }
 
   return (
     <div className="min-h-screen flex flex-col">
-      <NavBar />
-
       <main className="flex-grow py-12">
         <div className="container px-4 md:px-6">
           <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -1677,8 +1669,6 @@ export default function ProfilePage() {
           </div>
         </div>
       </main>
-
-      <Footer />
     </div>
   );
 }

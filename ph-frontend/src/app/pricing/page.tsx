@@ -1,8 +1,6 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { NavBar } from '@/components/layout/NavBar';
-import { Footer } from '@/components/layout/Footer';
 import { Check, X } from 'lucide-react';
 
 // Pricing plans data
@@ -78,8 +76,6 @@ const plans = [
 export default function PricingPage() {
   return (
     <div className="min-h-screen flex flex-col">
-      <NavBar />
-
       <main className="flex-grow">
         {/* Hero Section */}
         <section className="py-16 bg-gradient-to-r from-violet-50 to-indigo-50">
@@ -249,8 +245,6 @@ export default function PricingPage() {
           </div>
         </section>
       </main>
-
-      <Footer />
     </div>
   );
 }

@@ -5,8 +5,6 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { NavBar } from '@/components/layout/NavBar';
-import { Footer } from '@/components/layout/Footer';
 import { toast } from 'sonner';
 import apiClient, { User } from '@/lib/apiClient';
 import { useAuth } from '@/components/providers/AuthContext';
@@ -218,8 +216,6 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <NavBar />
-
       <main className="flex-grow py-12">
         <div className="container px-4 md:px-6">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
@@ -327,8 +323,6 @@ export default function DashboardPage() {
           )}
         </div>
       </main>
-
-      <Footer />
     </div>
   );
 }
