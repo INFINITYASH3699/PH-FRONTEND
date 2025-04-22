@@ -2,7 +2,6 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
-import { getTemplates } from '@/lib/apiClient';
 
 // Categories to filter templates
 const categories = [
@@ -15,9 +14,48 @@ const categories = [
   { id: 'minimal', name: 'Minimal' },
 ];
 
-export default async function TemplatesPage() {
+// Server-side function to fetch templates
+async function fetchTemplates(category?: string) {
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+
+  let endpoint = '/templates';
+  const queryParams = [];
+
+  if (category && category !== 'all') {
+    queryParams.push(`category=${category}`);
+  }
+
+  if (queryParams.length > 0) {
+    endpoint += `?${queryParams.join('&')}`;
+  }
+
+  try {
+    console.log(`Server fetching templates from ${API_BASE_URL}${endpoint}`);
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      cache: 'no-store', // Disable caching for fresh data
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`API Error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.templates || [];
+  } catch (error) {
+    console.error('Server-side template fetch error:', error);
+    return [];
+  }
+}
+
+export default async function TemplatesPage({ searchParams }: { searchParams?: { category?: string } }) {
+  // Get category from search params
+  const category = searchParams?.category || 'all';
+
   // Fetch templates from API
-  const templates = await getTemplates();
+  const templates = await fetchTemplates(category);
 
   return (
     <div className="container mx-auto px-4 py-12">
@@ -30,15 +68,15 @@ export default async function TemplatesPage() {
 
       {/* Category Filters */}
       <div className="flex flex-wrap gap-2 justify-center mb-8">
-        {categories.map((category) => (
+        {categories.map((cat) => (
           <Button
-            key={category.id}
-            variant="outline"
+            key={cat.id}
+            variant={cat.id === category ? "default" : "outline"}
             className="rounded-full px-4"
             asChild
           >
-            <Link href={`/templates?category=${category.id}`}>
-              {category.name}
+            <Link href={`/templates?category=${cat.id}`}>
+              {cat.name}
             </Link>
           </Button>
         ))}

@@ -5,7 +5,8 @@ import { notFound } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { getTemplateById } from '@/lib/apiClient';
+// Remove client-side API import
+// import { getTemplateById } from '@/lib/apiClient';
 import TemplateRenderer from '@/components/template-renderer/TemplateRenderer';
 
 // Sample portfolio data for preview
@@ -18,8 +19,33 @@ const samplePortfolio = {
   activeFontPairing: 'default',
 };
 
+// Server-side function to fetch template by ID
+async function fetchTemplateById(id: string) {
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+
+  try {
+    console.log(`Server fetching template ${id} from ${API_BASE_URL}/templates/${id}`);
+    const response = await fetch(`${API_BASE_URL}/templates/${id}`, {
+      cache: 'no-store', // Disable caching for fresh data
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`API Error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.template;
+  } catch (error) {
+    console.error('Server-side template fetch error:', error);
+    return null;
+  }
+}
+
 export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
-  const template = await getTemplateById(params.id);
+  const template = await fetchTemplateById(params.id);
 
   if (!template) {
     return {
@@ -34,7 +60,7 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
 }
 
 export default async function TemplatePreviewPage({ params }: { params: { id: string } }) {
-  const template = await getTemplateById(params.id);
+  const template = await fetchTemplateById(params.id);
 
   if (!template) {
     notFound();

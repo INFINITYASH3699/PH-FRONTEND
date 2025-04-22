@@ -122,6 +122,57 @@ export const isAuthenticated = (): boolean => {
 
 // Main API client implementation
 const api = {
+  // Generic request method for client components
+  request: async <T = any>(
+    endpoint: string,
+    method: string = 'GET',
+    data?: any,
+    customHeaders?: Record<string, string>
+  ): Promise<T> => {
+    try {
+      const url = `${API_BASE_URL}${endpoint}`;
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+        ...customHeaders
+      };
+
+      // Add auth token if available
+      const token = getToken();
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const options: RequestInit = {
+        method,
+        headers,
+        credentials: 'include',
+      };
+
+      // Add body for non-GET requests
+      if (method !== 'GET' && data) {
+        options.body = JSON.stringify(data);
+      }
+
+      const response = await fetch(url, options);
+      return await handleResponse(response);
+    } catch (error) {
+      console.error(`API request error (${endpoint}):`, error);
+
+      if (isDev && isConnectionError(error)) {
+        console.warn('Using mock data for development (backend connection failed)');
+
+        // Return mock data based on the endpoint
+        if (endpoint.startsWith('/templates')) {
+          return { success: true, templates: MOCK_DATA.templates } as unknown as T;
+        } else if (endpoint.startsWith('/portfolios')) {
+          return { success: true, portfolios: MOCK_DATA.portfolios } as unknown as T;
+        }
+      }
+
+      throw error;
+    }
+  },
+
   // Legacy functions to maintain compatibility
   getTemplates: async (category?: string, options?: any) => {
     let endpoint = '/templates';
@@ -654,6 +705,78 @@ const api = {
     }
   }
 };
+
+// Server-side utility functions (can be imported directly in server components)
+export async function fetchTemplates(category?: string) {
+  const url = new URL(`${API_BASE_URL}/templates`);
+
+  if (category && category !== 'all') {
+    url.searchParams.append('category', category);
+  }
+
+  try {
+    console.log(`Server fetching templates from ${url.toString()}`);
+    const response = await fetch(url.toString(), {
+      cache: 'no-store',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`API Error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.templates || [];
+  } catch (error) {
+    console.error('Server-side template fetch error:', error);
+    return [];
+  }
+}
+
+export async function fetchTemplateById(id: string) {
+  try {
+    console.log(`Server fetching template ${id} from ${API_BASE_URL}/templates/${id}`);
+    const response = await fetch(`${API_BASE_URL}/templates/${id}`, {
+      cache: 'no-store',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`API Error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.template;
+  } catch (error) {
+    console.error('Server-side template fetch error:', error);
+    return null;
+  }
+}
+
+// Define User type for type safety
+export interface User {
+  _id: string;
+  fullName: string;
+  username: string;
+  email: string;
+  role: 'user' | 'admin';
+  profilePicture?: string;
+  profile?: {
+    title?: string;
+    bio?: string;
+    location?: string;
+    website?: string;
+    socialLinks?: Record<string, string>;
+    skills?: any[];
+    education?: any[];
+    experience?: any[];
+    projects?: any[];
+  };
+}
 
 // Export both the complete api object and individual functions
 export const apiClient = api;
