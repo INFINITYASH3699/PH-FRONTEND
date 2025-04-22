@@ -334,10 +334,19 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
       const response = await apiClient.user.getProfile();
 
       if (!response || !response.user) {
-        throw new Error('Failed to fetch profile data');
+        console.error('Invalid response from API:', response);
+        throw new Error('Failed to fetch profile data: Invalid API response');
       }
 
       const profileData = response.user;
+
+      // Check if profile data is empty or missing
+      if (!profileData.profile || Object.keys(profileData.profile).length === 0) {
+        toast.warning('Your profile is empty. Please add information to your profile first.');
+        return;
+      }
+
+      let updatedFields: string[] = [];
 
       setPortfolio(prev => {
         if (!prev) return prev;
@@ -352,6 +361,7 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
               title: profileData.fullName,
             }
           };
+          updatedFields.push('name');
         }
 
         // Update about section if profile bio exists
@@ -363,6 +373,7 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
               bio: profileData.profile.bio,
             }
           };
+          updatedFields.push('bio');
         }
 
         // Update skills section if profile skills exist
@@ -378,6 +389,7 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
               }))
             }
           };
+          updatedFields.push('skills');
         }
 
         // Update experience section if profile experience exists
@@ -397,6 +409,7 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
               }))
             }
           };
+          updatedFields.push('experience');
         }
 
         // Update education section if profile education exists
@@ -416,6 +429,7 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
               }))
             }
           };
+          updatedFields.push('education');
         }
 
         // Update projects section if profile projects exist
@@ -433,6 +447,7 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
               }))
             }
           };
+          updatedFields.push('projects');
         }
 
         // Update social links if profile social links exist
@@ -441,6 +456,7 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
             ...updatedPortfolio.content,
             socialLinks: profileData.profile.socialLinks
           };
+          updatedFields.push('socialLinks');
         }
 
         // Update subtitle with user's title if available
@@ -452,6 +468,7 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
               subtitle: profileData.profile.title
             }
           };
+          updatedFields.push('title');
         }
 
         setIsSaved(false);
@@ -459,10 +476,34 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
         return updatedPortfolio;
       });
 
-      toast.success('Profile data imported successfully!');
-    } catch (error) {
-      console.error('Error fetching profile data:', error);
-      toast.error('Failed to fetch profile data. Please try again.');
+      if (updatedFields.length > 0) {
+        toast.success(
+          `Profile data imported successfully! Updated: ${updatedFields.join(', ')}.`
+        );
+      } else {
+        toast.warning(
+          'No new profile data was imported. Your profile may be missing key information.'
+        );
+      }
+    } catch (error: any) {
+      if (
+        error?.message &&
+        error.message.includes('Failed to fetch profile data: Invalid API response')
+      ) {
+        toast.error('Failed to fetch profile data from the server. Please try again later.');
+      } else if (
+        error?.response &&
+        error.response.status === 401
+      ) {
+        toast.error('You are not authorized. Please log in again.');
+      } else {
+        console.error('Error fetching profile data:', error);
+        toast.error(
+          error?.message
+            ? `Failed to fetch profile data: ${error.message}`
+            : 'Failed to fetch profile data. Please try again.'
+        );
+      }
     }
   };
 

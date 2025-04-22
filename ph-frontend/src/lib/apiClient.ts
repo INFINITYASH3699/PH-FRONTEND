@@ -59,6 +59,79 @@ const MOCK_DATA = {
       username: 'demouser',
       email: 'demo@example.com',
       role: 'user',
+      profile: {
+        title: 'Full Stack Developer',
+        bio: 'Passionate developer with experience in web and mobile application development. I love creating elegant solutions to complex problems.',
+        location: 'San Francisco, CA',
+        website: 'https://example.com',
+        socialLinks: {
+          github: 'https://github.com/demouser',
+          twitter: 'https://twitter.com/demouser',
+          linkedin: 'https://linkedin.com/in/demouser',
+          instagram: 'https://instagram.com/demouser'
+        },
+        skills: [
+          { name: 'JavaScript', level: 90, category: 'Frontend' },
+          { name: 'React', level: 85, category: 'Frontend' },
+          { name: 'Node.js', level: 80, category: 'Backend' },
+          { name: 'TypeScript', level: 75, category: 'Frontend' },
+          { name: 'MongoDB', level: 70, category: 'Database' }
+        ],
+        experience: [
+          {
+            title: 'Senior Developer',
+            company: 'Tech Innovations Inc.',
+            location: 'San Francisco, CA',
+            startDate: '2020-01',
+            endDate: '',
+            current: true,
+            description: 'Leading development of customer-facing web applications using React and Node.js.'
+          },
+          {
+            title: 'Frontend Developer',
+            company: 'WebSolutions Co.',
+            location: 'San Jose, CA',
+            startDate: '2017-05',
+            endDate: '2019-12',
+            current: false,
+            description: 'Developed responsive web applications and implemented UI/UX designs.'
+          }
+        ],
+        education: [
+          {
+            degree: 'M.S. in Computer Science',
+            institution: 'Stanford University',
+            location: 'Stanford, CA',
+            startDate: '2015-09',
+            endDate: '2017-06',
+            description: 'Focused on web technologies and distributed systems.'
+          },
+          {
+            degree: 'B.S. in Computer Science',
+            institution: 'UC Berkeley',
+            location: 'Berkeley, CA',
+            startDate: '2011-09',
+            endDate: '2015-05',
+            description: 'GPA 3.8/4.0'
+          }
+        ],
+        projects: [
+          {
+            title: 'E-commerce Platform',
+            description: 'A fully-featured online shopping platform with secure payments and inventory management.',
+            image: 'https://via.placeholder.com/300',
+            link: 'https://project-example.com',
+            tags: ['React', 'Node.js', 'MongoDB', 'Stripe']
+          },
+          {
+            title: 'Weather App',
+            description: 'A mobile-friendly weather application with location detection and 7-day forecasts.',
+            image: 'https://via.placeholder.com/300',
+            link: 'https://weather-app-example.com',
+            tags: ['JavaScript', 'APIs', 'Responsive Design']
+          }
+        ]
+      }
     }
   ],
   portfolios: []
@@ -703,8 +776,11 @@ const api = {
   user: {
     getProfile: async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/user/profile`, {
-          credentials: 'include'
+        const response = await fetch(`${API_BASE_URL}/auth/me`, {
+          credentials: 'include',
+          headers: {
+            'Authorization': `Bearer ${getToken()}`
+          }
         });
 
         return handleResponse(response);
@@ -721,9 +797,12 @@ const api = {
 
     updateProfile: async (profileData: any) => {
       try {
-        const response = await fetch(`${API_BASE_URL}/user/profile`, {
+        const response = await fetch(`${API_BASE_URL}/auth/profile`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${getToken()}`
+          },
           body: JSON.stringify(profileData),
           credentials: 'include'
         });

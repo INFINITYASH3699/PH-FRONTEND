@@ -34,7 +34,22 @@ export function FetchProfileButton({
       setStatus('idle');
     } catch (error) {
       console.error('Fetch error:', error);
-      toast.error('Failed to fetch profile details');
+      let errorMessage = 'Failed to fetch profile details';
+
+      // Check if it's an authentication issue or other known errors
+      if (error instanceof Error) {
+        if (error.message.includes('Unauthorized') || error.message.includes('401')) {
+          errorMessage = 'Please log in to access your profile data';
+        } else if (error.message.includes('Not Found') || error.message.includes('404')) {
+          errorMessage = 'Profile not found. Have you added profile information?';
+        } else if (error.message.includes('Failed to fetch')) {
+          errorMessage = 'Network error. Please check your connection and try again';
+        } else {
+          errorMessage = `Failed to fetch profile data: ${error.message}`;
+        }
+      }
+
+      toast.error(errorMessage);
       setStatus('idle');
     }
   };
