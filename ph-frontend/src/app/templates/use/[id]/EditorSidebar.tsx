@@ -33,9 +33,9 @@ interface EditorSidebarProps {
   onSaveDraft: () => void;
   onPreview: () => void;
   onPublish: () => void;
-  onFetchProfile?: () => Promise<void>; // Optional prop for fetching profile data
-  sectionOrder?: string[]; // New prop for section order
-  onSectionReorder?: (newOrder: string[]) => void; // New prop for handling section reordering
+  onFetchProfile?: () => Promise<void>;
+  sectionOrder?: string[];
+  onSectionReorder?: (newOrder: string[]) => void;
   draftSaving: boolean;
   draftSaved: boolean;
   previewLoading: boolean;
@@ -65,7 +65,6 @@ export default function EditorSidebar({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
-  // Check if we're on mobile using window width
   useEffect(() => {
     const checkIfMobile = () => {
       const isMobileView = window.innerWidth < 768;
@@ -73,13 +72,8 @@ export default function EditorSidebar({
       setSidebarCollapsed(isMobileView);
     };
 
-    // Initial check
     checkIfMobile();
-
-    // Add event listener for resize
     window.addEventListener('resize', checkIfMobile);
-
-    // Cleanup
     return () => window.removeEventListener('resize', checkIfMobile);
   }, []);
 
@@ -92,10 +86,44 @@ export default function EditorSidebar({
   // Use section order from props if available, otherwise use layout sections
   const sectionsToShow = sectionOrder.length > 0 ? sectionOrder : availableSections;
 
-  // Separate the sections by type
-  const mainSections = ['header', 'about'];
-  const portfolioSections = ['projects', 'skills', 'experience', 'education', 'gallery'];
-  const additionalSections = ['contact', 'services', 'testimonials'];
+  // Dynamically categorize sections based on template's section definitions, with fallback
+  const categorizedSections = (() => {
+    const defaultCategories = {
+      main: ['header', 'about'],
+      portfolio: ['projects', 'skills', 'experience', 'education', 'gallery', 'galleries', 'work', 'categories'],
+      additional: ['contact', 'services', 'testimonials', 'pricing', 'clients']
+    };
+
+    if (template?.sectionDefinitions) {
+      const mainSections = sectionsToShow.filter(section =>
+        section === 'header' || section === 'about'
+      );
+      const portfolioSections = sectionsToShow.filter(section =>
+        defaultCategories.portfolio.includes(section)
+      );
+      const additionalSections = sectionsToShow.filter(section =>
+        !mainSections.includes(section) &&
+        !portfolioSections.includes(section) &&
+        section !== 'header' &&
+        section !== 'about' &&
+        !['socialLinks', 'seo', 'customCss'].includes(section)
+      );
+      return {
+        main: mainSections,
+        portfolio: portfolioSections,
+        additional: additionalSections
+      };
+    }
+    return {
+      main: sectionsToShow.filter(section => defaultCategories.main.includes(section)),
+      portfolio: sectionsToShow.filter(section => defaultCategories.portfolio.includes(section)),
+      additional: sectionsToShow.filter(section =>
+        defaultCategories.additional.includes(section) ||
+        (!defaultCategories.main.includes(section) &&
+          !defaultCategories.portfolio.includes(section))
+      )
+    };
+  })();
 
   const getContentForSection = (sectionId: string) => {
     return portfolio?.content?.[sectionId] || {};
@@ -109,7 +137,6 @@ export default function EditorSidebar({
       Object.keys(template.sectionDefinitions).forEach(section => sections.add(section));
     }
 
-    // Include any sections that might be in layouts but not in definitions
     template?.layouts?.forEach((layout: any) => {
       if (layout.structure?.sections) {
         layout.structure.sections.forEach((section: string) => sections.add(section));
@@ -162,6 +189,114 @@ export default function EditorSidebar({
       {sidebarCollapsed ? <PanelLeft className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
     </Button>
   );
+
+  // Render component for a specific section
+  const renderSectionEditor = (section: string) => {
+    switch (section) {
+      case 'header':
+        return (
+          <HeaderEditor
+            data={getContentForSection('header')}
+            onChange={(data) => onUpdateSection('header', data)}
+          />
+        );
+      case 'about':
+        return (
+          <AboutEditor
+            data={getContentForSection('about')}
+            onChange={(data) => onUpdateSection('about', data)}
+          />
+        );
+      case 'projects':
+      case 'categories':
+        return (
+          <ProjectsEditor
+            data={getContentForSection(section)}
+            onChange={(data) => onUpdateSection(section, data)}
+          />
+        );
+      case 'skills':
+        return (
+          <SkillsEditor
+            data={getContentForSection('skills')}
+            onChange={(data) => onUpdateSection('skills', data)}
+          />
+        );
+      case 'experience':
+        return (
+          <ExperienceEditor
+            data={getContentForSection('experience')}
+            onChange={(data) => onUpdateSection('experience', data)}
+          />
+        );
+      case 'education':
+        return (
+          <EducationEditor
+            data={getContentForSection('education')}
+            onChange={(data) => onUpdateSection('education', data)}
+          />
+        );
+      case 'gallery':
+      case 'galleries':
+        return (
+          <GalleryEditor
+            data={getContentForSection(section)}
+            onChange={(data) => onUpdateSection(section, data)}
+          />
+        );
+      case 'contact':
+        return (
+          <ContactEditor
+            data={getContentForSection('contact')}
+            onChange={(data) => onUpdateSection('contact', data)}
+          />
+        );
+      case 'services':
+      case 'pricing':
+        return (
+          <div className="p-4 bg-muted/30 rounded-md">
+            <p className="text-sm text-muted-foreground mb-2">
+              {section === 'services' ? 'Services section' : 'Pricing section'} editor
+            </p>
+            <textarea
+              className="w-full p-2 border rounded-md min-h-[100px]"
+              placeholder={`Edit your ${section} content here`}
+              value={JSON.stringify(getContentForSection(section), null, 2)}
+              onChange={(e) => {
+                try {
+                  const data = JSON.parse(e.target.value);
+                  onUpdateSection(section, data);
+                } catch (error) {
+                  // Handle invalid JSON
+                }
+              }}
+            />
+          </div>
+        );
+      default:
+        // For any section without a specific editor
+        return (
+          <div className="p-4 bg-muted/30 rounded-md">
+            <p className="text-sm text-muted-foreground mb-2">
+              {section} section editor
+            </p>
+            <textarea
+              className="w-full p-2 border rounded-md min-h-[100px]"
+              placeholder={`Edit your ${section} content here`}
+              value={JSON.stringify(getContentForSection(section), null, 2)}
+              onChange={(e) => {
+                try {
+                  const data = JSON.parse(e.target.value);
+                  onUpdateSection(section, data);
+                } catch (error) {
+                  // Handle invalid JSON
+                }
+              }}
+            />
+          </div>
+        );
+    }
+  };
 
   return (
     <>
@@ -300,70 +435,30 @@ export default function EditorSidebar({
 
                 <Accordion type="multiple" className="w-full">
                   {/* Main Sections */}
-                  {mainSections.filter(section => sectionsToShow.includes(section)).map(section => (
+                  {categorizedSections.main.map(section => (
                     <AccordionItem value={section} key={section}>
                       <AccordionTrigger className="capitalize text-sm py-2">
                         {section === 'header' ? 'Header & Profile' : section}
                       </AccordionTrigger>
                       <AccordionContent>
-                        {section === 'header' && (
-                          <HeaderEditor
-                            data={getContentForSection('header')}
-                            onChange={(data) => onUpdateSection('header', data)}
-                          />
-                        )}
-                        {section === 'about' && (
-                          <AboutEditor
-                            data={getContentForSection('about')}
-                            onChange={(data) => onUpdateSection('about', data)}
-                          />
-                        )}
+                        {renderSectionEditor(section)}
                       </AccordionContent>
                     </AccordionItem>
                   ))}
 
                   {/* Portfolio Sections */}
-                  {portfolioSections.filter(section => sectionsToShow.includes(section)).length > 0 && (
+                  {categorizedSections.portfolio.length > 0 && (
                     <AccordionItem value="portfolio-sections">
                       <AccordionTrigger className="text-sm py-2">
                         Work & Experience
                       </AccordionTrigger>
                       <AccordionContent>
-                        {portfolioSections.filter(section => sectionsToShow.includes(section)).map(section => (
+                        {categorizedSections.portfolio.map(section => (
                           <div key={section} className="mb-6">
                             <h3 className="font-medium capitalize mb-2">
                               {section}
                             </h3>
-                            {section === 'projects' && (
-                              <ProjectsEditor
-                                data={getContentForSection('projects')}
-                                onChange={(data) => onUpdateSection('projects', data)}
-                              />
-                            )}
-                            {section === 'skills' && (
-                              <SkillsEditor
-                                data={getContentForSection('skills')}
-                                onChange={(data) => onUpdateSection('skills', data)}
-                              />
-                            )}
-                            {section === 'experience' && (
-                              <ExperienceEditor
-                                data={getContentForSection('experience')}
-                                onChange={(data) => onUpdateSection('experience', data)}
-                              />
-                            )}
-                            {section === 'education' && (
-                              <EducationEditor
-                                data={getContentForSection('education')}
-                                onChange={(data) => onUpdateSection('education', data)}
-                              />
-                            )}
-                            {section === 'gallery' && (
-                              <GalleryEditor
-                                data={getContentForSection('gallery')}
-                                onChange={(data) => onUpdateSection('gallery', data)}
-                              />
-                            )}
+                            {renderSectionEditor(section)}
                           </div>
                         ))}
                       </AccordionContent>
@@ -371,18 +466,13 @@ export default function EditorSidebar({
                   )}
 
                   {/* Additional Sections */}
-                  {additionalSections.filter(section => sectionsToShow.includes(section)).map(section => (
+                  {categorizedSections.additional.map(section => (
                     <AccordionItem value={section} key={section}>
                       <AccordionTrigger className="capitalize text-sm py-2">
                         {section}
                       </AccordionTrigger>
                       <AccordionContent>
-                        {section === 'contact' && (
-                          <ContactEditor
-                            data={getContentForSection('contact')}
-                            onChange={(data) => onUpdateSection('contact', data)}
-                          />
-                        )}
+                        {renderSectionEditor(section)}
                       </AccordionContent>
                     </AccordionItem>
                   ))}
@@ -477,7 +567,6 @@ export default function EditorSidebar({
         </div>
       </div>
 
-      {/* Semi-transparent overlay for mobile when sidebar is open */}
       {isMobile && !sidebarCollapsed && (
         <div
           className="fixed inset-0 bg-black/20 z-30"

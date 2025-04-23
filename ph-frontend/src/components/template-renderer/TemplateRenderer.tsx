@@ -31,12 +31,12 @@ const SECTION_COMPONENTS = {
 
   // Designer sections
   'gallery': GallerySection,
+  'galleries': GallerySection, // Map to the same component for both singular and plural
   'work': WorkSection,
   'clients': ClientsSection,
   'testimonials': TestimonialsSection,
 
   // Photographer sections
-  'galleries': GallerySection,
   'services': ServicesSection,
   'categories': ProjectsSection, // Reuse projects component with different styling
   'pricing': ServicesSection // Reuse services with pricing-specific styling
@@ -60,6 +60,23 @@ const TemplateRenderer: React.FC<TemplateRendererProps> = ({
   sectionOrder = []
 }) => {
   const [isClient, setIsClient] = useState(false);
+
+  // For debugging - log the template and portfolio data
+  useEffect(() => {
+    if (isClient && template && portfolio) {
+      console.log('Template data:', {
+        sections: template.defaultStructure?.layout?.sections,
+        sectionDefinitions: template.sectionDefinitions,
+        layouts: template.layouts
+      });
+
+      console.log('Portfolio data:', {
+        sectionOrder,
+        activeLayout: portfolio.activeLayout,
+        content: Object.keys(portfolio.content || {})
+      });
+    }
+  }, [isClient, template, portfolio, sectionOrder]);
 
   // Set isClient to true on component mount
   useEffect(() => {
@@ -122,10 +139,39 @@ const TemplateRenderer: React.FC<TemplateRendererProps> = ({
   // Use custom section order if provided, otherwise use default sections
   const sectionsToRender = sectionOrder.length > 0 ? sectionOrder : defaultSections;
 
-  // Helper to get section content from portfolio data
+  // Helper to get section content from portfolio data or template defaults
   const getSectionContent = (sectionType: string) => {
-    return portfolio.content?.[sectionType] ||
-      template.sectionDefinitions?.[sectionType]?.defaultData || {};
+    // First try to get from portfolio content
+    const portfolioContent = portfolio.content?.[sectionType];
+    if (portfolioContent && Object.keys(portfolioContent).length > 0) {
+      return portfolioContent;
+    }
+
+    // If not found or empty, try to get from template section definitions
+    const templateDefault = template.sectionDefinitions?.[sectionType]?.defaultData;
+    if (templateDefault) {
+      return templateDefault;
+    }
+
+    // If all else fails, return empty object
+    return {};
+  };
+
+  // Create a fallback component for sections without defined components
+  const FallbackSection = ({ sectionType, data }: { sectionType: string; data: any }) => {
+    return (
+      <div className="py-12 px-4 bg-muted/10 border rounded-md my-4">
+        <h2 className="text-xl font-semibold mb-4 capitalize">{sectionType} Section</h2>
+        <p className="text-muted-foreground mb-4">
+          This section type doesn't have a specific component yet.
+        </p>
+        {editable && (
+          <pre className="text-xs bg-muted p-2 rounded overflow-auto max-h-40">
+            {JSON.stringify(data, null, 2)}
+          </pre>
+        )}
+      </div>
+    );
   };
 
   // Render the appropriate layout
@@ -138,23 +184,22 @@ const TemplateRenderer: React.FC<TemplateRendererProps> = ({
     return (
       <div className={gridClass} style={templateStyle}>
         {sectionsToRender.map((sectionType: string) => {
-          const SectionComponent = SECTION_COMPONENTS[sectionType];
-
-          if (!SectionComponent) {
-            console.warn(`No component found for section type: ${sectionType}`);
-            return null;
-          }
+          // Get the component for this section type, or use fallback
+          const SectionComponent = SECTION_COMPONENTS[sectionType] ||
+            ((props: any) => <FallbackSection sectionType={sectionType} data={props.data} />);
 
           const sectionContent = getSectionContent(sectionType);
 
           return (
-            <SectionComponent
-              key={sectionType}
-              data={sectionContent}
-              template={template}
-              editable={editable}
-              onUpdate={editable ? (data) => onSectionUpdate?.(sectionType, data) : undefined}
-            />
+            <div key={sectionType} className="section-wrapper" id={`section-${sectionType}`}>
+              <SectionComponent
+                key={sectionType}
+                data={sectionContent}
+                template={template}
+                editable={editable}
+                onUpdate={editable ? (data) => onSectionUpdate?.(sectionType, data) : undefined}
+              />
+            </div>
           );
         })}
       </div>

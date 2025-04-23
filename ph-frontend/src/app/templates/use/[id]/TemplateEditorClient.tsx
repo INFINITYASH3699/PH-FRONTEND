@@ -91,6 +91,18 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
             if (response && response.success && response.portfolio) {
               setPortfolio(response.portfolio);
               setSavedPortfolioId(response.portfolio._id);
+
+              // Ensure the section order is loaded from the portfolio or set from template
+              const portfolioSectionOrder = response.portfolio.sectionOrder || [];
+              if (portfolioSectionOrder.length > 0) {
+                setSectionOrder(portfolioSectionOrder);
+              } else {
+                // If portfolio doesn't have section order, set it from template
+                const templateSections = template.layouts?.[0]?.structure?.sections ||
+                  template.defaultStructure?.layout?.sections || [];
+                setSectionOrder(templateSections);
+              }
+
               setLoading(false);
               return;
             } else {
@@ -120,6 +132,67 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
           defaultSectionOrder = template.defaultStructure.layout.sections;
         }
 
+        console.log('Template sections:', defaultSectionOrder);
+        console.log('Template definition:', {
+          layouts: template.layouts,
+          defaultStructure: template.defaultStructure,
+          sectionDefinitions: template.sectionDefinitions
+        });
+
+        // Prepare initial content based on section definitions
+        const initialContent: Record<string, any> = {
+          // Default required sections
+          header: {
+            title: user?.name || 'Your Name',
+            subtitle:
+              template.category === 'developer'
+                ? 'Software Developer'
+                : template.category === 'designer'
+                ? 'Creative Designer'
+                : template.category === 'photographer'
+                ? 'Professional Photographer'
+                : 'Professional Portfolio',
+            profileImage: '',
+            navigation: ['About', 'Projects', 'Experience', 'Contact'],
+          },
+          about: {
+            title: 'About Me',
+            bio: 'Welcome to my portfolio. Here you can share your professional background, experience, and what makes you unique.',
+            variant:
+              template.category === 'designer'
+                ? 'with-image'
+                : template.category === 'developer'
+                ? 'with-highlights'
+                : 'standard',
+            highlights: [
+              { title: 'My Expertise', description: 'Describe your main area of expertise.' },
+              { title: 'Experience', description: 'Highlight your years of experience or key skills.' },
+              { title: 'Education', description: 'Share your educational background.' },
+            ],
+          },
+          seo: {
+            title: 'My Portfolio | Professional Website',
+            description: 'Welcome to my professional portfolio showcasing my work and experience.',
+            keywords: 'portfolio, professional, skills, projects',
+          },
+          socialLinks: {
+            github: '',
+            linkedin: '',
+            twitter: '',
+            instagram: '',
+          },
+        };
+
+        // Add template-specific section content from section definitions
+        if (template.sectionDefinitions) {
+          Object.entries(template.sectionDefinitions).forEach(([sectionType, definition]) => {
+            // Skip already populated sections
+            if (!initialContent[sectionType] && definition.defaultData) {
+              initialContent[sectionType] = { ...definition.defaultData };
+            }
+          });
+        }
+
         // Create initial portfolio data
         const initialPortfolioData = {
           _id: 'new-portfolio',
@@ -128,47 +201,7 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
           subdomain: generateSubdomain(),
           templateId: template._id,
           userId: user?.id || 'guest-user',
-          content: {
-            header: {
-              title: user?.name || 'Your Name',
-              subtitle:
-                template.category === 'developer'
-                  ? 'Software Developer'
-                  : template.category === 'designer'
-                  ? 'Creative Designer'
-                  : template.category === 'photographer'
-                  ? 'Professional Photographer'
-                  : 'Professional Portfolio',
-              profileImage: '',
-              navigation: ['About', 'Projects', 'Experience', 'Contact'],
-            },
-            about: {
-              title: 'About Me',
-              bio: 'Welcome to my portfolio. Here you can share your professional background, experience, and what makes you unique.',
-              variant:
-                template.category === 'designer'
-                  ? 'with-image'
-                  : template.category === 'developer'
-                  ? 'with-highlights'
-                  : 'standard',
-              highlights: [
-                { title: 'My Expertise', description: 'Describe your main area of expertise.' },
-                { title: 'Experience', description: 'Highlight your years of experience or key skills.' },
-                { title: 'Education', description: 'Share your educational background.' },
-              ],
-            },
-            seo: {
-              title: 'My Portfolio | Professional Website',
-              description: 'Welcome to my professional portfolio showcasing my work and experience.',
-              keywords: 'portfolio, professional, skills, projects',
-            },
-            socialLinks: {
-              github: '',
-              linkedin: '',
-              twitter: '',
-              instagram: '',
-            },
-          },
+          content: initialContent,
           activeLayout: template.layouts?.[0]?.id || 'default',
           activeColorScheme: template.themeOptions?.colorSchemes?.[0]?.id || 'default',
           activeFontPairing: template.themeOptions?.fontPairings?.[0]?.id || 'default',
@@ -198,7 +231,16 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
     const layoutSections = activeLayout?.structure?.sections ||
       template.defaultStructure?.layout?.sections || [];
 
-    setSectionOrder(portfolio.sectionOrder || layoutSections);
+    if (portfolio.sectionOrder && portfolio.sectionOrder.length > 0) {
+      setSectionOrder(portfolio.sectionOrder);
+    } else if (layoutSections.length > 0) {
+      setSectionOrder(layoutSections);
+      // Also update portfolio with proper section order
+      setPortfolio(prev => ({
+        ...prev,
+        sectionOrder: layoutSections
+      }));
+    }
   }, [isClient, template, portfolio]);
 
   // Handler for section updates
