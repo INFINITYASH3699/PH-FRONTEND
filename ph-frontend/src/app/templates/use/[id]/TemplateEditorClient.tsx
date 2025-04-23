@@ -1,15 +1,13 @@
-'use client';
-
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import TemplateRenderer from '@/components/template-renderer/TemplateRenderer';
-import EditorSidebar from './EditorSidebar';
+import SidebarEditor from './SidebarEditor';
 import apiClient from '@/lib/apiClient';
 import { toast } from 'sonner';
 import { FetchProfileButton } from '@/components/ui/fetch-profile-button';
-import { Expand, Shrink, Laptop, Tablet, Smartphone, Eye, ArrowLeft } from 'lucide-react';
+import { Expand, Shrink, Laptop, Tablet, Smartphone, Eye, ArrowLeft, Save, Share } from 'lucide-react';
 
 interface TemplateEditorClientProps {
   template: any;
@@ -37,11 +35,13 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
   const [viewportMode, setViewportMode] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
   const [savedPortfolioId, setSavedPortfolioId] = useState<string | null>(null);
 
+  // State for editor view
+  const [activeSection, setActiveSection] = useState<string | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
+
   // New state for section ordering
   const [sectionOrder, setSectionOrder] = useState<string[]>([]);
-
-  // Add state for fullscreen mode (not used in this simplified layout)
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState(template);
 
   // Set isClient to true when component mounts and check authentication
   useEffect(() => {
@@ -96,11 +96,15 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
               const portfolioSectionOrder = response.portfolio.sectionOrder || [];
               if (portfolioSectionOrder.length > 0) {
                 setSectionOrder(portfolioSectionOrder);
+                // Set the first section as active
+                setActiveSection(portfolioSectionOrder[0]);
               } else {
                 // If portfolio doesn't have section order, set it from template
                 const templateSections = template.layouts?.[0]?.structure?.sections ||
                   template.defaultStructure?.layout?.sections || [];
                 setSectionOrder(templateSections);
+                // Set the first section as active
+                setActiveSection(templateSections[0]);
               }
 
               setLoading(false);
@@ -204,6 +208,10 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
 
         setPortfolio(initialPortfolioData);
         setSectionOrder(defaultSectionOrder);
+        // Set the first section as active if available
+        if (defaultSectionOrder.length > 0) {
+          setActiveSection(defaultSectionOrder[0]);
+        }
         setLoading(false);
       };
 
@@ -226,15 +234,26 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
 
     if (portfolio.sectionOrder && portfolio.sectionOrder.length > 0) {
       setSectionOrder(portfolio.sectionOrder);
+
+      // Set active section if none is selected
+      if (!activeSection && portfolio.sectionOrder.length > 0) {
+        setActiveSection(portfolio.sectionOrder[0]);
+      }
     } else if (layoutSections.length > 0) {
       setSectionOrder(layoutSections);
+
+      // Set active section if none is selected
+      if (!activeSection && layoutSections.length > 0) {
+        setActiveSection(layoutSections[0]);
+      }
+
       // Also update portfolio with proper section order
       setPortfolio((prev: any) => ({
         ...prev,
         sectionOrder: layoutSections
       }));
     }
-  }, [isClient, template, portfolio]);
+  }, [isClient, template, portfolio, activeSection]);
 
   // Handler for section updates
   const handleSectionUpdate = (sectionId: string, data: any) => {
@@ -279,6 +298,12 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
     }));
 
     setSectionOrder(newSectionOrder);
+
+    // Set active section to first section in new order
+    if (newSectionOrder.length > 0) {
+      setActiveSection(newSectionOrder[0]);
+    }
+
     setIsSaved(false);
   };
 
@@ -307,6 +332,43 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
     }));
 
     setSectionOrder(newOrder);
+    setIsSaved(false);
+  };
+
+  // Handler for adding a section
+  const handleAddSection = (sectionId: string) => {
+    if (!portfolio || sectionOrder.includes(sectionId)) return;
+
+    const newOrder = [...sectionOrder, sectionId];
+
+    setPortfolio((prev: any) => ({
+      ...prev,
+      sectionOrder: newOrder,
+    }));
+
+    setSectionOrder(newOrder);
+    setActiveSection(sectionId);
+    setIsSaved(false);
+  };
+
+  // Handler for removing a section
+  const handleRemoveSection = (sectionId: string) => {
+    if (!portfolio) return;
+
+    const newOrder = sectionOrder.filter(id => id !== sectionId);
+
+    setPortfolio((prev: any) => ({
+      ...prev,
+      sectionOrder: newOrder,
+    }));
+
+    setSectionOrder(newOrder);
+
+    // If we're removing the active section, select another one
+    if (activeSection === sectionId && newOrder.length > 0) {
+      setActiveSection(newOrder[0]);
+    }
+
     setIsSaved(false);
   };
 
@@ -468,6 +530,11 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
     } finally {
       setIsPreviewing(false);
     }
+  };
+
+  // Toggle preview mode
+  const togglePreview = () => {
+    setShowPreview(!showPreview);
   };
 
   // Function to fetch profile data and populate the template
@@ -651,14 +718,21 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
     }
   };
 
-  // Add fullscreen toggle handler (not used in this simplified layout)
-  const toggleFullscreen = () => {
-    setIsFullscreen(!isFullscreen);
-  };
+  // Get all available sections from template
+  const getAllAvailableSections = () => {
+    const sections = new Set<string>();
 
-  // Preview button handler for the top bar
-  const onPreview = async () => {
-    await handlePreview();
+    if (template?.sectionDefinitions) {
+      Object.keys(template.sectionDefinitions).forEach(section => sections.add(section));
+    }
+
+    template?.layouts?.forEach((layout: any) => {
+      if (layout.structure?.sections) {
+        layout.structure.sections.forEach((section: string) => sections.add(section));
+      }
+    });
+
+    return Array.from(sections);
   };
 
   if (!isClient) {
@@ -695,7 +769,6 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
     return null;
   }
 
-  // Regular view with sidebar - modified to remove the live preview
   return (
     <div className="flex h-screen flex-col overflow-hidden">
       {/* Top navigation bar */}
@@ -706,53 +779,100 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
               <ArrowLeft className="h-4 w-4 mr-1 inline" />
               Back to Templates
             </Link>
-            <h1 className="text-xl font-bold">{updatedTemplate.name}</h1>
+            <h1 className="text-xl font-bold hidden md:block">{updatedTemplate.name}</h1>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             {isAuthenticated && (
               <FetchProfileButton
                 onFetch={fetchProfileData}
                 variant="outline"
                 size="sm"
-                fetchText="Auto-fill from Profile"
-                fetchingText="Fetching Profile Data..."
+                fetchText="Auto-fill"
+                fetchingText="Fetching..."
+                className="hidden md:flex"
               />
             )}
             <Button
               variant="outline"
               size="sm"
-              onClick={onPreview}
+              onClick={togglePreview}
+              className="hidden md:flex items-center gap-1"
+            >
+              {showPreview ? "Edit" : "Preview"}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handlePreview}
               className="flex items-center gap-1"
               disabled={isPreviewing}
             >
               <Eye className="h-4 w-4" />
-              {isPreviewing ? "Opening Preview..." : "Preview"}
+              <span className="hidden md:inline">{isPreviewing ? "Opening Preview..." : "Open Preview"}</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSaveDraft}
+              className="flex items-center gap-1"
+              disabled={isSaving}
+            >
+              <Save className="h-4 w-4" />
+              <span className="hidden md:inline">{isSaving ? "Saving..." : isSaved ? "Saved" : "Save"}</span>
+            </Button>
+            <Button
+              variant="default"
+              size="sm"
+              onClick={handlePublish}
+              className="flex items-center gap-1"
+              disabled={isPublishing}
+            >
+              <Share className="h-4 w-4" />
+              <span className="hidden md:inline">{isPublishing ? "Publishing..." : "Publish"}</span>
             </Button>
           </div>
         </div>
       </div>
 
-      {/* Main content - Simplified to only show the editor sidebar */}
+      {/* Main content area with sidebar and editor content */}
       <div className="flex flex-1 overflow-hidden">
-        <EditorSidebar
-          template={updatedTemplate}
+        {/* Sidebar with sections */}
+        <SidebarEditor
+          template={template}
           portfolio={portfolio}
+          activeSection={activeSection}
+          setActiveSection={setActiveSection}
+          sectionOrder={sectionOrder}
+          onSectionReorder={handleSectionReorder}
+          onAddSection={handleAddSection}
+          onRemoveSection={handleRemoveSection}
           onUpdateSection={handleSectionUpdate}
-          onUpdateLayout={handleLayoutSelect}
           onUpdateTheme={handleThemeSelect}
+          onUpdateLayout={handleLayoutSelect}
           onUpdateCustomCss={handleCustomCssUpdate}
           onSaveDraft={handleSaveDraft}
-          onPreview={handlePreview}
           onPublish={handlePublish}
+          onPreview={handlePreview}
           onFetchProfile={isAuthenticated ? fetchProfileData : undefined}
           draftSaving={isSaving}
           draftSaved={isSaved}
           previewLoading={isPreviewing}
           publishLoading={isPublishing}
-          sectionOrder={sectionOrder}
-          onSectionReorder={handleSectionReorder}
-          expandedView={true}
+          showPreview={showPreview}
         />
+
+        {/* Preview area */}
+        {showPreview && (
+          <div className="flex-1 overflow-auto bg-gray-50 dark:bg-gray-900">
+            <div className="container mx-auto p-4">
+              <TemplateRenderer
+                template={template}
+                portfolio={portfolio}
+                sectionOrder={sectionOrder}
+              />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
