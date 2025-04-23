@@ -1,3 +1,4 @@
+/*
 // API Client for making requests to the backend
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
@@ -262,6 +263,9 @@ const api = {
       const token = getToken();
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
+        console.log(`Setting Authorization header for API request to ${endpoint}`);
+      } else {
+        console.log(`No token found for API request to ${endpoint}`);
       }
 
       const options: RequestInit = {
@@ -275,8 +279,24 @@ const api = {
         options.body = JSON.stringify(data);
       }
 
+      console.log(`Sending ${method} request to ${url}`, {
+        hasToken: !!token,
+        headerKeys: Object.keys(headers),
+        method,
+        withCredentials: options.credentials === 'include'
+      });
+
       const response = await fetch(url, options);
-      return await handleResponse(response);
+      const result = await handleResponse(response);
+
+      // Add debug log for successful response
+      console.log(`API response from ${endpoint}:`, {
+        status: response.status,
+        success: response.ok,
+        hasData: !!result
+      });
+
+      return result;
     } catch (error) {
       console.error(`API request error (${endpoint}):`, error);
 
@@ -650,8 +670,24 @@ const api = {
 
     getById: async (id: string) => {
       try {
-        const response = await fetch(`${API_BASE_URL}/portfolios/${id}`);
-        return handleResponse(response);
+        console.log(`Fetching portfolio with ID: ${id} from ${API_BASE_URL}/portfolios/${id}`);
+        const token = getToken();
+        const headers: HeadersInit = {
+          'Content-Type': 'application/json'
+        };
+
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        const response = await fetch(`${API_BASE_URL}/portfolios/${id}`, {
+          headers,
+          credentials: 'include'
+        });
+
+        const data = await handleResponse(response);
+        console.log('Successfully fetched portfolio data:', data);
+        return data;
       } catch (error) {
         console.error('Portfolio fetch error:', error);
 
@@ -931,3 +967,4 @@ export interface User {
 // Export both the complete api object and individual functions
 export const apiClient = api;
 export default api;
+*/

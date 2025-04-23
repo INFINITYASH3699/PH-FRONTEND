@@ -44,6 +44,13 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
     const token = apiClient.getToken?.();
     const currentUser = apiClient.getUser?.();
 
+    console.log("Auth check on component mount:", {
+      hasToken: !!token,
+      tokenLength: token ? token.length : 0,
+      hasUser: !!currentUser,
+      userId: currentUser?.id
+    });
+
     if (token && currentUser) {
       setIsAuthenticated(true);
     } else {
@@ -74,18 +81,31 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
         // Check if we have a portfolioId parameter (editing existing portfolio)
         if (portfolioIdParam) {
           try {
-            // Fetch existing portfolio data
-            const response = await apiClient.portfolios.getById(portfolioIdParam);
+            // Get the token for debugging
+            const token = apiClient.getToken?.();
+            console.log(`Attempting to fetch portfolio with ID: ${portfolioIdParam}`, {
+              hasToken: !!token,
+              tokenLength: token ? token.length : 0,
+              isAuthenticated
+            });
 
-            if (response && response.portfolio) {
+            const response = await apiClient.request<{
+              success: boolean;
+              portfolio: any;
+            }>(`/portfolios/${portfolioIdParam}`, "GET");
+
+            console.log('API response from portfolio fetch:', response);
+
+            if (response && response.success && response.portfolio) {
               // Set the existing portfolio data
+              console.log('Successfully loaded existing portfolio:', response.portfolio._id);
               setPortfolio(response.portfolio);
               setSavedPortfolioId(response.portfolio._id);
               setLoading(false);
-              console.log('Loaded existing portfolio for editing', response.portfolio._id);
               return; // Exit the function as we've loaded the portfolio
             } else {
-              console.error('Failed to load existing portfolio, will create new instead');
+              console.error('Failed to load existing portfolio, API returned:', response);
+              toast.error('Failed to load your existing portfolio. Creating a new one instead.');
             }
           } catch (err) {
             console.error('Error loading existing portfolio:', err);
@@ -278,6 +298,8 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
       // Save portfolio as draft
       const response = await apiClient.portfolios.saveDraft(portfolioToSave);
 
+      console.log('API response from saveDraft:', response);
+
       if (response && response.portfolio) {
         setSavedPortfolioId(response.portfolio._id);
         setPortfolio((prev: any) => ({
@@ -348,6 +370,9 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
         isPublished: true
       };
 
+      // Add debugging log
+      console.log('Sending portfolio data to publish API:', portfolioToPublish);
+
       // Simulate network delay in development mode
       if (process.env.NODE_ENV === 'development') {
         await new Promise((resolve) => setTimeout(resolve, 1200));
@@ -355,6 +380,8 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
 
       // Publish portfolio
       const response = await apiClient.portfolios.publish(portfolioToPublish);
+
+      console.log('API response from publish:', response);
 
       if (response && response.portfolio) {
         setSavedPortfolioId(response.portfolio._id);
@@ -417,7 +444,10 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
     }
 
     try {
+      console.log('Fetching user profile from API...');
       const response = await apiClient.user.getProfile();
+
+      console.log('API response from getProfile:', response);
 
       if (!response || !response.user) {
         console.error('Invalid response from API:', response);
