@@ -9,7 +9,7 @@ import EditorSidebar from './EditorSidebar';
 import apiClient from '@/lib/apiClient';
 import { toast } from 'sonner';
 import { FetchProfileButton } from '@/components/ui/fetch-profile-button';
-import { Expand, Shrink, Laptop, Tablet, Smartphone } from 'lucide-react';
+import { Expand, Shrink, Laptop, Tablet, Smartphone, Eye, ArrowLeft } from 'lucide-react';
 
 interface TemplateEditorClientProps {
   template: any;
@@ -40,7 +40,7 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
   // New state for section ordering
   const [sectionOrder, setSectionOrder] = useState<string[]>([]);
 
-  // Add state for fullscreen mode
+  // Add state for fullscreen mode (not used in this simplified layout)
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Set isClient to true when component mounts and check authentication
@@ -132,13 +132,6 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
           defaultSectionOrder = template.defaultStructure.layout.sections;
         }
 
-        console.log('Template sections:', defaultSectionOrder);
-        console.log('Template definition:', {
-          layouts: template.layouts,
-          defaultStructure: template.defaultStructure,
-          sectionDefinitions: template.sectionDefinitions
-        });
-
         // Prepare initial content based on section definitions
         const initialContent: Record<string, any> = {
           // Default required sections
@@ -226,7 +219,7 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
     if (!isClient || !template || !portfolio) return;
 
     const activeLayoutId = portfolio.activeLayout || (template.layouts?.[0]?.id || 'default');
-    const activeLayout = template.layouts?.find(l => l.id === activeLayoutId) || template.layouts?.[0];
+    const activeLayout = template.layouts?.find((l: any) => l.id === activeLayoutId) || template.layouts?.[0];
 
     const layoutSections = activeLayout?.structure?.sections ||
       template.defaultStructure?.layout?.sections || [];
@@ -236,7 +229,7 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
     } else if (layoutSections.length > 0) {
       setSectionOrder(layoutSections);
       // Also update portfolio with proper section order
-      setPortfolio(prev => ({
+      setPortfolio((prev: any) => ({
         ...prev,
         sectionOrder: layoutSections
       }));
@@ -658,9 +651,14 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
     }
   };
 
-  // Add fullscreen toggle handler
+  // Add fullscreen toggle handler (not used in this simplified layout)
   const toggleFullscreen = () => {
     setIsFullscreen(!isFullscreen);
+  };
+
+  // Preview button handler for the top bar
+  const onPreview = async () => {
+    await handlePreview();
   };
 
   if (!isClient) {
@@ -697,67 +695,7 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
     return null;
   }
 
-  const viewportClass =
-    viewportMode === 'mobile'
-      ? 'max-w-[375px] mx-auto border-x shadow-lg'
-      : viewportMode === 'tablet'
-      ? 'max-w-[768px] mx-auto border-x shadow-lg'
-      : 'w-full';
-
-  // If in fullscreen mode, render only the template preview
-  if (isFullscreen) {
-    return (
-      <div className="fixed inset-0 bg-white dark:bg-gray-950 z-50 flex flex-col">
-        {/* Fullscreen header */}
-        <div className="p-4 flex justify-between items-center border-b bg-card">
-          <h2 className="text-lg font-semibold">Preview Mode: {updatedTemplate.name}</h2>
-          <div className="flex items-center gap-2">
-            <div className="flex border rounded-md overflow-hidden mr-4">
-              <button
-                className={`px-3 py-1 text-sm ${viewportMode === 'desktop' ? 'bg-muted font-medium' : 'hover:bg-muted/50'}`}
-                onClick={() => setViewportMode('desktop')}
-                title="Desktop view"
-              >
-                <Laptop className="h-4 w-4" />
-              </button>
-              <button
-                className={`px-3 py-1 text-sm ${viewportMode === 'tablet' ? 'bg-muted font-medium' : 'hover:bg-muted/50'}`}
-                onClick={() => setViewportMode('tablet')}
-                title="Tablet view"
-              >
-                <Tablet className="h-4 w-4" />
-              </button>
-              <button
-                className={`px-3 py-1 text-sm ${viewportMode === 'mobile' ? 'bg-muted font-medium' : 'hover:bg-muted/50'}`}
-                onClick={() => setViewportMode('mobile')}
-                title="Mobile view"
-              >
-                <Smartphone className="h-4 w-4" />
-              </button>
-            </div>
-            <Button variant="outline" size="sm" onClick={toggleFullscreen}>
-              <Shrink className="h-4 w-4 mr-2" />
-              Exit Fullscreen
-            </Button>
-          </div>
-        </div>
-        {/* Fullscreen content */}
-        <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">
-          <div className={`bg-white dark:bg-gray-800 min-h-full ${viewportClass}`}>
-            <TemplateRenderer
-              template={updatedTemplate}
-              portfolio={portfolio}
-              editable={false}
-              customColors={portfolio.customColors}
-              sectionOrder={sectionOrder}
-            />
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Regular view with sidebar
+  // Regular view with sidebar - modified to remove the live preview
   return (
     <div className="flex h-screen flex-col overflow-hidden">
       {/* Top navigation bar */}
@@ -765,7 +703,8 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
         <div className="container flex h-16 items-center justify-between px-4">
           <div className="flex items-center gap-4">
             <Link href="/templates" className="text-muted-foreground hover:text-foreground">
-              ← Back to Templates
+              <ArrowLeft className="h-4 w-4 mr-1 inline" />
+              Back to Templates
             </Link>
             <h1 className="text-xl font-bold">{updatedTemplate.name}</h1>
           </div>
@@ -779,38 +718,21 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
                 fetchingText="Fetching Profile Data..."
               />
             )}
-            <div className="flex border rounded-md overflow-hidden">
-              <button
-                className={`px-3 py-1 text-sm ${viewportMode === 'desktop' ? 'bg-muted font-medium' : 'hover:bg-muted/50'}`}
-                onClick={() => setViewportMode('desktop')}
-                title="Desktop view"
-              >
-                <Laptop className="h-4 w-4" />
-              </button>
-              <button
-                className={`px-3 py-1 text-sm ${viewportMode === 'tablet' ? 'bg-muted font-medium' : 'hover:bg-muted/50'}`}
-                onClick={() => setViewportMode('tablet')}
-                title="Tablet view"
-              >
-                <Tablet className="h-4 w-4" />
-              </button>
-              <button
-                className={`px-3 py-1 text-sm ${viewportMode === 'mobile' ? 'bg-muted font-medium' : 'hover:bg-muted/50'}`}
-                onClick={() => setViewportMode('mobile')}
-                title="Mobile view"
-              >
-                <Smartphone className="h-4 w-4" />
-              </button>
-            </div>
-            <Button variant="outline" size="sm" onClick={toggleFullscreen} title="Fullscreen preview">
-              <Expand className="h-4 w-4 mr-2" />
-              Fullscreen
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onPreview}
+              className="flex items-center gap-1"
+              disabled={isPreviewing}
+            >
+              <Eye className="h-4 w-4" />
+              {isPreviewing ? "Opening Preview..." : "Preview"}
             </Button>
           </div>
         </div>
       </div>
 
-      {/* Main content */}
+      {/* Main content - Simplified to only show the editor sidebar */}
       <div className="flex flex-1 overflow-hidden">
         <EditorSidebar
           template={updatedTemplate}
@@ -829,23 +751,8 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
           publishLoading={isPublishing}
           sectionOrder={sectionOrder}
           onSectionReorder={handleSectionReorder}
+          expandedView={true}
         />
-
-        {/* Main preview pane */}
-        <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">
-          <div className={`bg-white dark:bg-gray-800 h-full ${viewportClass}`}>
-            {/* Template preview */}
-            <div className="pb-20">
-              <TemplateRenderer
-                template={updatedTemplate}
-                portfolio={portfolio}
-                editable={true}
-                customColors={portfolio.customColors}
-                sectionOrder={sectionOrder}
-              />
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );

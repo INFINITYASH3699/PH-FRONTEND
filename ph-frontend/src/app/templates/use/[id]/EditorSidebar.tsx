@@ -21,7 +21,7 @@ import { SaveDraftButton } from '@/components/ui/save-draft-button';
 import { PreviewButton } from '@/components/ui/preview-button';
 import { PublishButton } from '@/components/ui/publish-button';
 import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd';
-import { GripVertical, X, Plus, PanelLeft, PanelLeftClose } from 'lucide-react';
+import { GripVertical, X, Plus, PanelLeft, PanelLeftClose, ChevronRight } from 'lucide-react';
 
 interface EditorSidebarProps {
   template: any;
@@ -40,6 +40,7 @@ interface EditorSidebarProps {
   draftSaved: boolean;
   previewLoading: boolean;
   publishLoading: boolean;
+  expandedView?: boolean; // New prop to control if sidebar takes full width
 }
 
 export default function EditorSidebar({
@@ -58,12 +59,14 @@ export default function EditorSidebar({
   draftSaving,
   draftSaved,
   previewLoading,
-  publishLoading
+  publishLoading,
+  expandedView = false
 }: EditorSidebarProps) {
   const [activeTab, setActiveTab] = useState('content');
   const [showSectionManager, setShowSectionManager] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [expandedSection, setExpandedSection] = useState<string | null>(null);
 
   useEffect(() => {
     const checkIfMobile = () => {
@@ -86,44 +89,71 @@ export default function EditorSidebar({
   // Use section order from props if available, otherwise use layout sections
   const sectionsToShow = sectionOrder.length > 0 ? sectionOrder : availableSections;
 
-  // Dynamically categorize sections based on template's section definitions, with fallback
-  const categorizedSections = (() => {
-    const defaultCategories = {
-      main: ['header', 'about'],
-      portfolio: ['projects', 'skills', 'experience', 'education', 'gallery', 'galleries', 'work', 'categories'],
-      additional: ['contact', 'services', 'testimonials', 'pricing', 'clients']
-    };
+  // Get template-specific section definitions
+  const templateSectionDefinitions = template?.sectionDefinitions || {};
 
-    if (template?.sectionDefinitions) {
-      const mainSections = sectionsToShow.filter(section =>
-        section === 'header' || section === 'about'
-      );
-      const portfolioSections = sectionsToShow.filter(section =>
-        defaultCategories.portfolio.includes(section)
-      );
-      const additionalSections = sectionsToShow.filter(section =>
-        !mainSections.includes(section) &&
-        !portfolioSections.includes(section) &&
-        section !== 'header' &&
-        section !== 'about' &&
-        !['socialLinks', 'seo', 'customCss'].includes(section)
-      );
-      return {
-        main: mainSections,
-        portfolio: portfolioSections,
-        additional: additionalSections
-      };
-    }
+  // Dynamically categorize sections based on template's own structure
+  const categorizedSections = (() => {
+    // Always place header and about in 'main' category
+    const mainSections = sectionsToShow.filter(section =>
+      section === 'header' || section === 'about'
+    );
+
+    // Determine content type sections - these are the portfolio specific sections
+    const contentSections = sectionsToShow.filter(section => {
+      // Skip main sections and utility sections
+      if (mainSections.includes(section)) return false;
+      if (['socialLinks', 'seo', 'customCss'].includes(section)) return false;
+
+      // Based on template categories
+      const sectionCategory = template?.category || 'developer';
+
+      // Create category-based groupings
+      if (sectionCategory === 'developer') {
+        return ['projects', 'skills', 'experience', 'education', 'technologies'].includes(section);
+      } else if (sectionCategory === 'designer') {
+        return ['gallery', 'work', 'portfolio', 'process'].includes(section);
+      } else if (sectionCategory === 'photographer') {
+        return ['galleries', 'categories'].includes(section);
+      }
+
+      // Default case
+      return ['projects', 'skills', 'experience', 'education'].includes(section);
+    });
+
+    // Additional sections - anything else
+    const additionalSections = sectionsToShow.filter(section =>
+      !mainSections.includes(section) &&
+      !contentSections.includes(section) &&
+      !['socialLinks', 'seo', 'customCss'].includes(section)
+    );
+
     return {
-      main: sectionsToShow.filter(section => defaultCategories.main.includes(section)),
-      portfolio: sectionsToShow.filter(section => defaultCategories.portfolio.includes(section)),
-      additional: sectionsToShow.filter(section =>
-        defaultCategories.additional.includes(section) ||
-        (!defaultCategories.main.includes(section) &&
-          !defaultCategories.portfolio.includes(section))
-      )
+      main: mainSections,
+      content: contentSections,
+      additional: additionalSections
     };
   })();
+
+  // Get section title from template definitions or use capitalized section ID
+  const getSectionTitle = (sectionId: string) => {
+    return templateSectionDefinitions[sectionId]?.defaultData?.title ||
+      sectionId.charAt(0).toUpperCase() + sectionId.slice(1);
+  };
+
+  // Get content grouping title based on template category
+  const getContentGroupTitle = () => {
+    const category = template?.category || 'developer';
+
+    switch (category) {
+      case 'designer':
+        return 'Design Work';
+      case 'photographer':
+        return 'Photography';
+      default:
+        return 'Work & Experience';
+    }
+  };
 
   const getContentForSection = (sectionId: string) => {
     return portfolio?.content?.[sectionId] || {};
@@ -278,11 +308,11 @@ export default function EditorSidebar({
         return (
           <div className="p-4 bg-muted/30 rounded-md">
             <p className="text-sm text-muted-foreground mb-2">
-              {section} section editor
+              {getSectionTitle(section)} section editor
             </p>
             <textarea
               className="w-full p-2 border rounded-md min-h-[100px]"
-              placeholder={`Edit your ${section} content here`}
+              placeholder={`Edit your ${getSectionTitle(section)} content here`}
               value={JSON.stringify(getContentForSection(section), null, 2)}
               onChange={(e) => {
                 try {
@@ -298,18 +328,30 @@ export default function EditorSidebar({
     }
   };
 
+  // Updated sidebar width for the expanded view
+  const sidebarWidth = expandedView
+    ? 'w-full'
+    : 'w-full md:w-96';
+
+  // Calculate layout for cards in expanded view
+  const cardLayout = expandedView
+    ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'
+    : 'space-y-6';
+
   return (
     <>
+      {/* Sidebar Toggle Button */}
       <SidebarToggle />
 
       <div
         className={`h-full flex flex-col border-l bg-card transition-all duration-300 ${
-          sidebarCollapsed ? 'w-0 -translate-x-full md:translate-x-0 md:w-0 opacity-0 md:opacity-100' : 'w-full md:w-80 translate-x-0 opacity-100'
+          sidebarCollapsed ? 'w-0 -translate-x-full md:translate-x-0 md:w-0 opacity-0 md:opacity-100' : `${sidebarWidth} translate-x-0 opacity-100`
         } ${isMobile && !sidebarCollapsed ? 'fixed inset-0 z-40' : ''}`}
-        style={{ maxWidth: sidebarCollapsed ? 0 : isMobile ? '100%' : '350px' }}
+        style={{ maxWidth: sidebarCollapsed ? 0 : isMobile ? '100%' : expandedView ? '100%' : '400px' }}
       >
+        {/* Sidebar Header */}
         <div className="p-4 border-b flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Template Editor</h2>
+          <h2 className="text-lg font-semibold">{template?.name || 'Template Editor'}</h2>
           <div className="flex items-center space-x-2">
             <SaveDraftButton
               onClick={onSaveDraft}
@@ -333,6 +375,7 @@ export default function EditorSidebar({
           </div>
         </div>
 
+        {/* Tabs for Content, Theme, and Layout */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
           <TabsList className="flex justify-between px-4 py-2 bg-muted/40">
             <TabsTrigger value="content" className="flex-1">Content</TabsTrigger>
@@ -341,19 +384,23 @@ export default function EditorSidebar({
           </TabsList>
 
           <ScrollArea className="flex-1 overflow-y-auto">
+            {/* Content Tab */}
             <TabsContent value="content" className="m-0 p-4 h-full">
-              <div className="space-y-6">
+              <div className={expandedView ? cardLayout : "space-y-6"}>
+                {/* Profile Data Import Button */}
                 {onFetchProfile && (
-                  <FetchProfileButton
-                    onFetch={onFetchProfile}
-                    fetchText="Auto-fill with Your Profile Data"
-                    fetchingText="Importing your data..."
-                    className="w-full mb-4"
-                  />
+                  <div className={expandedView ? "md:col-span-2 lg:col-span-3" : ""}>
+                    <FetchProfileButton
+                      onFetch={onFetchProfile}
+                      fetchText="Auto-fill with Your Profile Data"
+                      fetchingText="Importing your data..."
+                      className="w-full mb-4"
+                    />
+                  </div>
                 )}
 
-                {/* Section Manager - Only show when the toggle is active */}
-                <div className="mb-6">
+                {/* Section Manager */}
+                <div className={expandedView ? "md:col-span-2 lg:col-span-3" : "mb-6"}>
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-base font-semibold">Portfolio Sections</h3>
                     <Button
@@ -375,7 +422,7 @@ export default function EditorSidebar({
                             <div
                               {...provided.droppableProps}
                               ref={provided.innerRef}
-                              className="space-y-2"
+                              className={expandedView ? "grid grid-cols-1 md:grid-cols-2 gap-2" : "space-y-2"}
                             >
                               {sectionsToShow.map((sectionId, index) => (
                                 <Draggable key={sectionId} draggableId={sectionId} index={index}>
@@ -388,7 +435,7 @@ export default function EditorSidebar({
                                     >
                                       <div className="flex items-center">
                                         <GripVertical className="h-4 w-4 mr-2 text-muted-foreground" />
-                                        <span className="capitalize text-sm">{sectionId}</span>
+                                        <span className="capitalize text-sm">{getSectionTitle(sectionId)}</span>
                                       </div>
                                       <Button
                                         size="sm"
@@ -411,7 +458,7 @@ export default function EditorSidebar({
                       {/* Available sections to add */}
                       <div className="mt-4">
                         <h4 className="text-sm font-medium mb-2">Available sections to add</h4>
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className={expandedView ? "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2" : "grid grid-cols-2 gap-2"}>
                           {getAllAvailableSections()
                             .filter(section => !sectionsToShow.includes(section))
                             .map(section => (
@@ -423,7 +470,7 @@ export default function EditorSidebar({
                                 onClick={() => handleAddSection(section)}
                               >
                                 <Plus className="h-3 w-3 mr-1" />
-                                <span className="capitalize text-sm">{section}</span>
+                                <span className="capitalize text-sm">{getSectionTitle(section)}</span>
                               </Button>
                             ))
                           }
@@ -433,140 +480,228 @@ export default function EditorSidebar({
                   )}
                 </div>
 
-                <Accordion type="multiple" className="w-full">
-                  {/* Main Sections */}
-                  {categorizedSections.main.map(section => (
-                    <AccordionItem value={section} key={section}>
-                      <AccordionTrigger className="capitalize text-sm py-2">
-                        {section === 'header' ? 'Header & Profile' : section}
-                      </AccordionTrigger>
-                      <AccordionContent>
-                        {renderSectionEditor(section)}
-                      </AccordionContent>
-                    </AccordionItem>
-                  ))}
+                {/* Section Editors in Expanded View */}
+                {expandedView ? (
+                  <>
+                    {/* Main Sections */}
+                    {categorizedSections.main.map(section => (
+                      <div key={section} className="border rounded-md p-4 bg-white dark:bg-gray-800 shadow-sm">
+                        <div
+                          className="flex items-center justify-between mb-3 cursor-pointer"
+                          onClick={() => setExpandedSection(expandedSection === section ? null : section)}
+                        >
+                          <h3 className="font-medium capitalize">
+                            {section === 'header' ? 'Header & Profile' : getSectionTitle(section)}
+                          </h3>
+                          <ChevronRight className={`h-4 w-4 transition-transform ${expandedSection === section ? 'rotate-90' : ''}`} />
+                        </div>
+                        {expandedSection === section && renderSectionEditor(section)}
+                      </div>
+                    ))}
 
-                  {/* Portfolio Sections */}
-                  {categorizedSections.portfolio.length > 0 && (
-                    <AccordionItem value="portfolio-sections">
-                      <AccordionTrigger className="text-sm py-2">
-                        Work & Experience
-                      </AccordionTrigger>
-                      <AccordionContent>
-                        {categorizedSections.portfolio.map(section => (
-                          <div key={section} className="mb-6">
-                            <h3 className="font-medium capitalize mb-2">
-                              {section}
-                            </h3>
-                            {renderSectionEditor(section)}
+                    {/* Content Sections (specific to template category) */}
+                    {categorizedSections.content.length > 0 && (
+                      <div className="border rounded-md p-4 bg-white dark:bg-gray-800 shadow-sm md:col-span-2 lg:col-span-3">
+                        <div
+                          className="flex items-center justify-between mb-3 cursor-pointer"
+                          onClick={() => setExpandedSection(expandedSection === 'content-group' ? null : 'content-group')}
+                        >
+                          <h3 className="font-medium">{getContentGroupTitle()}</h3>
+                          <ChevronRight className={`h-4 w-4 transition-transform ${expandedSection === 'content-group' ? 'rotate-90' : ''}`} />
+                        </div>
+                        {expandedSection === 'content-group' && (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                            {categorizedSections.content.map(section => (
+                              <div key={section} className="border rounded-md p-3 bg-muted/10">
+                                <h4 className="font-medium capitalize mb-2">{getSectionTitle(section)}</h4>
+                                {renderSectionEditor(section)}
+                              </div>
+                            ))}
                           </div>
-                        ))}
-                      </AccordionContent>
-                    </AccordionItem>
-                  )}
+                        )}
+                      </div>
+                    )}
 
-                  {/* Additional Sections */}
-                  {categorizedSections.additional.map(section => (
-                    <AccordionItem value={section} key={section}>
-                      <AccordionTrigger className="capitalize text-sm py-2">
-                        {section}
+                    {/* Additional Sections */}
+                    {categorizedSections.additional.map(section => (
+                      <div key={section} className="border rounded-md p-4 bg-white dark:bg-gray-800 shadow-sm">
+                        <div
+                          className="flex items-center justify-between mb-3 cursor-pointer"
+                          onClick={() => setExpandedSection(expandedSection === section ? null : section)}
+                        >
+                          <h3 className="font-medium capitalize">{getSectionTitle(section)}</h3>
+                          <ChevronRight className={`h-4 w-4 transition-transform ${expandedSection === section ? 'rotate-90' : ''}`} />
+                        </div>
+                        {expandedSection === section && renderSectionEditor(section)}
+                      </div>
+                    ))}
+
+                    {/* Settings and Meta Sections */}
+                    <div className="border rounded-md p-4 bg-white dark:bg-gray-800 shadow-sm">
+                      <div
+                        className="flex items-center justify-between mb-3 cursor-pointer"
+                        onClick={() => setExpandedSection(expandedSection === 'social' ? null : 'social')}
+                      >
+                        <h3 className="font-medium">Social Media</h3>
+                        <ChevronRight className={`h-4 w-4 transition-transform ${expandedSection === 'social' ? 'rotate-90' : ''}`} />
+                      </div>
+                      {expandedSection === 'social' && (
+                        <SocialLinksEditor
+                          data={portfolio?.content?.socialLinks || {}}
+                          onChange={(data) => onUpdateSection('socialLinks', data)}
+                        />
+                      )}
+                    </div>
+
+                    <div className="border rounded-md p-4 bg-white dark:bg-gray-800 shadow-sm">
+                      <div
+                        className="flex items-center justify-between mb-3 cursor-pointer"
+                        onClick={() => setExpandedSection(expandedSection === 'seo' ? null : 'seo')}
+                      >
+                        <h3 className="font-medium">SEO & Metadata</h3>
+                        <ChevronRight className={`h-4 w-4 transition-transform ${expandedSection === 'seo' ? 'rotate-90' : ''}`} />
+                      </div>
+                      {expandedSection === 'seo' && (
+                        <SEOEditor
+                          data={getContentForSection('seo')}
+                          onChange={(data) => onUpdateSection('seo', data)}
+                        />
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  // Original accordion layout for non-expanded view
+                  <Accordion type="multiple" className="w-full">
+                    {/* Main Sections */}
+                    {categorizedSections.main.map(section => (
+                      <AccordionItem value={section} key={section}>
+                        <AccordionTrigger className="capitalize text-sm py-2">
+                          {section === 'header' ? 'Header & Profile' : getSectionTitle(section)}
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          {renderSectionEditor(section)}
+                        </AccordionContent>
+                      </AccordionItem>
+                    ))}
+
+                    {/* Content Sections - grouped by template category */}
+                    {categorizedSections.content.length > 0 && (
+                      <AccordionItem value="content-sections">
+                        <AccordionTrigger className="text-sm py-2">
+                          {getContentGroupTitle()}
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          {categorizedSections.content.map(section => (
+                            <div key={section} className="mb-6">
+                              <h3 className="font-medium capitalize mb-2">
+                                {getSectionTitle(section)}
+                              </h3>
+                              {renderSectionEditor(section)}
+                            </div>
+                          ))}
+                        </AccordionContent>
+                      </AccordionItem>
+                    )}
+
+                    {/* Additional Sections */}
+                    {categorizedSections.additional.map(section => (
+                      <AccordionItem value={section} key={section}>
+                        <AccordionTrigger className="capitalize text-sm py-2">
+                          {getSectionTitle(section)}
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          {renderSectionEditor(section)}
+                        </AccordionContent>
+                      </AccordionItem>
+                    ))}
+
+                    {/* Social Media */}
+                    <AccordionItem value="social">
+                      <AccordionTrigger className="text-sm py-2">
+                        Social Media
                       </AccordionTrigger>
                       <AccordionContent>
-                        {renderSectionEditor(section)}
+                        <SocialLinksEditor
+                          data={portfolio?.content?.socialLinks || {}}
+                          onChange={(data) => onUpdateSection('socialLinks', data)}
+                        />
                       </AccordionContent>
                     </AccordionItem>
-                  ))}
 
-                  {/* Social Media */}
-                  <AccordionItem value="social">
-                    <AccordionTrigger className="text-sm py-2">
-                      Social Media
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <SocialLinksEditor
-                        data={portfolio?.content?.socialLinks || {}}
-                        onChange={(data) => onUpdateSection('socialLinks', data)}
-                      />
-                    </AccordionContent>
-                  </AccordionItem>
-
-                  {/* SEO */}
-                  <AccordionItem value="seo">
-                    <AccordionTrigger className="text-sm py-2">
-                      SEO & Metadata
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <SEOEditor
-                        data={getContentForSection('seo')}
-                        onChange={(data) => onUpdateSection('seo', data)}
-                      />
-                    </AccordionContent>
-                  </AccordionItem>
-                </Accordion>
+                    {/* SEO */}
+                    <AccordionItem value="seo">
+                      <AccordionTrigger className="text-sm py-2">
+                        SEO & Metadata
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <SEOEditor
+                          data={getContentForSection('seo')}
+                          onChange={(data) => onUpdateSection('seo', data)}
+                        />
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
+                )}
               </div>
             </TabsContent>
 
+            {/* Theme Tab */}
             <TabsContent value="theme" className="m-0 p-4 h-full">
-              <div className="space-y-6">
-                <Accordion type="multiple" className="w-full" defaultValue={["theme"]}>
-                  <AccordionItem value="theme">
-                    <AccordionTrigger className="text-sm py-2">
-                      Colors & Fonts
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <ThemeSelector
-                        themeOptions={template?.themeOptions}
-                        activeColorSchemeId={portfolio?.activeColorScheme}
-                        activeFontPairingId={portfolio?.activeFontPairing}
-                        onChange={onUpdateTheme}
-                      />
-                    </AccordionContent>
-                  </AccordionItem>
-                  <AccordionItem value="custom-css">
-                    <AccordionTrigger className="text-sm py-2">
-                      Custom CSS
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <CustomCSSEditor
-                        css={portfolio?.content?.customCss || ''}
-                        onChange={(css) => onUpdateCustomCss(css)}
-                      />
-                    </AccordionContent>
-                  </AccordionItem>
-                </Accordion>
+              <div className={expandedView ? "grid grid-cols-1 md:grid-cols-2 gap-6" : "space-y-6"}>
+                <div className="border rounded-md p-4 bg-white dark:bg-gray-800 shadow-sm">
+                  <h3 className="font-medium mb-3">Colors & Fonts</h3>
+                  <ThemeSelector
+                    themeOptions={template?.themeOptions}
+                    activeColorSchemeId={portfolio?.activeColorScheme}
+                    activeFontPairingId={portfolio?.activeFontPairing}
+                    onChange={onUpdateTheme}
+                  />
+                </div>
+
+                <div className="border rounded-md p-4 bg-white dark:bg-gray-800 shadow-sm">
+                  <h3 className="font-medium mb-3">Custom CSS</h3>
+                  <CustomCSSEditor
+                    css={portfolio?.content?.customCss || ''}
+                    onChange={(css) => onUpdateCustomCss(css)}
+                  />
+                </div>
               </div>
             </TabsContent>
 
+            {/* Layout Tab */}
             <TabsContent value="layout" className="m-0 p-4 h-full">
-              <div className="space-y-6">
-                <Accordion type="multiple" className="w-full" defaultValue={["layout"]}>
-                  <AccordionItem value="layout">
-                    <AccordionTrigger className="text-sm py-2">
-                      Layout
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <LayoutSelector
-                        layouts={template?.layouts || []}
-                        activeLayoutId={portfolio?.activeLayout || template?.layouts?.[0]?.id}
-                        onChange={onUpdateLayout}
-                      />
-                    </AccordionContent>
-                  </AccordionItem>
-                </Accordion>
+              <div className="border rounded-md p-4 bg-white dark:bg-gray-800 shadow-sm">
+                <h3 className="font-medium mb-3">Layout Options</h3>
+                <LayoutSelector
+                  layouts={template?.layouts || []}
+                  activeLayoutId={portfolio?.activeLayout || template?.layouts?.[0]?.id}
+                  onChange={onUpdateLayout}
+                />
               </div>
             </TabsContent>
           </ScrollArea>
         </Tabs>
 
+        {/* Footer Actions */}
         <div className="p-4 border-t bg-card mt-auto">
-          <PublishButton
-            onClick={onPublish}
-            loading={publishLoading}
-            className="w-full"
-          />
+          <div className="flex gap-3">
+            <SaveDraftButton
+              onClick={onSaveDraft}
+              loading={draftSaving}
+              saved={draftSaved}
+              variant="outline"
+              className="flex-1"
+            />
+            <PublishButton
+              onClick={onPublish}
+              loading={publishLoading}
+              className="flex-1"
+            />
+          </div>
         </div>
       </div>
 
+      {/* Mobile overlay */}
       {isMobile && !sidebarCollapsed && (
         <div
           className="fixed inset-0 bg-black/20 z-30"
