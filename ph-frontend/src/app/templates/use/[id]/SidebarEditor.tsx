@@ -89,6 +89,12 @@ export default function SidebarEditor({
   const [configTab, setConfigTab] = useState<'sections' | 'theme' | 'layout' | 'css'>('sections');
   const [searchTerm, setSearchTerm] = useState('');
   const [showManageSections, setShowManageSections] = useState(false);
+  const [portfolioState, setPortfolio] = useState<any>(portfolio);
+
+  // Keep portfolioState in sync with portfolio prop
+  useEffect(() => {
+    setPortfolio(portfolio);
+  }, [portfolio]);
 
   useEffect(() => {
     setIsClient(true);
@@ -174,7 +180,7 @@ export default function SidebarEditor({
 
   // Get content for a specific section
   const getContentForSection = (sectionId: string) => {
-    return portfolio?.content?.[sectionId] || {};
+    return portfolioState?.content?.[sectionId] || {};
   };
 
   // Handle section click
@@ -205,10 +211,17 @@ export default function SidebarEditor({
     switch (section) {
       case 'header':
         return (
-          <HeaderEditor
-            data={getContentForSection('header')}
-            onChange={(data) => onUpdateSection('header', data)}
-          />
+          <div className="mb-4">
+            <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md text-yellow-800">
+              <p className="text-sm">
+                <strong>Note:</strong> Make sure to add a profile image for better visibility. Your header will be visible on the published portfolio.
+              </p>
+            </div>
+            <HeaderEditor
+              data={getContentForSection('header')}
+              onChange={(data) => onUpdateSection('header', data)}
+            />
+          </div>
         );
       case 'about':
         return (
@@ -264,17 +277,37 @@ export default function SidebarEditor({
       case 'socialLinks':
         return (
           <SocialLinksEditor
-            data={portfolio?.content?.socialLinks || {}}
+            data={portfolioState?.content?.socialLinks || {}}
             onChange={(data) => onUpdateSection('socialLinks', data)}
           />
         );
-      case 'seo':
+      case 'seo': {
+        // Subdomain lock logic
+        const userType = portfolioState?.userType || 'free';
+        // Free users: subdomain is locked after first publish; premium users: always editable
+        const isSubdomainLocked =
+          userType === 'premium' ? false : portfolioState?.subdomainLocked === true;
+
         return (
           <SEOEditor
             data={getContentForSection('seo')}
             onChange={(data) => onUpdateSection('seo', data)}
+            subdomain={portfolioState?.subdomain || ''}
+            onSubdomainChange={(newSubdomain: string) => {
+              if (userType === 'premium' || !isSubdomainLocked) {
+                setPortfolio((prev: any) => ({
+                  ...prev,
+                  subdomain: newSubdomain,
+                  customSubdomain: true
+                }));
+                // Optionally, call onUpdateSection or onUpdateSection('seo', ...) if SEO data includes subdomain
+              }
+            }}
+            isSubdomainLocked={isSubdomainLocked}
+            userType={userType}
           />
         );
+      }
       default:
         // For any section without a specific editor
         return (
@@ -405,8 +438,8 @@ export default function SidebarEditor({
             <h3 className="text-lg font-semibold mb-4">Theme Settings</h3>
             <ThemeSelector
               themeOptions={template?.themeOptions}
-              activeColorSchemeId={portfolio?.activeColorScheme}
-              activeFontPairingId={portfolio?.activeFontPairing}
+              activeColorSchemeId={portfolioState?.activeColorScheme}
+              activeFontPairingId={portfolioState?.activeFontPairing}
               onChange={onUpdateTheme}
             />
           </div>
@@ -417,7 +450,7 @@ export default function SidebarEditor({
             <h3 className="text-lg font-semibold mb-4">Layout Settings</h3>
             <LayoutSelector
               layouts={template?.layouts || []}
-              activeLayoutId={portfolio?.activeLayout || template?.layouts?.[0]?.id}
+              activeLayoutId={portfolioState?.activeLayout || template?.layouts?.[0]?.id}
               onChange={onUpdateLayout}
             />
           </div>
@@ -427,7 +460,7 @@ export default function SidebarEditor({
           <div className="p-4">
             <h3 className="text-lg font-semibold mb-4">Custom CSS</h3>
             <CustomCSSEditor
-              css={portfolio?.content?.customCss || ''}
+              css={portfolioState?.content?.customCss || ''}
               onChange={(css) => onUpdateCustomCss(css)}
             />
           </div>

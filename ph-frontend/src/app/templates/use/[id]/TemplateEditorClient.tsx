@@ -1,5 +1,3 @@
-"use client"
-
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -578,6 +576,31 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
           updatedFields.push('name');
         }
 
+        // If user has a profile photo, use it for header and about section
+        if (profileData.profile?.profileImage) {
+          // Update header
+          updatedPortfolio.content = {
+            ...updatedPortfolio.content,
+            header: {
+              ...updatedPortfolio.content?.header,
+              profileImage: profileData.profile.profileImage,
+            }
+          };
+
+          // Also update about section image if the about section has an image field
+          if (updatedPortfolio.content?.about) {
+            updatedPortfolio.content = {
+              ...updatedPortfolio.content,
+              about: {
+                ...updatedPortfolio.content.about,
+                image: profileData.profile.profileImage,
+              }
+            };
+          }
+
+          updatedFields.push('profileImage');
+        }
+
         // Update about section if profile bio exists
         if (profileData.profile?.bio) {
           updatedPortfolio.content = {
@@ -592,15 +615,18 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
 
         // Update skills section if profile skills exist
         if (profileData.profile?.skills && profileData.profile.skills.length > 0) {
+          // Properly map skills data from the profile
+          const mappedSkills = profileData.profile.skills.map((skill: any) => ({
+            name: skill.name,
+            level: skill.level || 80,
+            category: skill.category || 'Technical'
+          }));
+
           updatedPortfolio.content = {
             ...updatedPortfolio.content,
             skills: {
-              ...updatedPortfolio.content?.skills,
-              items: profileData.profile.skills.map((skill: any) => ({
-                name: skill.name,
-                level: skill.level || 80,
-                category: skill.category || 'Technical'
-              }))
+              title: updatedPortfolio.content?.skills?.title || 'Skills',
+              items: mappedSkills
             }
           };
           updatedFields.push('skills');
@@ -611,7 +637,7 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
           updatedPortfolio.content = {
             ...updatedPortfolio.content,
             experience: {
-              ...updatedPortfolio.content?.experience,
+              title: updatedPortfolio.content?.experience?.title || 'Experience',
               items: profileData.profile.experience.map((exp: any) => ({
                 title: exp.title,
                 company: exp.company,
@@ -631,7 +657,7 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
           updatedPortfolio.content = {
             ...updatedPortfolio.content,
             education: {
-              ...updatedPortfolio.content?.education,
+              title: updatedPortfolio.content?.education?.title || 'Education',
               items: profileData.profile.education.map((edu: any) => ({
                 degree: edu.degree,
                 institution: edu.institution,
@@ -651,7 +677,7 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
           updatedPortfolio.content = {
             ...updatedPortfolio.content,
             projects: {
-              ...updatedPortfolio.content?.projects,
+              title: updatedPortfolio.content?.projects?.title || 'Projects',
               items: profileData.profile.projects.map((project: any) => ({
                 title: project.title,
                 description: project.description,
@@ -683,6 +709,27 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
             }
           };
           updatedFields.push('title');
+        }
+
+        // Set proper subdomain based on user type
+        const username = profileData.username || profileData.fullName?.toLowerCase().replace(/\s+/g, '') || '';
+
+        // For free users, use username as subdomain (locked)
+        if (profileData.userType === 'free') {
+          updatedPortfolio.subdomain = username;
+          updatedPortfolio.subdomainLocked = true;
+          updatedFields.push('subdomain');
+        }
+        // For premium users, set default as username but allow editing
+        else if (profileData.userType === 'premium' && !updatedPortfolio.customSubdomain) {
+          updatedPortfolio.subdomain = username;
+          updatedPortfolio.subdomainLocked = false;
+          updatedFields.push('subdomain');
+        }
+        // If user type not specified, use default behavior
+        else if (!updatedPortfolio.subdomain) {
+          updatedPortfolio.subdomain = username || `user-${Date.now().toString().slice(-8)}`;
+          updatedFields.push('subdomain');
         }
 
         setIsSaved(false);
@@ -794,14 +841,6 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
                 className="hidden md:flex"
               />
             )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={togglePreview}
-              className="hidden md:flex items-center gap-1"
-            >
-              {showPreview ? "Edit" : "Preview"}
-            </Button>
             <Button
               variant="outline"
               size="sm"
