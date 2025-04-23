@@ -9,6 +9,7 @@ import EditorSidebar from './EditorSidebar';
 import apiClient from '@/lib/apiClient';
 import { toast } from 'sonner';
 import { FetchProfileButton } from '@/components/ui/fetch-profile-button';
+import { Expand, Shrink, Laptop, Tablet, Smartphone } from 'lucide-react';
 
 interface TemplateEditorClientProps {
   template: any;
@@ -36,6 +37,12 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
   const [viewportMode, setViewportMode] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
   const [savedPortfolioId, setSavedPortfolioId] = useState<string | null>(null);
 
+  // New state for section ordering
+  const [sectionOrder, setSectionOrder] = useState<string[]>([]);
+
+  // Add state for fullscreen mode
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
   // Set isClient to true when component mounts and check authentication
   useEffect(() => {
     setIsClient(true);
@@ -43,13 +50,6 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
     // Check authentication status
     const token = apiClient.getToken?.();
     const currentUser = apiClient.getUser?.();
-
-    console.log("Auth check on component mount:", {
-      hasToken: !!token,
-      tokenLength: token ? token.length : 0,
-      hasUser: !!currentUser,
-      userId: currentUser?.id
-    });
 
     if (token && currentUser) {
       setIsAuthenticated(true);
@@ -81,40 +81,27 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
         // Check if we have a portfolioId parameter (editing existing portfolio)
         if (portfolioIdParam) {
           try {
-            // Get the token for debugging
             const token = apiClient.getToken?.();
-            console.log(`Attempting to fetch portfolio with ID: ${portfolioIdParam}`, {
-              hasToken: !!token,
-              tokenLength: token ? token.length : 0,
-              isAuthenticated
-            });
 
             const response = await apiClient.request<{
               success: boolean;
               portfolio: any;
             }>(`/portfolios/${portfolioIdParam}`, "GET");
 
-            console.log('API response from portfolio fetch:', response);
-
             if (response && response.success && response.portfolio) {
-              // Set the existing portfolio data
-              console.log('Successfully loaded existing portfolio:', response.portfolio._id);
               setPortfolio(response.portfolio);
               setSavedPortfolioId(response.portfolio._id);
               setLoading(false);
-              return; // Exit the function as we've loaded the portfolio
+              return;
             } else {
-              console.error('Failed to load existing portfolio, API returned:', response);
               toast.error('Failed to load your existing portfolio. Creating a new one instead.');
             }
           } catch (err) {
-            console.error('Error loading existing portfolio:', err);
             toast.error('Failed to load your existing portfolio. Creating a new one instead.');
           }
         }
 
         // If we don't have a portfolioId or failed to fetch it, create a new one
-        // Generate a unique subdomain based on user and timestamp
         const generateSubdomain = () => {
           const username =
             user?.username ||
@@ -123,6 +110,15 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
           const timestamp = new Date().getTime().toString().slice(-4);
           return `${username}${timestamp}`;
         };
+
+        // Determine default section order from template
+        let defaultSectionOrder: string[] = [];
+        if (template.layouts && template.layouts.length > 0) {
+          const mainLayout = template.layouts[0];
+          defaultSectionOrder = mainLayout?.structure?.sections || [];
+        } else if (template.defaultStructure?.layout?.sections) {
+          defaultSectionOrder = template.defaultStructure.layout.sections;
+        }
 
         // Create initial portfolio data
         const initialPortfolioData = {
@@ -173,25 +169,37 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
               instagram: '',
             },
           },
-          // Default theme settings
           activeLayout: template.layouts?.[0]?.id || 'default',
           activeColorScheme: template.themeOptions?.colorSchemes?.[0]?.id || 'default',
           activeFontPairing: template.themeOptions?.fontPairings?.[0]?.id || 'default',
           customColors: null,
+          sectionOrder: defaultSectionOrder,
         };
 
         setPortfolio(initialPortfolioData);
+        setSectionOrder(defaultSectionOrder);
         setLoading(false);
       };
 
-      // Initialize portfolio (either fetch existing or create new)
       initializePortfolio();
     } catch (err) {
-      console.error("Error initializing portfolio:", err);
       setError("Failed to initialize template editor.");
       setLoading(false);
     }
   }, [template, user, isAuthenticated, isClient, portfolioIdParam]);
+
+  // Initialize section order when template/portfolio changes
+  useEffect(() => {
+    if (!isClient || !template || !portfolio) return;
+
+    const activeLayoutId = portfolio.activeLayout || (template.layouts?.[0]?.id || 'default');
+    const activeLayout = template.layouts?.find(l => l.id === activeLayoutId) || template.layouts?.[0];
+
+    const layoutSections = activeLayout?.structure?.sections ||
+      template.defaultStructure?.layout?.sections || [];
+
+    setSectionOrder(portfolio.sectionOrder || layoutSections);
+  }, [isClient, template, portfolio]);
 
   // Handler for section updates
   const handleSectionUpdate = (sectionId: string, data: any) => {
@@ -225,11 +233,17 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
   const handleLayoutSelect = (layoutId: string) => {
     if (!portfolio) return;
 
+    // When layout changes, update section order to match new layout's default
+    const newLayout = template.layouts?.find((l: any) => l.id === layoutId);
+    const newSectionOrder = newLayout?.structure?.sections || [];
+
     setPortfolio((prev: any) => ({
       ...prev,
       activeLayout: layoutId,
+      sectionOrder: newSectionOrder,
     }));
 
+    setSectionOrder(newSectionOrder);
     setIsSaved(false);
   };
 
@@ -245,6 +259,19 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
       },
     }));
 
+    setIsSaved(false);
+  };
+
+  // Handler for section reordering
+  const handleSectionReorder = (newOrder: string[]) => {
+    if (!portfolio) return;
+
+    setPortfolio((prev: any) => ({
+      ...prev,
+      sectionOrder: newOrder,
+    }));
+
+    setSectionOrder(newOrder);
     setIsSaved(false);
   };
 
@@ -264,10 +291,6 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
     setIsSaved(false);
 
     try {
-      // Log portfolio data for debugging
-      console.log('Preparing portfolio for saving:', portfolio);
-
-      // Ensure userId is properly set
       const currentUser = apiClient.getUser?.();
       const userId = currentUser?._id || user?.id;
 
@@ -275,30 +298,22 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
         throw new Error('User ID is missing');
       }
 
-      // Prepare portfolio data for saving, making sure required fields are present
       const portfolioToSave = {
         ...portfolio,
         userId: userId,
         templateId: template._id,
-        // Ensure these required fields are present
         title: portfolio.title || 'My Portfolio',
         subtitle: portfolio.subtitle || '',
         subdomain: portfolio.subdomain || `user-${Date.now().toString().slice(-8)}`,
-        isPublished: false
+        isPublished: false,
+        sectionOrder: sectionOrder,
       };
 
-      // Add debugging log
-      console.log('Sending portfolio data to API:', portfolioToSave);
-
-      // Simulate network delay in development mode for better UX testing
       if (process.env.NODE_ENV === 'development') {
         await new Promise((resolve) => setTimeout(resolve, 800));
       }
 
-      // Save portfolio as draft
       const response = await apiClient.portfolios.saveDraft(portfolioToSave);
-
-      console.log('API response from saveDraft:', response);
 
       if (response && response.portfolio) {
         setSavedPortfolioId(response.portfolio._id);
@@ -312,16 +327,10 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
         throw new Error('Failed to save portfolio');
       }
     } catch (err: any) {
-      console.error('Error saving portfolio draft:', err);
-
-      // Provide more user-friendly error messages
       let errorMessage = 'Failed to save portfolio. Please try again.';
 
-      // Handle specific error messages
       if (err.message?.includes('already have a portfolio with this template')) {
         errorMessage = 'You already have a portfolio with this template. Please use the Edit button on the templates page to modify your existing portfolio.';
-
-        // Redirect to templates page after a short delay
         setTimeout(() => {
           router.push('/templates');
         }, 3000);
@@ -348,7 +357,6 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
     try {
       setIsPublishing(true);
 
-      // First save as draft if not already saved
       if (!savedPortfolioId) {
         await handleSaveDraft();
       }
@@ -367,21 +375,15 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
         title: portfolio.title || 'My Portfolio',
         subtitle: portfolio.subtitle || '',
         subdomain: portfolio.subdomain || `user-${Date.now().toString().slice(-8)}`,
-        isPublished: true
+        isPublished: true,
+        sectionOrder: sectionOrder,
       };
 
-      // Add debugging log
-      console.log('Sending portfolio data to publish API:', portfolioToPublish);
-
-      // Simulate network delay in development mode
       if (process.env.NODE_ENV === 'development') {
         await new Promise((resolve) => setTimeout(resolve, 1200));
       }
 
-      // Publish portfolio
       const response = await apiClient.portfolios.publish(portfolioToPublish);
-
-      console.log('API response from publish:', response);
 
       if (response && response.portfolio) {
         setSavedPortfolioId(response.portfolio._id);
@@ -400,7 +402,6 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
         throw new Error('Failed to publish portfolio');
       }
     } catch (err) {
-      console.error('Error publishing portfolio:', err);
       toast.error('Failed to publish portfolio. Please try again.');
     } finally {
       setIsPublishing(false);
@@ -418,7 +419,6 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
     setIsPreviewing(true);
 
     try {
-      // Save as draft first if not already saved
       if (!savedPortfolioId) {
         await handleSaveDraft();
       }
@@ -429,7 +429,6 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
         throw new Error('Failed to generate preview');
       }
     } catch (err) {
-      console.error('Error generating preview:', err);
       toast.error('Failed to generate preview. Please try again.');
     } finally {
       setIsPreviewing(false);
@@ -444,19 +443,14 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
     }
 
     try {
-      console.log('Fetching user profile from API...');
       const response = await apiClient.user.getProfile();
 
-      console.log('API response from getProfile:', response);
-
       if (!response || !response.user) {
-        console.error('Invalid response from API:', response);
         throw new Error('Failed to fetch profile data: Invalid API response');
       }
 
       const profileData = response.user;
 
-      // Check if profile data is empty or missing
       if (!profileData.profile || Object.keys(profileData.profile).length === 0) {
         toast.warning('Your profile is empty. Please add information to your profile first.');
         return;
@@ -613,7 +607,6 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
       ) {
         toast.error('You are not authorized. Please log in again.');
       } else {
-        console.error('Error fetching profile data:', error);
         toast.error(
           error?.message
             ? `Failed to fetch profile data: ${error.message}`
@@ -623,7 +616,11 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
     }
   };
 
-  // Don't render anything during SSR to prevent hydration mismatches
+  // Add fullscreen toggle handler
+  const toggleFullscreen = () => {
+    setIsFullscreen(!isFullscreen);
+  };
+
   if (!isClient) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -658,7 +655,6 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
     return null;
   }
 
-  // Calculate viewport class based on selected mode
   const viewportClass =
     viewportMode === 'mobile'
       ? 'max-w-[375px] mx-auto border-x shadow-lg'
@@ -666,6 +662,60 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
       ? 'max-w-[768px] mx-auto border-x shadow-lg'
       : 'w-full';
 
+  // If in fullscreen mode, render only the template preview
+  if (isFullscreen) {
+    return (
+      <div className="fixed inset-0 bg-white dark:bg-gray-950 z-50 flex flex-col">
+        {/* Fullscreen header */}
+        <div className="p-4 flex justify-between items-center border-b bg-card">
+          <h2 className="text-lg font-semibold">Preview Mode: {updatedTemplate.name}</h2>
+          <div className="flex items-center gap-2">
+            <div className="flex border rounded-md overflow-hidden mr-4">
+              <button
+                className={`px-3 py-1 text-sm ${viewportMode === 'desktop' ? 'bg-muted font-medium' : 'hover:bg-muted/50'}`}
+                onClick={() => setViewportMode('desktop')}
+                title="Desktop view"
+              >
+                <Laptop className="h-4 w-4" />
+              </button>
+              <button
+                className={`px-3 py-1 text-sm ${viewportMode === 'tablet' ? 'bg-muted font-medium' : 'hover:bg-muted/50'}`}
+                onClick={() => setViewportMode('tablet')}
+                title="Tablet view"
+              >
+                <Tablet className="h-4 w-4" />
+              </button>
+              <button
+                className={`px-3 py-1 text-sm ${viewportMode === 'mobile' ? 'bg-muted font-medium' : 'hover:bg-muted/50'}`}
+                onClick={() => setViewportMode('mobile')}
+                title="Mobile view"
+              >
+                <Smartphone className="h-4 w-4" />
+              </button>
+            </div>
+            <Button variant="outline" size="sm" onClick={toggleFullscreen}>
+              <Shrink className="h-4 w-4 mr-2" />
+              Exit Fullscreen
+            </Button>
+          </div>
+        </div>
+        {/* Fullscreen content */}
+        <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">
+          <div className={`bg-white dark:bg-gray-800 min-h-full ${viewportClass}`}>
+            <TemplateRenderer
+              template={updatedTemplate}
+              portfolio={portfolio}
+              editable={false}
+              customColors={portfolio.customColors}
+              sectionOrder={sectionOrder}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Regular view with sidebar
   return (
     <div className="flex h-screen flex-col overflow-hidden">
       {/* Top navigation bar */}
@@ -693,32 +743,27 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
                 onClick={() => setViewportMode('desktop')}
                 title="Desktop view"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-                  <rect width="20" height="14" x="2" y="3" rx="2" />
-                  <line x1="2" x2="22" y1="20" y2="20" />
-                </svg>
+                <Laptop className="h-4 w-4" />
               </button>
               <button
                 className={`px-3 py-1 text-sm ${viewportMode === 'tablet' ? 'bg-muted font-medium' : 'hover:bg-muted/50'}`}
                 onClick={() => setViewportMode('tablet')}
                 title="Tablet view"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-                  <rect width="14" height="18" x="5" y="3" rx="2" />
-                  <line x1="9" x2="15" y1="21" y2="21" />
-                </svg>
+                <Tablet className="h-4 w-4" />
               </button>
               <button
                 className={`px-3 py-1 text-sm ${viewportMode === 'mobile' ? 'bg-muted font-medium' : 'hover:bg-muted/50'}`}
                 onClick={() => setViewportMode('mobile')}
                 title="Mobile view"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-                  <rect width="10" height="18" x="7" y="3" rx="2" />
-                  <line x1="11" x2="13" y1="21" y2="21" />
-                </svg>
+                <Smartphone className="h-4 w-4" />
               </button>
             </div>
+            <Button variant="outline" size="sm" onClick={toggleFullscreen} title="Fullscreen preview">
+              <Expand className="h-4 w-4 mr-2" />
+              Fullscreen
+            </Button>
           </div>
         </div>
       </div>
@@ -740,6 +785,8 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
           draftSaved={isSaved}
           previewLoading={isPreviewing}
           publishLoading={isPublishing}
+          sectionOrder={sectionOrder}
+          onSectionReorder={handleSectionReorder}
         />
 
         {/* Main preview pane */}
@@ -752,6 +799,7 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
                 portfolio={portfolio}
                 editable={true}
                 customColors={portfolio.customColors}
+                sectionOrder={sectionOrder}
               />
             </div>
           </div>

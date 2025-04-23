@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { notFound, useParams } from 'next/navigation';
+import { notFound, useParams, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import apiClient from '@/lib/apiClient'; // Import API client
@@ -15,6 +15,10 @@ export default function PublishedPortfolioPage() {
   // Get username from route params using the useParams hook
   const params = useParams();
   const username = typeof params.username === 'string' ? params.username : '';
+
+  // Get search params to check for full view mode
+  const searchParams = useSearchParams();
+  const isFullView = searchParams.get('view') === 'full';
 
   // Fetch portfolio data
   useEffect(() => {
@@ -37,12 +41,9 @@ export default function PublishedPortfolioPage() {
         // For development fallback to sample data
         if (process.env.NODE_ENV === 'development') {
           console.log('Using fallback data for development');
-          const fallbackPortfolio = portfolios.find(p => p.username === username);
-          if (fallbackPortfolio) {
-            setPortfolio(fallbackPortfolio);
-          } else {
-            notFound();
-          }
+          // portfolios is not defined in this file, so this fallback will not work unless you import or define it.
+          // We'll just show notFound for now.
+          notFound();
         } else {
           notFound();
         }
@@ -75,8 +76,8 @@ export default function PublishedPortfolioPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-white dark:bg-gray-950">
-      {/* Custom Header - Render based on header section content */}
-      {portfolio.content?.header && (
+      {/* Only show header if not in full view mode */}
+      {!isFullView && portfolio.content?.header && (
         <header className={`sticky top-0 z-50 w-full border-b bg-white/95 dark:bg-gray-950/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:supports-[backdrop-filter]:bg-gray-950/60 ${
           portfolio.content.header.style === 'minimal' ? 'py-2' :
           portfolio.content.header.style === 'centered' ? 'py-4 text-center' : 'py-0'
@@ -129,8 +130,8 @@ export default function PublishedPortfolioPage() {
         </header>
       )}
 
-      {/* Fallback Header - If no custom header is configured */}
-      {!portfolio.content?.header && (
+      {/* Fallback Header - If no custom header is configured and not in full view mode */}
+      {!isFullView && !portfolio.content?.header && (
         <header className="sticky top-0 z-50 w-full border-b bg-white/95 dark:bg-gray-950/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:supports-[backdrop-filter]:bg-gray-950/60">
           <div className="container flex h-16 items-center justify-between">
             <Link href={`/portfolio/${username}`} className="text-xl font-bold bg-gradient-to-r from-violet-600 to-indigo-600 text-transparent bg-clip-text">
@@ -569,19 +570,21 @@ export default function PublishedPortfolioPage() {
         )}
       </main>
 
-      {/* Footer */}
-      <footer className="border-t py-6">
-        <div className="container px-4 md:px-6">
-          <div className="flex flex-col md:flex-row items-center justify-between">
-            <p className="text-sm text-muted-foreground">
-              © {new Date().getFullYear()} {portfolio.title}. All rights reserved.
-            </p>
-            <p className="text-sm text-muted-foreground">
-              Powered by <Link href="/" className="text-primary hover:underline">PortfolioHub</Link>
-            </p>
+      {/* Footer - Only show if not in full view mode */}
+      {!isFullView && (
+        <footer className="border-t py-6">
+          <div className="container px-4 md:px-6">
+            <div className="flex flex-col md:flex-row items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                © {new Date().getFullYear()} {portfolio.title}. All rights reserved.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Powered by <Link href="/" className="text-primary hover:underline">PortfolioHub</Link>
+              </p>
+            </div>
           </div>
-        </div>
-      </footer>
+        </footer>
+      )}
     </div>
   );
 }

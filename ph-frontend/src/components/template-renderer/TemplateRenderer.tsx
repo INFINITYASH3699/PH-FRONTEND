@@ -48,6 +48,7 @@ interface TemplateRendererProps {
   editable?: boolean;
   onSectionUpdate?: (sectionId: string, data: any) => void;
   customColors?: any;
+  sectionOrder?: string[]; // New prop for custom section order
 }
 
 const TemplateRenderer: React.FC<TemplateRendererProps> = ({
@@ -55,7 +56,8 @@ const TemplateRenderer: React.FC<TemplateRendererProps> = ({
   portfolio,
   editable = false,
   onSectionUpdate,
-  customColors
+  customColors,
+  sectionOrder = []
 }) => {
   const [isClient, setIsClient] = useState(false);
 
@@ -113,9 +115,12 @@ const TemplateRenderer: React.FC<TemplateRendererProps> = ({
     // Add any other dynamic styles
   };
 
-  // Determine which sections to render based on template layout and portfolio config
-  const sectionsToRender = activeLayout?.structure?.sections ||
+  // Determine which sections to render based on template layout, portfolio config, or custom order
+  const defaultSections = activeLayout?.structure?.sections ||
     template.defaultStructure?.layout?.sections || [];
+
+  // Use custom section order if provided, otherwise use default sections
+  const sectionsToRender = sectionOrder.length > 0 ? sectionOrder : defaultSections;
 
   // Helper to get section content from portfolio data
   const getSectionContent = (sectionType: string) => {
