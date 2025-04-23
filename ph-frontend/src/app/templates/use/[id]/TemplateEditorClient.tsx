@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import TemplateRenderer from '@/components/template-renderer/TemplateRenderer';
 import EditorSidebar from './EditorSidebar';
@@ -18,6 +18,9 @@ interface TemplateEditorClientProps {
 
 export default function TemplateEditorClient({ template, user, id }: TemplateEditorClientProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const portfolioIdParam = searchParams.get('portfolioId');
+
   const [portfolio, setPortfolio] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -67,80 +70,108 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
         return;
       }
 
-      // Generate a unique subdomain based on user and timestamp
-      const generateSubdomain = () => {
-        const username =
-          user?.username ||
-          user?.name?.toLowerCase().replace(/\s+/g, '') ||
-          '';
-        const timestamp = new Date().getTime().toString().slice(-4);
-        return `${username}${timestamp}`;
+      const initializePortfolio = async () => {
+        // Check if we have a portfolioId parameter (editing existing portfolio)
+        if (portfolioIdParam) {
+          try {
+            // Fetch existing portfolio data
+            const response = await apiClient.portfolios.getById(portfolioIdParam);
+
+            if (response && response.portfolio) {
+              // Set the existing portfolio data
+              setPortfolio(response.portfolio);
+              setSavedPortfolioId(response.portfolio._id);
+              setLoading(false);
+              console.log('Loaded existing portfolio for editing', response.portfolio._id);
+              return; // Exit the function as we've loaded the portfolio
+            } else {
+              console.error('Failed to load existing portfolio, will create new instead');
+            }
+          } catch (err) {
+            console.error('Error loading existing portfolio:', err);
+            toast.error('Failed to load your existing portfolio. Creating a new one instead.');
+          }
+        }
+
+        // If we don't have a portfolioId or failed to fetch it, create a new one
+        // Generate a unique subdomain based on user and timestamp
+        const generateSubdomain = () => {
+          const username =
+            user?.username ||
+            user?.name?.toLowerCase().replace(/\s+/g, '') ||
+            '';
+          const timestamp = new Date().getTime().toString().slice(-4);
+          return `${username}${timestamp}`;
+        };
+
+        // Create initial portfolio data
+        const initialPortfolioData = {
+          _id: 'new-portfolio',
+          title: 'My New Portfolio',
+          subtitle: 'Created with Portfolio Hub',
+          subdomain: generateSubdomain(),
+          templateId: template._id,
+          userId: user?.id || 'guest-user',
+          content: {
+            header: {
+              title: user?.name || 'Your Name',
+              subtitle:
+                template.category === 'developer'
+                  ? 'Software Developer'
+                  : template.category === 'designer'
+                  ? 'Creative Designer'
+                  : template.category === 'photographer'
+                  ? 'Professional Photographer'
+                  : 'Professional Portfolio',
+              profileImage: '',
+              navigation: ['About', 'Projects', 'Experience', 'Contact'],
+            },
+            about: {
+              title: 'About Me',
+              bio: 'Welcome to my portfolio. Here you can share your professional background, experience, and what makes you unique.',
+              variant:
+                template.category === 'designer'
+                  ? 'with-image'
+                  : template.category === 'developer'
+                  ? 'with-highlights'
+                  : 'standard',
+              highlights: [
+                { title: 'My Expertise', description: 'Describe your main area of expertise.' },
+                { title: 'Experience', description: 'Highlight your years of experience or key skills.' },
+                { title: 'Education', description: 'Share your educational background.' },
+              ],
+            },
+            seo: {
+              title: 'My Portfolio | Professional Website',
+              description: 'Welcome to my professional portfolio showcasing my work and experience.',
+              keywords: 'portfolio, professional, skills, projects',
+            },
+            socialLinks: {
+              github: '',
+              linkedin: '',
+              twitter: '',
+              instagram: '',
+            },
+          },
+          // Default theme settings
+          activeLayout: template.layouts?.[0]?.id || 'default',
+          activeColorScheme: template.themeOptions?.colorSchemes?.[0]?.id || 'default',
+          activeFontPairing: template.themeOptions?.fontPairings?.[0]?.id || 'default',
+          customColors: null,
+        };
+
+        setPortfolio(initialPortfolioData);
+        setLoading(false);
       };
 
-      // Create initial portfolio data
-      const initialPortfolioData = {
-        _id: 'new-portfolio',
-        title: 'My New Portfolio',
-        subtitle: 'Created with Portfolio Hub',
-        subdomain: generateSubdomain(),
-        templateId: template._id,
-        userId: user?.id || 'guest-user',
-        content: {
-          header: {
-            title: user?.name || 'Your Name',
-            subtitle:
-              template.category === 'developer'
-                ? 'Software Developer'
-                : template.category === 'designer'
-                ? 'Creative Designer'
-                : template.category === 'photographer'
-                ? 'Professional Photographer'
-                : 'Professional Portfolio',
-            profileImage: '',
-            navigation: ['About', 'Projects', 'Experience', 'Contact'],
-          },
-          about: {
-            title: 'About Me',
-            bio: 'Welcome to my portfolio. Here you can share your professional background, experience, and what makes you unique.',
-            variant:
-              template.category === 'designer'
-                ? 'with-image'
-                : template.category === 'developer'
-                ? 'with-highlights'
-                : 'standard',
-            highlights: [
-              { title: 'My Expertise', description: 'Describe your main area of expertise.' },
-              { title: 'Experience', description: 'Highlight your years of experience or key skills.' },
-              { title: 'Education', description: 'Share your educational background.' },
-            ],
-          },
-          seo: {
-            title: 'My Portfolio | Professional Website',
-            description: 'Welcome to my professional portfolio showcasing my work and experience.',
-            keywords: 'portfolio, professional, skills, projects',
-          },
-          socialLinks: {
-            github: '',
-            linkedin: '',
-            twitter: '',
-            instagram: '',
-          },
-        },
-        // Default theme settings
-        activeLayout: template.layouts?.[0]?.id || 'default',
-        activeColorScheme: template.themeOptions?.colorSchemes?.[0]?.id || 'default',
-        activeFontPairing: template.themeOptions?.fontPairings?.[0]?.id || 'default',
-        customColors: null,
-      };
-
-      setPortfolio(initialPortfolioData);
-      setLoading(false);
+      // Initialize portfolio (either fetch existing or create new)
+      initializePortfolio();
     } catch (err) {
       console.error("Error initializing portfolio:", err);
       setError("Failed to initialize template editor.");
       setLoading(false);
     }
-  }, [template, user, isAuthenticated, isClient]);
+  }, [template, user, isAuthenticated, isClient, portfolioIdParam]);
 
   // Handler for section updates
   const handleSectionUpdate = (sectionId: string, data: any) => {
@@ -258,9 +289,27 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
       } else {
         throw new Error('Failed to save portfolio');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error saving portfolio draft:', err);
-      toast.error('Failed to save portfolio. Please try again.');
+
+      // Provide more user-friendly error messages
+      let errorMessage = 'Failed to save portfolio. Please try again.';
+
+      // Handle specific error messages
+      if (err.message?.includes('already have a portfolio with this template')) {
+        errorMessage = 'You already have a portfolio with this template. Please use the Edit button on the templates page to modify your existing portfolio.';
+
+        // Redirect to templates page after a short delay
+        setTimeout(() => {
+          router.push('/templates');
+        }, 3000);
+      } else if (err.message?.includes('subdomain is already taken')) {
+        errorMessage = 'This subdomain is already taken. Please choose a different subdomain in the SEO section.';
+      } else if (err.message?.includes('User ID is missing')) {
+        errorMessage = 'Your user information could not be found. Please try logging out and logging back in.';
+      }
+
+      toast.error(errorMessage);
     } finally {
       setIsSaving(false);
     }

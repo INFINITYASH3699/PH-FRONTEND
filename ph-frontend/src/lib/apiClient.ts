@@ -152,17 +152,49 @@ const isConnectionError = (error: any): boolean => {
 
 // Helper function to handle API responses
 const handleResponse = async (response: Response) => {
-  if (!response.ok) {
-    // Try to parse error message from the response
-    try {
-      const errorData = await response.json();
-      throw new Error(errorData.message || `API Error: ${response.status}`);
-    } catch (e) {
-      throw new Error(`API Error: ${response.status}`);
-    }
+  // Try to parse the response body as JSON (if possible)
+  let data: any = null;
+  let text: string | null = null;
+  try {
+    text = await response.text();
+    data = text ? JSON.parse(text) : null;
+  } catch (e) {
+    // Not JSON or empty, ignore
+    data = text;
   }
 
-  return response.json();
+  if (!response.ok) {
+    // Try to get a meaningful error message
+    let message = "Unknown error";
+    if (data && typeof data === "object" && data.message) {
+      message = data.message;
+    } else if (typeof data === "string" && data.length > 0) {
+      message = data;
+    } else if (response.statusText) {
+      message = response.statusText;
+    }
+
+    // Log details for debugging
+    console.error('API error response:', {
+      status: response.status,
+      statusText: response.statusText,
+      data
+    });
+
+    // Handle the case where the error is about an already used template
+    if (typeof message === 'string' && message.includes('already have a portfolio with this template')) {
+      console.warn('User attempted to create a portfolio with a template they already have');
+      message = 'You already have a portfolio with this template. Please use the Edit button to modify your existing portfolio.';
+    }
+
+    throw new Error(
+      message ||
+      `API Error: ${response.status} - ${response.statusText || 'Unknown error'}`
+    );
+  }
+
+  // Return parsed JSON or raw text if not JSON
+  return data;
 };
 
 // Auth utilities
