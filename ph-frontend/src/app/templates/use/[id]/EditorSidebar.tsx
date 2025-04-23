@@ -67,8 +67,12 @@ export default function EditorSidebar({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
+  const [isClient, setIsClient] = useState(false); // Add this to handle hydration issues
 
   useEffect(() => {
+    // Mark as client-side rendered to avoid hydration mismatches
+    setIsClient(true);
+
     const checkIfMobile = () => {
       const isMobileView = window.innerWidth < 768;
       setIsMobile(isMobileView);
@@ -80,11 +84,26 @@ export default function EditorSidebar({
     return () => window.removeEventListener('resize', checkIfMobile);
   }, []);
 
-  // Determine which sections to show in the editor based on the active layout
+  // Determine available sections in the following order:
+  // 1. Active layout's sections
+  // 2. template.defaultStructure.layout.sections
+  // 3. fallback ['header', 'about']
+  let availableSections: string[] = [];
   const activeLayoutId = portfolio.activeLayout || template?.layouts?.[0]?.id || 'default';
   const activeLayout = template?.layouts?.find((l: any) => l.id === activeLayoutId) || template?.layouts?.[0];
-  const availableSections = activeLayout?.structure?.sections ||
-    template?.defaultStructure?.layout?.sections || [];
+
+  if (template?.layouts && template.layouts.length > 0) {
+    const layoutSections = activeLayout?.structure?.sections || [];
+    if (layoutSections.length > 0) {
+      availableSections = layoutSections;
+    }
+  }
+  if (availableSections.length === 0 && template?.defaultStructure?.layout?.sections) {
+    availableSections = template.defaultStructure.layout.sections;
+  }
+  if (availableSections.length === 0) {
+    availableSections = ['header', 'about'];
+  }
 
   // Use section order from props if available, otherwise use layout sections
   const sectionsToShow = sectionOrder.length > 0 ? sectionOrder : availableSections;
@@ -99,14 +118,14 @@ export default function EditorSidebar({
       section === 'header' || section === 'about'
     );
 
-    // Determine content type sections - these are the portfolio specific sections
+    // Get template category for proper categorization
+    const sectionCategory = template?.category || 'developer';
+
+    // Determine content type sections based on template category
     const contentSections = sectionsToShow.filter(section => {
       // Skip main sections and utility sections
       if (mainSections.includes(section)) return false;
       if (['socialLinks', 'seo', 'customCss'].includes(section)) return false;
-
-      // Based on template categories
-      const sectionCategory = template?.category || 'developer';
 
       // Create category-based groupings
       if (sectionCategory === 'developer') {
@@ -117,8 +136,8 @@ export default function EditorSidebar({
         return ['galleries', 'categories'].includes(section);
       }
 
-      // Default case
-      return ['projects', 'skills', 'experience', 'education'].includes(section);
+      // Default case for any other section that might be work-related
+      return ['projects', 'skills', 'experience', 'education', 'work', 'gallery'].includes(section);
     });
 
     // Additional sections - anything else
@@ -137,14 +156,15 @@ export default function EditorSidebar({
 
   // Get section title from template definitions or use capitalized section ID
   const getSectionTitle = (sectionId: string) => {
-    return templateSectionDefinitions[sectionId]?.defaultData?.title ||
-      sectionId.charAt(0).toUpperCase() + sectionId.slice(1);
+    if (sectionId === 'header') return 'Header & Profile';
+    const defaultTitle = sectionId.charAt(0).toUpperCase() + sectionId.slice(1);
+    const templateTitle = templateSectionDefinitions[sectionId]?.defaultData?.title;
+    return templateTitle || defaultTitle;
   };
 
   // Get content grouping title based on template category
   const getContentGroupTitle = () => {
     const category = template?.category || 'developer';
-
     switch (category) {
       case 'designer':
         return 'Design Work';
@@ -220,77 +240,93 @@ export default function EditorSidebar({
     </Button>
   );
 
-  // Render component for a specific section
+  // Render component for a specific section, with improved scrolling
   const renderSectionEditor = (section: string) => {
     switch (section) {
       case 'header':
         return (
-          <HeaderEditor
-            data={getContentForSection('header')}
-            onChange={(data) => onUpdateSection('header', data)}
-          />
+          <div className="overflow-y-auto max-h-[60vh]">
+            <HeaderEditor
+              data={getContentForSection('header')}
+              onChange={(data) => onUpdateSection('header', data)}
+            />
+          </div>
         );
       case 'about':
         return (
-          <AboutEditor
-            data={getContentForSection('about')}
-            onChange={(data) => onUpdateSection('about', data)}
-          />
+          <div className="overflow-y-auto max-h-[60vh]">
+            <AboutEditor
+              data={getContentForSection('about')}
+              onChange={(data) => onUpdateSection('about', data)}
+            />
+          </div>
         );
       case 'projects':
       case 'categories':
         return (
-          <ProjectsEditor
-            data={getContentForSection(section)}
-            onChange={(data) => onUpdateSection(section, data)}
-          />
+          <div className="overflow-y-auto max-h-[60vh]">
+            <ProjectsEditor
+              data={getContentForSection(section)}
+              onChange={(data) => onUpdateSection(section, data)}
+            />
+          </div>
         );
       case 'skills':
         return (
-          <SkillsEditor
-            data={getContentForSection('skills')}
-            onChange={(data) => onUpdateSection('skills', data)}
-          />
+          <div className="overflow-y-auto max-h-[60vh]">
+            <SkillsEditor
+              data={getContentForSection('skills')}
+              onChange={(data) => onUpdateSection('skills', data)}
+            />
+          </div>
         );
       case 'experience':
         return (
-          <ExperienceEditor
-            data={getContentForSection('experience')}
-            onChange={(data) => onUpdateSection('experience', data)}
-          />
+          <div className="overflow-y-auto max-h-[60vh]">
+            <ExperienceEditor
+              data={getContentForSection('experience')}
+              onChange={(data) => onUpdateSection('experience', data)}
+            />
+          </div>
         );
       case 'education':
         return (
-          <EducationEditor
-            data={getContentForSection('education')}
-            onChange={(data) => onUpdateSection('education', data)}
-          />
+          <div className="overflow-y-auto max-h-[60vh]">
+            <EducationEditor
+              data={getContentForSection('education')}
+              onChange={(data) => onUpdateSection('education', data)}
+            />
+          </div>
         );
       case 'gallery':
       case 'galleries':
         return (
-          <GalleryEditor
-            data={getContentForSection(section)}
-            onChange={(data) => onUpdateSection(section, data)}
-          />
+          <div className="overflow-y-auto max-h-[60vh]">
+            <GalleryEditor
+              data={getContentForSection(section)}
+              onChange={(data) => onUpdateSection(section, data)}
+            />
+          </div>
         );
       case 'contact':
         return (
-          <ContactEditor
-            data={getContentForSection('contact')}
-            onChange={(data) => onUpdateSection('contact', data)}
-          />
+          <div className="overflow-y-auto max-h-[60vh]">
+            <ContactEditor
+              data={getContentForSection('contact')}
+              onChange={(data) => onUpdateSection('contact', data)}
+            />
+          </div>
         );
       case 'services':
       case 'pricing':
         return (
-          <div className="p-4 bg-muted/30 rounded-md">
+          <div className="overflow-y-auto max-h-[60vh] p-4 bg-muted/30 rounded-md">
             <p className="text-sm text-muted-foreground mb-2">
               {section === 'services' ? 'Services section' : 'Pricing section'} editor
             </p>
             <textarea
               className="w-full p-2 border rounded-md min-h-[100px]"
-              placeholder={`Edit your ${section} content here`}
+              placeholder={`Edit your ${getSectionTitle(section)} content here`}
               value={JSON.stringify(getContentForSection(section), null, 2)}
               onChange={(e) => {
                 try {
@@ -306,7 +342,7 @@ export default function EditorSidebar({
       default:
         // For any section without a specific editor
         return (
-          <div className="p-4 bg-muted/30 rounded-md">
+          <div className="overflow-y-auto max-h-[60vh] p-4 bg-muted/30 rounded-md">
             <p className="text-sm text-muted-foreground mb-2">
               {getSectionTitle(section)} section editor
             </p>
@@ -338,18 +374,21 @@ export default function EditorSidebar({
     ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'
     : 'space-y-6';
 
+  // Only render children after client-side hydration to prevent hydration mismatch
+  if (!isClient) {
+    return <div className="h-screen flex items-center justify-center">Loading editor...</div>;
+  }
+
   return (
     <>
-      {/* Sidebar Toggle Button */}
       <SidebarToggle />
 
       <div
         className={`h-full flex flex-col border-l bg-card transition-all duration-300 ${
           sidebarCollapsed ? 'w-0 -translate-x-full md:translate-x-0 md:w-0 opacity-0 md:opacity-100' : `${sidebarWidth} translate-x-0 opacity-100`
         } ${isMobile && !sidebarCollapsed ? 'fixed inset-0 z-40' : ''}`}
-        style={{ maxWidth: sidebarCollapsed ? 0 : isMobile ? '100%' : expandedView ? '100%' : '400px' }}
+        style={{ maxWidth: sidebarCollapsed ? 0 : isMobile ? '100%' : expandedView ? '100%' : '400px', height: '100vh' }}
       >
-        {/* Sidebar Header */}
         <div className="p-4 border-b flex items-center justify-between">
           <h2 className="text-lg font-semibold">{template?.name || 'Template Editor'}</h2>
           <div className="flex items-center space-x-2">
@@ -375,19 +414,16 @@ export default function EditorSidebar({
           </div>
         </div>
 
-        {/* Tabs for Content, Theme, and Layout */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
           <TabsList className="flex justify-between px-4 py-2 bg-muted/40">
             <TabsTrigger value="content" className="flex-1">Content</TabsTrigger>
             <TabsTrigger value="theme" className="flex-1">Theme</TabsTrigger>
             <TabsTrigger value="layout" className="flex-1">Layout</TabsTrigger>
           </TabsList>
 
-          <ScrollArea className="flex-1 overflow-y-auto">
-            {/* Content Tab */}
-            <TabsContent value="content" className="m-0 p-4 h-full">
+          <ScrollArea className="flex-1 overflow-y-auto min-h-0">
+            <TabsContent value="content" className="m-0 p-4 h-full min-h-0">
               <div className={expandedView ? cardLayout : "space-y-6"}>
-                {/* Profile Data Import Button */}
                 {onFetchProfile && (
                   <div className={expandedView ? "md:col-span-2 lg:col-span-3" : ""}>
                     <FetchProfileButton
@@ -399,7 +435,6 @@ export default function EditorSidebar({
                   </div>
                 )}
 
-                {/* Section Manager */}
                 <div className={expandedView ? "md:col-span-2 lg:col-span-3" : "mb-6"}>
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-base font-semibold">Portfolio Sections</h3>
@@ -417,11 +452,11 @@ export default function EditorSidebar({
                       <h4 className="text-sm font-medium mb-2">Drag to reorder sections</h4>
 
                       <DragDropContext onDragEnd={handleDragEnd}>
-                        <Droppable droppableId="sections-list">
+                        <Droppable droppableId="sections-list" isDropDisabled={false}>
                           {(provided) => (
                             <div
-                              {...provided.droppableProps}
                               ref={provided.innerRef}
+                              {...provided.droppableProps}
                               className={expandedView ? "grid grid-cols-1 md:grid-cols-2 gap-2" : "space-y-2"}
                             >
                               {sectionsToShow.map((sectionId, index) => (
@@ -455,7 +490,6 @@ export default function EditorSidebar({
                         </Droppable>
                       </DragDropContext>
 
-                      {/* Available sections to add */}
                       <div className="mt-4">
                         <h4 className="text-sm font-medium mb-2">Available sections to add</h4>
                         <div className={expandedView ? "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2" : "grid grid-cols-2 gap-2"}>
@@ -480,10 +514,8 @@ export default function EditorSidebar({
                   )}
                 </div>
 
-                {/* Section Editors in Expanded View */}
                 {expandedView ? (
                   <>
-                    {/* Main Sections */}
                     {categorizedSections.main.map(section => (
                       <div key={section} className="border rounded-md p-4 bg-white dark:bg-gray-800 shadow-sm">
                         <div
@@ -491,15 +523,16 @@ export default function EditorSidebar({
                           onClick={() => setExpandedSection(expandedSection === section ? null : section)}
                         >
                           <h3 className="font-medium capitalize">
-                            {section === 'header' ? 'Header & Profile' : getSectionTitle(section)}
+                            {getSectionTitle(section)}
                           </h3>
                           <ChevronRight className={`h-4 w-4 transition-transform ${expandedSection === section ? 'rotate-90' : ''}`} />
                         </div>
-                        {expandedSection === section && renderSectionEditor(section)}
+                        <div className={expandedSection === section ? "block" : "hidden"}>
+                          {renderSectionEditor(section)}
+                        </div>
                       </div>
                     ))}
 
-                    {/* Content Sections (specific to template category) */}
                     {categorizedSections.content.length > 0 && (
                       <div className="border rounded-md p-4 bg-white dark:bg-gray-800 shadow-sm md:col-span-2 lg:col-span-3">
                         <div
@@ -509,7 +542,7 @@ export default function EditorSidebar({
                           <h3 className="font-medium">{getContentGroupTitle()}</h3>
                           <ChevronRight className={`h-4 w-4 transition-transform ${expandedSection === 'content-group' ? 'rotate-90' : ''}`} />
                         </div>
-                        {expandedSection === 'content-group' && (
+                        <div className={expandedSection === 'content-group' ? "block" : "hidden"}>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                             {categorizedSections.content.map(section => (
                               <div key={section} className="border rounded-md p-3 bg-muted/10">
@@ -518,11 +551,10 @@ export default function EditorSidebar({
                               </div>
                             ))}
                           </div>
-                        )}
+                        </div>
                       </div>
                     )}
 
-                    {/* Additional Sections */}
                     {categorizedSections.additional.map(section => (
                       <div key={section} className="border rounded-md p-4 bg-white dark:bg-gray-800 shadow-sm">
                         <div
@@ -532,11 +564,12 @@ export default function EditorSidebar({
                           <h3 className="font-medium capitalize">{getSectionTitle(section)}</h3>
                           <ChevronRight className={`h-4 w-4 transition-transform ${expandedSection === section ? 'rotate-90' : ''}`} />
                         </div>
-                        {expandedSection === section && renderSectionEditor(section)}
+                        <div className={expandedSection === section ? "block" : "hidden"}>
+                          {renderSectionEditor(section)}
+                        </div>
                       </div>
                     ))}
 
-                    {/* Settings and Meta Sections */}
                     <div className="border rounded-md p-4 bg-white dark:bg-gray-800 shadow-sm">
                       <div
                         className="flex items-center justify-between mb-3 cursor-pointer"
@@ -545,12 +578,14 @@ export default function EditorSidebar({
                         <h3 className="font-medium">Social Media</h3>
                         <ChevronRight className={`h-4 w-4 transition-transform ${expandedSection === 'social' ? 'rotate-90' : ''}`} />
                       </div>
-                      {expandedSection === 'social' && (
-                        <SocialLinksEditor
-                          data={portfolio?.content?.socialLinks || {}}
-                          onChange={(data) => onUpdateSection('socialLinks', data)}
-                        />
-                      )}
+                      <div className={expandedSection === 'social' ? "block" : "hidden"}>
+                        <div className="overflow-y-auto max-h-[60vh]">
+                          <SocialLinksEditor
+                            data={portfolio?.content?.socialLinks || {}}
+                            onChange={(data) => onUpdateSection('socialLinks', data)}
+                          />
+                        </div>
+                      </div>
                     </div>
 
                     <div className="border rounded-md p-4 bg-white dark:bg-gray-800 shadow-sm">
@@ -561,22 +596,22 @@ export default function EditorSidebar({
                         <h3 className="font-medium">SEO & Metadata</h3>
                         <ChevronRight className={`h-4 w-4 transition-transform ${expandedSection === 'seo' ? 'rotate-90' : ''}`} />
                       </div>
-                      {expandedSection === 'seo' && (
-                        <SEOEditor
-                          data={getContentForSection('seo')}
-                          onChange={(data) => onUpdateSection('seo', data)}
-                        />
-                      )}
+                      <div className={expandedSection === 'seo' ? "block" : "hidden"}>
+                        <div className="overflow-y-auto max-h-[60vh]">
+                          <SEOEditor
+                            data={getContentForSection('seo')}
+                            onChange={(data) => onUpdateSection('seo', data)}
+                          />
+                        </div>
+                      </div>
                     </div>
                   </>
                 ) : (
-                  // Original accordion layout for non-expanded view
                   <Accordion type="multiple" className="w-full">
-                    {/* Main Sections */}
                     {categorizedSections.main.map(section => (
                       <AccordionItem value={section} key={section}>
                         <AccordionTrigger className="capitalize text-sm py-2">
-                          {section === 'header' ? 'Header & Profile' : getSectionTitle(section)}
+                          {getSectionTitle(section)}
                         </AccordionTrigger>
                         <AccordionContent>
                           {renderSectionEditor(section)}
@@ -584,7 +619,6 @@ export default function EditorSidebar({
                       </AccordionItem>
                     ))}
 
-                    {/* Content Sections - grouped by template category */}
                     {categorizedSections.content.length > 0 && (
                       <AccordionItem value="content-sections">
                         <AccordionTrigger className="text-sm py-2">
@@ -603,7 +637,6 @@ export default function EditorSidebar({
                       </AccordionItem>
                     )}
 
-                    {/* Additional Sections */}
                     {categorizedSections.additional.map(section => (
                       <AccordionItem value={section} key={section}>
                         <AccordionTrigger className="capitalize text-sm py-2">
@@ -615,29 +648,31 @@ export default function EditorSidebar({
                       </AccordionItem>
                     ))}
 
-                    {/* Social Media */}
                     <AccordionItem value="social">
                       <AccordionTrigger className="text-sm py-2">
                         Social Media
                       </AccordionTrigger>
                       <AccordionContent>
-                        <SocialLinksEditor
-                          data={portfolio?.content?.socialLinks || {}}
-                          onChange={(data) => onUpdateSection('socialLinks', data)}
-                        />
+                        <div className="overflow-y-auto max-h-[60vh]">
+                          <SocialLinksEditor
+                            data={portfolio?.content?.socialLinks || {}}
+                            onChange={(data) => onUpdateSection('socialLinks', data)}
+                          />
+                        </div>
                       </AccordionContent>
                     </AccordionItem>
 
-                    {/* SEO */}
                     <AccordionItem value="seo">
                       <AccordionTrigger className="text-sm py-2">
                         SEO & Metadata
                       </AccordionTrigger>
                       <AccordionContent>
-                        <SEOEditor
-                          data={getContentForSection('seo')}
-                          onChange={(data) => onUpdateSection('seo', data)}
-                        />
+                        <div className="overflow-y-auto max-h-[60vh]">
+                          <SEOEditor
+                            data={getContentForSection('seo')}
+                            onChange={(data) => onUpdateSection('seo', data)}
+                          />
+                        </div>
                       </AccordionContent>
                     </AccordionItem>
                   </Accordion>
@@ -645,7 +680,6 @@ export default function EditorSidebar({
               </div>
             </TabsContent>
 
-            {/* Theme Tab */}
             <TabsContent value="theme" className="m-0 p-4 h-full">
               <div className={expandedView ? "grid grid-cols-1 md:grid-cols-2 gap-6" : "space-y-6"}>
                 <div className="border rounded-md p-4 bg-white dark:bg-gray-800 shadow-sm">
@@ -668,7 +702,6 @@ export default function EditorSidebar({
               </div>
             </TabsContent>
 
-            {/* Layout Tab */}
             <TabsContent value="layout" className="m-0 p-4 h-full">
               <div className="border rounded-md p-4 bg-white dark:bg-gray-800 shadow-sm">
                 <h3 className="font-medium mb-3">Layout Options</h3>
@@ -682,7 +715,6 @@ export default function EditorSidebar({
           </ScrollArea>
         </Tabs>
 
-        {/* Footer Actions */}
         <div className="p-4 border-t bg-card mt-auto">
           <div className="flex gap-3">
             <SaveDraftButton
@@ -701,7 +733,6 @@ export default function EditorSidebar({
         </div>
       </div>
 
-      {/* Mobile overlay */}
       {isMobile && !sidebarCollapsed && (
         <div
           className="fixed inset-0 bg-black/20 z-30"
