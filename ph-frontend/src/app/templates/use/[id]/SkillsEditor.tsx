@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { Plus, Trash2, Edit2 } from 'lucide-react';
 import { FetchProfileButton } from '@/components/ui/fetch-profile-button';
+import apiClient from '@/lib/apiClient';
 
 // Define skill item interface
 interface SkillItem {
@@ -39,6 +40,7 @@ export default function SkillsEditor({ data, onChange, isLoading = false }: Skil
   const [activeCategoryIndex, setActiveCategoryIndex] = useState<number | null>(null);
   const [editingSkill, setEditingSkill] = useState<{ categoryIndex: number; skillIndex: number } | null>(null);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [isFetching, setIsFetching] = useState(false);
 
   // Function to add a new category
   const handleAddCategory = () => {
@@ -178,11 +180,83 @@ export default function SkillsEditor({ data, onChange, isLoading = false }: Skil
   };
 
   // Handle fetching skills from profile
-  const handleFetchFromProfile = (profileData: SkillsContent) => {
-    if (profileData?.categories && profileData.categories.length > 0) {
-      setCategories(profileData.categories);
-      setActiveCategoryIndex(0);
-      onChange(profileData);
+  const handleFetchFromProfile = async () => {
+    try {
+      setIsFetching(true);
+      // Fetch user profile data
+      const response = await apiClient.user.getProfile();
+
+      if (!response || !response.user) {
+        throw new Error("Failed to fetch user profile");
+      }
+
+      const profileData = response.user;
+
+      // Check if profile has skills data
+      if (profileData.profile?.skills && profileData.profile.skills.length > 0) {
+        // Group skills by category (if profile skills are already categorized)
+        if (Array.isArray(profileData.profile.skills) &&
+            profileData.profile.skills.length > 0 &&
+            'name' in profileData.profile.skills[0] &&
+            'skills' in profileData.profile.skills[0]) {
+          // Already in category format - clone the data structure
+          const skillCategories = JSON.parse(JSON.stringify(profileData.profile.skills));
+          setCategories(skillCategories);
+          if (skillCategories.length > 0) {
+            setActiveCategoryIndex(0);
+          }
+          onChange({ categories: skillCategories });
+          toast.success('Skills successfully imported from your profile');
+        }
+        // Handle flat skill array with category property
+        else if (Array.isArray(profileData.profile.skills)) {
+          // Group skills by category
+          const skillsByCategory: Record<string, SkillItem[]> = {};
+
+          profileData.profile.skills.forEach((skill: any) => {
+            // Extract category name, default to 'Technical' if not provided
+            const categoryName = skill.category || 'Technical';
+
+            // Create category array if it doesn't exist
+            if (!skillsByCategory[categoryName]) {
+              skillsByCategory[categoryName] = [];
+            }
+
+            // Add skill to appropriate category
+            skillsByCategory[categoryName].push({
+              name: skill.name,
+              // Use level if available, otherwise use proficiency, default to 75
+              proficiency: skill.level || skill.proficiency || 75
+            });
+          });
+
+          // Convert the grouped skills to the categories format
+          const newCategories = Object.keys(skillsByCategory).map(categoryName => ({
+            name: categoryName,
+            skills: skillsByCategory[categoryName]
+          }));
+
+          // Update state
+          setCategories(newCategories);
+          if (newCategories.length > 0) {
+            setActiveCategoryIndex(0);
+          }
+
+          // Call onChange to update parent component
+          onChange({ categories: newCategories });
+
+          toast.success('Skills successfully imported from your profile');
+        } else {
+          toast.warning('Skills data format in your profile is not recognized');
+        }
+      } else {
+        toast.warning('No skills found in your profile. Please add skills to your profile first.');
+      }
+    } catch (error) {
+      console.error('Error fetching profile skills:', error);
+      toast.error('Failed to fetch skills from your profile');
+    } finally {
+      setIsFetching(false);
     }
   };
 
@@ -194,21 +268,45 @@ export default function SkillsEditor({ data, onChange, isLoading = false }: Skil
     return 'bg-red-500';
   };
 
-  // Helper function for saving changes (if needed elsewhere)
-  const handleSaveChanges = (updatedCategories: SkillCategory[]) => {
-    onChange({ categories: updatedCategories });
-  };
-
   return (
     <div className="space-y-8">
       <div className="flex flex-col space-y-2">
         <div className="flex justify-between items-center">
           <h3 className="text-lg font-medium">Your Skills</h3>
-          <FetchProfileButton
-            onFetch={handleFetchFromProfile}
-            section="skills"
-            disabled={isLoading}
-          />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleFetchFromProfile}
+            disabled={isLoading || isFetching}
+            className="flex items-center gap-2"
+          >
+            {isFetching ? (
+              <>
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-solid border-current border-r-transparent"></div>
+                Fetching...
+              </>
+            ) : (
+              <>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                </svg>
+                Auto-fill from Profile
+              </>
+            )}
+          </Button>
         </div>
         <p className="text-muted-foreground">
           Add and organize your skills into categories.
@@ -279,7 +377,7 @@ export default function SkillsEditor({ data, onChange, isLoading = false }: Skil
           ) : (
             <div className="text-center p-4 border rounded-md">
               <p className="text-muted-foreground">
-                No categories yet. Add your first skill category.
+                No categories yet. Add your first skill category or fetch from your profile.
               </p>
             </div>
           )}

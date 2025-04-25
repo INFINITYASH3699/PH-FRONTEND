@@ -460,11 +460,28 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
         await handleSaveDraft();
       }
 
+      // Get current user and check for premium subscription
       const currentUser = apiClient.getUser?.();
       const userId = currentUser?._id || user?.id;
 
       if (!userId) {
         throw new Error('User ID is missing');
+      }
+
+      // Check if user has premium subscription with custom domain feature
+      const isPremiumUser =
+        currentUser?.subscriptionPlan?.type === 'premium' &&
+        currentUser?.subscriptionPlan?.isActive === true &&
+        currentUser?.subscriptionPlan?.features?.customDomain === true;
+
+      // For free users, ensure subdomain is their username
+      let subdomain = portfolio.subdomain;
+      if (!isPremiumUser) {
+        // Free users must use their username as subdomain
+        subdomain = currentUser?.username || `user-${Date.now().toString().slice(-8)}`;
+      } else if (!subdomain) {
+        // Premium users can customize, but default to username if not set
+        subdomain = currentUser?.username || `user-${Date.now().toString().slice(-8)}`;
       }
 
       const portfolioToPublish = {
@@ -473,7 +490,9 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
         templateId: template._id,
         title: portfolio.title || 'My Portfolio',
         subtitle: portfolio.subtitle || '',
-        subdomain: portfolio.subdomain || `user-${Date.now().toString().slice(-8)}`,
+        subdomain: subdomain,
+        subdomainLocked: !isPremiumUser, // Lock subdomain for free users after publishing
+        userType: isPremiumUser ? 'premium' : 'free',
         isPublished: true,
         sectionOrder: sectionOrder,
       };
@@ -713,24 +732,35 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
           updatedFields.push('title');
         }
 
-        // Set proper subdomain based on user type
+        // Set proper subdomain based on subscription plan
         const username = profileData.username || profileData.fullName?.toLowerCase().replace(/\s+/g, '') || '';
 
+        // Check subscription plan - default to 'free' if not specified
+        const isPremiumUser =
+          profileData.subscriptionPlan?.type === 'premium' &&
+          profileData.subscriptionPlan?.isActive === true &&
+          profileData.subscriptionPlan?.features?.customDomain === true;
+
+        // Store user type for UI display
+        updatedPortfolio.userType = isPremiumUser ? 'premium' : 'free';
+
         // For free users, use username as subdomain (locked)
-        if (profileData.userType === 'free') {
+        if (!isPremiumUser) {
           updatedPortfolio.subdomain = username;
           updatedPortfolio.subdomainLocked = true;
           updatedFields.push('subdomain');
         }
         // For premium users, set default as username but allow editing
-        else if (profileData.userType === 'premium' && !updatedPortfolio.customSubdomain) {
+        else if (isPremiumUser && !updatedPortfolio.customSubdomain) {
+          // Default to username but don't lock it
           updatedPortfolio.subdomain = username;
           updatedPortfolio.subdomainLocked = false;
           updatedFields.push('subdomain');
         }
-        // If user type not specified, use default behavior
+        // If subscription plan not specified, use default behavior
         else if (!updatedPortfolio.subdomain) {
           updatedPortfolio.subdomain = username || `user-${Date.now().toString().slice(-8)}`;
+          updatedPortfolio.subdomainLocked = !isPremiumUser; // Lock it for free users
           updatedFields.push('subdomain');
         }
 

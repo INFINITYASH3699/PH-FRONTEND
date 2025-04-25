@@ -5,14 +5,16 @@ import { Button } from './button';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { UserIcon } from 'lucide-react';
+import apiClient from '@/lib/apiClient';
 
 export interface FetchProfileButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  onFetch: () => Promise<void>;
+  onFetch: (data: any) => void;
   className?: string;
   variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';
   size?: 'default' | 'sm' | 'lg' | 'icon';
   fetchText?: string;
   fetchingText?: string;
+  section?: string; // Which profile section to fetch (skills, experience, education, etc.)
 }
 
 export function FetchProfileButton({
@@ -22,6 +24,7 @@ export function FetchProfileButton({
   size = 'default',
   fetchText = 'Fetch from Profile',
   fetchingText = 'Fetching...',
+  section,
   ...props
 }: FetchProfileButtonProps) {
   const [status, setStatus] = React.useState<'idle' | 'fetching'>('idle');
@@ -29,7 +32,17 @@ export function FetchProfileButton({
   const handleFetch = async () => {
     try {
       setStatus('fetching');
-      await onFetch();
+
+      // Fetch user profile data
+      const response = await apiClient.user.getProfile();
+
+      if (!response || !response.user) {
+        throw new Error('Failed to fetch profile data');
+      }
+
+      // Pass the user data to the onFetch callback
+      await onFetch(response.user);
+
       toast.success('Profile details fetched successfully!');
       setStatus('idle');
     } catch (error) {
@@ -62,6 +75,11 @@ export function FetchProfileButton({
     <div className="h-4 w-4 animate-spin rounded-full border-2 border-solid border-current border-r-transparent mr-2"></div>
   );
 
+  // Generate the button text based on section prop
+  const buttonText = section
+    ? `${status === 'fetching' ? fetchingText : `Auto-fill ${section}`}`
+    : `${status === 'fetching' ? fetchingText : fetchText}`;
+
   return (
     <Button
       variant={variant}
@@ -75,7 +93,7 @@ export function FetchProfileButton({
       {...props}
     >
       {status === 'fetching' ? fetchingIcon : fetchIcon}
-      {status === 'fetching' ? fetchingText : fetchText}
+      {buttonText}
     </Button>
   );
 }

@@ -39,6 +39,9 @@ export default function SEOEditor({
     }
   };
 
+  // Determine if subdomain is editable based on user type and lock status
+  const isSubdomainEditable = userType === 'premium' || !isSubdomainLocked;
+
   return (
     <div className="space-y-4">
       <div>
@@ -84,10 +87,10 @@ export default function SEOEditor({
       <div>
         <div className="flex items-center justify-between">
           <Label htmlFor="subdomain">
-            Custom Subdomain
-            {isSubdomainLocked ?
-              <Lock className="h-3 w-3 inline ml-1 text-amber-500" /> :
-              <Unlock className="h-3 w-3 inline ml-1 text-green-500" />
+            Subdomain
+            {isSubdomainEditable ?
+              <Unlock className="h-3 w-3 inline ml-1 text-green-500" /> :
+              <Lock className="h-3 w-3 inline ml-1 text-amber-500" />
             }
           </Label>
           {userType === 'free' && (
@@ -105,31 +108,32 @@ export default function SEOEditor({
             onChange={handleSubdomainChange}
             placeholder="your-subdomain"
             className="flex-grow"
-            disabled={isSubdomainLocked}
+            disabled={!isSubdomainEditable}
           />
           <span className="flex items-center pl-2 pr-3 bg-gray-100 border-y border-r border-gray-300 rounded-r-md text-sm text-gray-600">
             .portfoliohub.io
           </span>
         </div>
 
-        {isSubdomainLocked ? (
+        {!isSubdomainEditable ? (
           <div className="mt-2 flex items-start space-x-2 rounded-md bg-amber-50 p-2 text-amber-800 text-xs">
             <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
             <div>
               <p className="font-medium">Subdomain is locked</p>
               <p className="mt-1">
-                For free accounts, subdomain can't be changed after it's been set.
+                Free accounts use your username as the subdomain and can't be changed.
                 {userType === 'free' && (
-                  <> Upgrade to a premium account to customize your subdomain.</>
+                  <> Upgrade to a premium account to use custom subdomains.</>
                 )}
               </p>
             </div>
           </div>
         ) : (
           <p className="text-xs text-muted-foreground mt-1">
-            Choose a custom subdomain for your portfolio. Only lowercase letters, numbers, and hyphens allowed.
-            {userType === 'premium' && (
-              <> As a premium user, you can change your subdomain at any time.</>
+            {userType === 'free' ? (
+              <>Your subdomain will be locked to your username after publishing. Choose carefully.</>
+            ) : (
+              <>As a premium user, you can change your subdomain at any time. Only lowercase letters, numbers, and hyphens allowed.</>
             )}
           </p>
         )}

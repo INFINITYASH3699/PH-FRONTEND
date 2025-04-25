@@ -1,5 +1,3 @@
-'use client';
-
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -76,80 +74,6 @@ export default function PublishedPortfolioPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-white dark:bg-gray-950">
-      {/* Only show header if not in full view mode */}
-      {!isFullView && portfolio.content?.header && (
-        <header className={`sticky top-0 z-50 w-full border-b bg-white/95 dark:bg-gray-950/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:supports-[backdrop-filter]:bg-gray-950/60 ${
-          portfolio.content.header.style === 'minimal' ? 'py-2' :
-          portfolio.content.header.style === 'centered' ? 'py-4 text-center' : 'py-0'
-        }`}>
-          <div className="container flex h-16 items-center justify-between">
-            {portfolio.content.header.style === 'centered' ? (
-              <div className="w-full flex flex-col items-center justify-center">
-                <Link href={`/portfolio/${username}`} className="text-xl font-bold bg-gradient-to-r from-violet-600 to-indigo-600 text-transparent bg-clip-text">
-                  {portfolio.content.header.title || portfolio.title || username}
-                </Link>
-                {portfolio.content.header.subtitle && (
-                  <p className="text-sm text-muted-foreground mt-1">{portfolio.content.header.subtitle}</p>
-                )}
-                {portfolio.content.header.showNavigation && portfolio.content.header.navItems && (
-                  <nav className="mt-2 flex items-center gap-6">
-                    {portfolio.content.header.navItems.map((item, index) => (
-                      <a
-                        key={index}
-                        href={item.link}
-                        className="text-sm font-medium transition-colors hover:text-primary"
-                      >
-                        {item.label}
-                      </a>
-                    ))}
-                  </nav>
-                )}
-              </div>
-            ) : (
-              <>
-                <Link href={`/portfolio/${username}`} className="text-xl font-bold bg-gradient-to-r from-violet-600 to-indigo-600 text-transparent bg-clip-text">
-                  {portfolio.content.header.title || portfolio.title || username}
-                </Link>
-
-                {portfolio.content.header.showNavigation && portfolio.content.header.navItems && (
-                  <nav className="hidden md:flex items-center gap-6">
-                    {portfolio.content.header.navItems.map((item, index) => (
-                      <a
-                        key={index}
-                        href={item.link}
-                        className="text-sm font-medium transition-colors hover:text-primary"
-                      >
-                        {item.label}
-                      </a>
-                    ))}
-                  </nav>
-                )}
-              </>
-            )}
-          </div>
-        </header>
-      )}
-
-      {/* Fallback Header - If no custom header is configured and not in full view mode */}
-      {!isFullView && !portfolio.content?.header && (
-        <header className="sticky top-0 z-50 w-full border-b bg-white/95 dark:bg-gray-950/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:supports-[backdrop-filter]:bg-gray-950/60">
-          <div className="container flex h-16 items-center justify-between">
-            <Link href={`/portfolio/${username}`} className="text-xl font-bold bg-gradient-to-r from-violet-600 to-indigo-600 text-transparent bg-clip-text">
-              {username}
-            </Link>
-
-            <nav className="hidden md:flex items-center gap-6">
-              <a href="#about" className="text-sm font-medium transition-colors hover:text-primary">About</a>
-              <a href="#projects" className="text-sm font-medium transition-colors hover:text-primary">Projects</a>
-              <a href="#skills" className="text-sm font-medium transition-colors hover:text-primary">Skills</a>
-              <a href="#experience" className="text-sm font-medium transition-colors hover:text-primary">Experience</a>
-              <a href="#education" className="text-sm font-medium transition-colors hover:text-primary">Education</a>
-              <a href="#contact" className="text-sm font-medium transition-colors hover:text-primary">Contact</a>
-            </nav>
-          </div>
-        </header>
-      )}
-
       <main className="flex-grow">
         {/* About Section - Always visible, even if portfolio.content.about is undefined */}
         <section id="about" className="py-24 border-b">
@@ -569,22 +493,6 @@ export default function PublishedPortfolioPage() {
           </section>
         )}
       </main>
-
-      {/* Footer - Only show if not in full view mode */}
-      {!isFullView && (
-        <footer className="border-t py-6">
-          <div className="container px-4 md:px-6">
-            <div className="flex flex-col md:flex-row items-center justify-between">
-              <p className="text-sm text-muted-foreground">
-                © {new Date().getFullYear()} {portfolio.title}. All rights reserved.
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Powered by <Link href="/" className="text-primary hover:underline">PortfolioHub</Link>
-              </p>
-            </div>
-          </div>
-        </footer>
-      )}
     </div>
   );
 }
