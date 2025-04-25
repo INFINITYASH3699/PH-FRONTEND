@@ -1,10 +1,10 @@
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { toast } from 'sonner';
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -18,18 +18,43 @@ import {
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { CardContent, CardFooter } from "@/components/ui/card";
-import apiClient from '@/lib/apiClient';
+import apiClient from "@/lib/apiClient";
 
 // Define form schema with zod
 const formSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address" }),
-  password: z.string().min(8, { message: "Password must be at least 8 characters" }),
+  password: z
+    .string()
+    .min(8, { message: "Password must be at least 8 characters" }),
   rememberMe: z.boolean().optional(),
 });
 
 export default function SignInForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
+
+  // Get redirectTo path from URL if present
+  const redirectTo = searchParams.get("redirectTo") || "/dashboard";
+
+  // Check if we need to clear token (passed by middleware when token is invalid)
+  const clearToken = searchParams.get("clearToken");
+
+  // Clear invalid tokens when directed by middleware
+  useEffect(() => {
+    if (clearToken === "true") {
+      console.log("Clearing invalid auth token");
+      if (typeof apiClient.logout === "function") {
+        apiClient.logout();
+      } else if (
+        apiClient.auth &&
+        typeof apiClient.auth.logout === "function"
+      ) {
+        apiClient.auth.logout();
+      }
+      toast.info("Your session has expired. Please sign in again.");
+    }
+  }, [clearToken]);
 
   // Initialize form
   const form = useForm<z.infer<typeof formSchema>>({
@@ -50,13 +75,28 @@ export default function SignInForm() {
       console.log("Attempting to login with:", values.email);
 
       // Ensure apiClient.auth.login exists
-      if (apiClient && apiClient.auth && typeof apiClient.auth.login === "function") {
-        const response = await apiClient.auth.login(values.email, values.password);
+      if (
+        apiClient &&
+        apiClient.auth &&
+        typeof apiClient.auth.login === "function"
+      ) {
+        const response = await apiClient.auth.login(
+          values.email,
+          values.password
+        );
         if (response && response.user) {
           toast.success("Logged in successfully");
-          // Let the middleware handle the redirection based on auth state
-          // The page will reload naturally due to the auth state change
-          window.location.href = '/';
+
+          // Redirect to the specified path or dashboard
+          console.log(`Redirecting to: ${redirectTo}`);
+
+          if (redirectTo && redirectTo.startsWith("/templates/use/")) {
+            // For template editor paths, reload the page to ensure fresh template data
+            window.location.href = redirectTo;
+          } else {
+            // For other paths, use the router
+            router.push(redirectTo);
+          }
         } else {
           toast.error("Invalid login credentials");
         }
@@ -64,14 +104,25 @@ export default function SignInForm() {
         // fallback for apiClient.login
         await apiClient.login(values.email, values.password);
         toast.success("Logged in successfully");
-        // Let the middleware handle the redirection based on auth state
-        window.location.href = '/';
+
+        // Redirect to the specified path or dashboard
+        console.log(`Redirecting to: ${redirectTo}`);
+
+        if (redirectTo && redirectTo.startsWith("/templates/use/")) {
+          // For template editor paths, reload the page to ensure fresh template data
+          window.location.href = redirectTo;
+        } else {
+          // For other paths, use the router
+          router.push(redirectTo);
+        }
       } else {
         toast.error("Login function not found on apiClient");
       }
     } catch (error) {
       console.error("Login error:", error);
-      toast.error("Failed to sign in. Please check your credentials and try again.");
+      toast.error(
+        "Failed to sign in. Please check your credentials and try again."
+      );
     } finally {
       setIsLoading(false);
     }
@@ -85,6 +136,15 @@ export default function SignInForm() {
   return (
     <>
       <CardContent className="space-y-6 p-6">
+        {redirectTo && redirectTo !== "/dashboard" && (
+          <div className="text-sm text-muted-foreground mb-4">
+            <p>
+              Sign in to continue to:{" "}
+              <span className="font-medium">{redirectTo}</span>
+            </p>
+          </div>
+        )}
+
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
@@ -207,7 +267,7 @@ export default function SignInForm() {
           <Button
             variant="outline"
             type="button"
-            onClick={() => handleSocialLogin('Google')}
+            onClick={() => handleSocialLogin("Google")}
             className="h-10"
           >
             <svg
@@ -239,7 +299,7 @@ export default function SignInForm() {
           <Button
             variant="outline"
             type="button"
-            onClick={() => handleSocialLogin('GitHub')}
+            onClick={() => handleSocialLogin("GitHub")}
             className="h-10"
           >
             <svg
@@ -258,7 +318,10 @@ export default function SignInForm() {
       <CardFooter className="p-6 pt-0 flex justify-center">
         <p className="text-sm text-muted-foreground">
           Don't have an account?{" "}
-          <Link href="/auth/signup" className="text-primary font-medium hover:underline">
+          <Link
+            href={`/auth/signup${redirectTo !== "/dashboard" ? `?redirectTo=${encodeURIComponent(redirectTo)}` : ""}`}
+            className="text-primary font-medium hover:underline"
+          >
             Create an account
           </Link>
         </p>

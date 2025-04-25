@@ -15,6 +15,17 @@ console.log(`API Client initialized with base URL: ${API_BASE_URL}`);
 // Check if we're in development mode
 const isDev = process.env.NODE_ENV === "development";
 
+// Validate JWT token - basic structural validation
+const isValidJWT = (token: string): boolean => {
+  if (!token) return false;
+  // JWT consists of three base64Url encoded segments separated by periods
+  const segments = token.split(".");
+  if (segments.length !== 3) return false;
+  // Each segment should be a valid base64Url string
+  const base64UrlRegex = /^[A-Za-z0-9_-]+$/;
+  return segments.every((segment) => base64UrlRegex.test(segment));
+};
+
 // Mock data for when the API is unavailable
 const MOCK_DATA = {
   templates: [
@@ -216,19 +227,65 @@ const handleResponse = async (response: Response) => {
 };
 
 // Auth utilities
+
+// Enhanced token getter with validation
 export const getToken = (): string | null => {
   if (typeof window === "undefined") return null;
-  return localStorage.getItem(TOKEN_KEY);
+
+  const token = localStorage.getItem(TOKEN_KEY);
+  if (!token) return null;
+
+  // Basic validation to ensure token has proper JWT structure
+  if (!isValidJWT(token)) {
+    console.warn("Invalid token format found in localStorage, clearing...");
+    localStorage.removeItem(TOKEN_KEY);
+    return null;
+  }
+
+  return token;
 };
 
 export const getUser = (): any | null => {
   if (typeof window === "undefined") return null;
-  const userData = localStorage.getItem(USER_KEY);
-  return userData ? JSON.parse(userData) : null;
+
+  try {
+    const userData = localStorage.getItem(USER_KEY);
+    if (!userData) return null;
+
+    // Parse the user data
+    const user = JSON.parse(userData);
+
+    // Basic validation that user has required fields
+    if (!user._id) {
+      console.warn(
+        "Invalid user data found in localStorage (missing _id), clearing..."
+      );
+      localStorage.removeItem(USER_KEY);
+      return null;
+    }
+
+    return user;
+  } catch (error) {
+    console.error("Error parsing user data from localStorage:", error);
+    localStorage.removeItem(USER_KEY);
+    return null;
+  }
 };
 
 export const setAuthData = (token: string, user: any): void => {
   if (typeof window === "undefined") return;
+
+  // Validate the token before setting
+  if (!isValidJWT(token)) {
+    console.error("Attempted to set invalid token format");
+    return;
+  }
+
+  // Validate the user object
+  if (!user || !user._id) {
+    console.error("Attempted to set invalid user data (missing _id)");
+    return;
+  }
 
   // Set in localStorage
   localStorage.setItem(TOKEN_KEY, token);
@@ -240,7 +297,9 @@ export const setAuthData = (token: string, user: any): void => {
   expiryDate.setDate(expiryDate.getDate() + 30);
   document.cookie = `${TOKEN_KEY}=${token}; path=/; expires=${expiryDate.toUTCString()}; SameSite=Lax`;
 
-  console.log(`Auth: Token set in localStorage and cookie`);
+  console.log(
+    `Auth: Token set in localStorage and cookie for user ${user._id}`
+  );
 };
 
 export const clearAuthData = (): void => {
@@ -325,7 +384,12 @@ export async function getServerUser(): Promise<User | null> {
     // For development only
     if (isDev) {
       console.log("Returning mock user for development");
-      return MOCK_DATA.users[0] as User;
+      // Return a more complete mock user with _id
+      const mockUser = {
+        ...MOCK_DATA.users[0],
+        _id: MOCK_DATA.users[0]._id || "mock-user-id", // Ensure _id is present
+      } as User;
+      return mockUser;
     }
 
     // In production, you would need to pass the auth token via headers or cookies
@@ -538,7 +602,8 @@ const api = {
         );
         // For demo purposes, create a mock successful login
         const mockUser = MOCK_DATA.users[0];
-        const mockToken = "mock-jwt-token";
+        const mockToken =
+          "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.mockpayload.mocksignature";
         setAuthData(mockToken, mockUser);
         return { token: mockToken, user: mockUser };
       }
@@ -600,7 +665,8 @@ const api = {
         if (isConnectionError(error) && isDev) {
           // For demo purposes, create a mock successful login
           const mockUser = MOCK_DATA.users[0];
-          const mockToken = "mock-jwt-token";
+          const mockToken =
+            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.mockpayload.mocksignature";
           setAuthData(mockToken, mockUser);
           return { token: mockToken, user: mockUser };
         }
@@ -634,7 +700,8 @@ const api = {
             email: userData.email,
             role: "user",
           };
-          const mockToken = "mock-jwt-token";
+          const mockToken =
+            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.mockpayload.mocksignature";
           setAuthData(mockToken, mockUser);
           return { token: mockToken, user: mockUser };
         }

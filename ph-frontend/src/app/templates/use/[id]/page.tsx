@@ -1,10 +1,11 @@
-import { Metadata } from 'next';
-import TemplateEditorClient from './TemplateEditorClient';
-import VariationExplorer from './VariationExplorer';
-import { notFound } from 'next/navigation';
-import apiClient from '@/lib/apiClient';
+import { Metadata } from "next";
+import TemplateEditorClient from "./TemplateEditorClient";
+import VariationExplorer from "./VariationExplorer";
+import { notFound } from "next/navigation";
+import apiClient from "@/lib/apiClient";
+import { cookies } from "next/headers";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 // Server-side function to fetch template by ID
 async function getTemplate(id: string) {
@@ -12,7 +13,7 @@ async function getTemplate(id: string) {
     const response = await apiClient.serverRequest<{
       success: boolean;
       template: any;
-    }>(`/templates/${id}`, 'GET', undefined, undefined);
+    }>(`/templates/${id}`, "GET", undefined, undefined);
 
     if (response.success && response.template) {
       return response.template;
@@ -20,17 +21,58 @@ async function getTemplate(id: string) {
 
     return null;
   } catch (error) {
-    console.error('Error fetching template:', error);
+    console.error("Error fetching template:", error);
     return null;
   }
 }
 
-export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
+// Enhanced server-side user fetching with auth token from cookies
+async function getServerUserWithAuth() {
+  try {
+    // Get the auth token from cookies
+    const cookieStore = cookies();
+    const authToken = cookieStore.get("ph_auth_token")?.value;
+
+    if (!authToken) {
+      console.log("No auth token found in cookies");
+      return null;
+    }
+
+    // Call the API with the auth token
+    const headers = {
+      Authorization: `Bearer ${authToken}`,
+    };
+
+    const response = await apiClient.serverRequest<{
+      success: boolean;
+      user: any;
+    }>("/auth/me", "GET", undefined, headers);
+
+    if (response.success && response.user) {
+      console.log(
+        "Successfully fetched authenticated user:",
+        response.user._id
+      );
+      return response.user;
+    }
+
+    return null;
+  } catch (error) {
+    console.error("Error fetching authenticated user:", error);
+    return null;
+  }
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: { id: string };
+}): Promise<Metadata> {
   const template = await getTemplate(params.id);
 
   if (!template) {
     return {
-      title: 'Template Not Found',
+      title: "Template Not Found",
     };
   }
 
@@ -40,7 +82,11 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
   };
 }
 
-export default async function TemplateEditorPage({ params }: { params: { id: string } }) {
+export default async function TemplateEditorPage({
+  params,
+}: {
+  params: { id: string };
+}) {
   // Fetch template data
   const template = await getTemplate(params.id);
 
@@ -48,8 +94,16 @@ export default async function TemplateEditorPage({ params }: { params: { id: str
     notFound();
   }
 
-  // Get current user (server-side)
-  const user = await apiClient.getServerUser();
+  // Get current user with authentication (server-side)
+  const authenticatedUser = await getServerUserWithAuth();
+
+  // Fallback to development mock user if needed
+  const user = authenticatedUser || (await apiClient.getServerUser());
+
+  console.log(
+    "Server-side auth status:",
+    user ? "Authenticated" : "Not authenticated"
+  );
 
   // Enhanced data for template rendering
   const enhancedTemplate = {
@@ -65,7 +119,11 @@ export default async function TemplateEditorPage({ params }: { params: { id: str
 
   return (
     <>
-      <TemplateEditorClient template={enhancedTemplate} user={user} id={params.id} />
+      <TemplateEditorClient
+        template={enhancedTemplate}
+        user={user}
+        id={params.id}
+      />
       <VariationExplorer templateId={params.id} />
     </>
   );

@@ -1,15 +1,25 @@
-"use client"
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import TemplateRenderer from '@/components/template-renderer/TemplateRenderer';
-import SidebarEditor from './SidebarEditor';
-import apiClient from '@/lib/apiClient';
-import { toast } from 'sonner';
-import { FetchProfileButton } from '@/components/ui/fetch-profile-button';
-import { Expand, Shrink, Laptop, Tablet, Smartphone, Eye, ArrowLeft, Save, Share } from 'lucide-react';
+import React, { useState, useEffect } from "react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import TemplateRenderer from "@/components/template-renderer/TemplateRenderer";
+import SidebarEditor from "./SidebarEditor";
+import apiClient from "@/lib/apiClient";
+import { toast } from "sonner";
+import { FetchProfileButton } from "@/components/ui/fetch-profile-button";
+import {
+  Expand,
+  Shrink,
+  Laptop,
+  Tablet,
+  Smartphone,
+  Eye,
+  ArrowLeft,
+  Save,
+  Share,
+} from "lucide-react";
 
 interface TemplateEditorClientProps {
   template: any;
@@ -17,10 +27,14 @@ interface TemplateEditorClientProps {
   id: string;
 }
 
-export default function TemplateEditorClient({ template, user, id }: TemplateEditorClientProps) {
+export default function TemplateEditorClient({
+  template,
+  user,
+  id,
+}: TemplateEditorClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const portfolioIdParam = searchParams.get('portfolioId');
+  const portfolioIdParam = searchParams.get("portfolioId");
 
   const [portfolio, setPortfolio] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -34,7 +48,9 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
   const [isSaved, setIsSaved] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [isPreviewing, setIsPreviewing] = useState(false);
-  const [viewportMode, setViewportMode] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
+  const [viewportMode, setViewportMode] = useState<
+    "desktop" | "tablet" | "mobile"
+  >("desktop");
   const [savedPortfolioId, setSavedPortfolioId] = useState<string | null>(null);
 
   // State for editor view
@@ -46,36 +62,56 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
   const [selectedTemplate, setSelectedTemplate] = useState(template);
 
   // Enhanced customization state
-  const [selectedSectionVariants, setSelectedSectionVariants] = useState<Record<string, string>>({});
+  const [selectedSectionVariants, setSelectedSectionVariants] = useState<
+    Record<string, string>
+  >({});
   const [animationsEnabled, setAnimationsEnabled] = useState<boolean>(true);
-  const [selectedStylePreset, setSelectedStylePreset] = useState<string>('modern');
+  const [selectedStylePreset, setSelectedStylePreset] =
+    useState<string>("modern");
 
   // Set isClient to true when component mounts and check authentication
   useEffect(() => {
     setIsClient(true);
 
     // Check authentication status
-    const token = apiClient.getToken?.();
-    const currentUser = apiClient.getUser?.();
+    const checkAuthentication = async () => {
+      // Check both client-side and server-side auth
+      const token = apiClient.getToken?.();
+      const currentUser = apiClient.getUser?.();
 
-    if (token && currentUser) {
-      setIsAuthenticated(true);
-    } else {
-      setIsAuthenticated(false);
-      toast.error('You are not logged in. Please log in to save or publish your portfolio.');
-    }
-  }, []);
+      // If we have a server-side user (from getServerUser) or client-side auth token/user
+      if ((user && user.id) || (token && currentUser && currentUser._id)) {
+        // User is authenticated
+        setIsAuthenticated(true);
+      } else {
+        // If no authentication is found, try to refresh from API
+        try {
+          const response = await apiClient.user.getProfile();
+          if (response && response.user && response.user._id) {
+            setIsAuthenticated(true);
+          } else {
+            setIsAuthenticated(false);
+            toast.error(
+              "You are not logged in. Please log in to save or publish your portfolio."
+            );
+          }
+        } catch (error) {
+          console.error("Failed to refresh authentication:", error);
+          setIsAuthenticated(false);
+          toast.error("Authentication check failed. Please log in again.");
+        }
+      }
+    };
+
+    checkAuthentication();
+  }, [user]);
 
   // Initialize portfolio data on mount, only if authenticated
   useEffect(() => {
     if (!isClient) return;
 
-    // Only allow portfolio editing if authenticated
-    if (!isAuthenticated) {
-      setError("You must be logged in to use the template editor.");
-      setLoading(false);
-      return;
-    }
+    // Skip authentication check here since we handle it in the previous useEffect
+    // This allows the editor to load for server-side authenticated users even if client auth not established yet
 
     try {
       if (!template) {
@@ -99,28 +135,31 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
               // Get current user subscription information
               const currentUser = apiClient.getUser?.();
               const isPremiumUser =
-                currentUser?.subscriptionPlan?.type === 'premium' ||
-                currentUser?.subscriptionPlan?.type === 'professional';
+                currentUser?.subscriptionPlan?.type === "premium" ||
+                currentUser?.subscriptionPlan?.type === "professional";
 
               // Update portfolio with current subscription status
               const updatedPortfolio = {
                 ...response.portfolio,
-                userType: isPremiumUser ? 'premium' : 'free'
+                userType: isPremiumUser ? "premium" : "free",
               };
 
               setPortfolio(updatedPortfolio);
               setSavedPortfolioId(response.portfolio._id);
 
               // Ensure the section order is loaded from the portfolio or set from template
-              const portfolioSectionOrder = response.portfolio.sectionOrder || [];
+              const portfolioSectionOrder =
+                response.portfolio.sectionOrder || [];
               if (portfolioSectionOrder.length > 0) {
                 setSectionOrder(portfolioSectionOrder);
                 // Set the first section as active
                 setActiveSection(portfolioSectionOrder[0]);
               } else {
                 // If portfolio doesn't have section order, set it from template
-                const templateSections = template.layouts?.[0]?.structure?.sections ||
-                  template.defaultStructure?.layout?.sections || [];
+                const templateSections =
+                  template.layouts?.[0]?.structure?.sections ||
+                  template.defaultStructure?.layout?.sections ||
+                  [];
                 setSectionOrder(templateSections);
                 // Set the first section as active
                 setActiveSection(templateSections[0]);
@@ -130,7 +169,7 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
               if (response.portfolio.sectionVariants) {
                 setSelectedSectionVariants(response.portfolio.sectionVariants);
               }
-              if (typeof response.portfolio.animationsEnabled === 'boolean') {
+              if (typeof response.portfolio.animationsEnabled === "boolean") {
                 setAnimationsEnabled(response.portfolio.animationsEnabled);
               }
               if (response.portfolio.stylePreset) {
@@ -140,10 +179,14 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
               setLoading(false);
               return;
             } else {
-              toast.error('Failed to load your existing portfolio. Creating a new one instead.');
+              toast.error(
+                "Failed to load your existing portfolio. Creating a new one instead."
+              );
             }
           } catch (err) {
-            toast.error('Failed to load your existing portfolio. Creating a new one instead.');
+            toast.error(
+              "Failed to load your existing portfolio. Creating a new one instead."
+            );
           }
         }
 
@@ -151,8 +194,8 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
         const generateSubdomain = () => {
           const username =
             user?.username ||
-            user?.name?.toLowerCase().replace(/\s+/g, '') ||
-            '';
+            user?.name?.toLowerCase().replace(/\s+/g, "") ||
+            "";
           const timestamp = new Date().getTime().toString().slice(-4);
           return `${username}${timestamp}`;
         };
@@ -169,79 +212,94 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
         // Prepare initial content based on section definitions
         const initialContent: Record<string, any> = {
           header: {
-            title: user?.name || 'Your Name',
+            title: user?.name || "Your Name",
             subtitle:
-              template.category === 'developer'
-                ? 'Software Developer'
-                : template.category === 'designer'
-                ? 'Creative Designer'
-                : template.category === 'photographer'
-                ? 'Professional Photographer'
-                : 'Professional Portfolio',
-            profileImage: '',
-            navigation: ['About', 'Projects', 'Experience', 'Contact'],
+              template.category === "developer"
+                ? "Software Developer"
+                : template.category === "designer"
+                  ? "Creative Designer"
+                  : template.category === "photographer"
+                    ? "Professional Photographer"
+                    : "Professional Portfolio",
+            profileImage: "",
+            navigation: ["About", "Projects", "Experience", "Contact"],
           },
           about: {
-            title: 'About Me',
-            bio: 'Welcome to my portfolio. Here you can share your professional background, experience, and what makes you unique.',
+            title: "About Me",
+            bio: "Welcome to my portfolio. Here you can share your professional background, experience, and what makes you unique.",
             variant:
-              template.category === 'designer'
-                ? 'with-image'
-                : template.category === 'developer'
-                ? 'with-highlights'
-                : 'standard',
+              template.category === "designer"
+                ? "with-image"
+                : template.category === "developer"
+                  ? "with-highlights"
+                  : "standard",
             highlights: [
-              { title: 'My Expertise', description: 'Describe your main area of expertise.' },
-              { title: 'Experience', description: 'Highlight your years of experience or key skills.' },
-              { title: 'Education', description: 'Share your educational background.' },
+              {
+                title: "My Expertise",
+                description: "Describe your main area of expertise.",
+              },
+              {
+                title: "Experience",
+                description:
+                  "Highlight your years of experience or key skills.",
+              },
+              {
+                title: "Education",
+                description: "Share your educational background.",
+              },
             ],
           },
           seo: {
-            title: 'My Portfolio | Professional Website',
-            description: 'Welcome to my professional portfolio showcasing my work and experience.',
-            keywords: 'portfolio, professional, skills, projects',
+            title: "My Portfolio | Professional Website",
+            description:
+              "Welcome to my professional portfolio showcasing my work and experience.",
+            keywords: "portfolio, professional, skills, projects",
           },
           socialLinks: {
-            github: '',
-            linkedin: '',
-            twitter: '',
-            instagram: '',
+            github: "",
+            linkedin: "",
+            twitter: "",
+            instagram: "",
           },
         };
 
         if (template.sectionDefinitions) {
-          Object.entries(template.sectionDefinitions).forEach(([sectionType, definition]) => {
-            if (!initialContent[sectionType] && definition.defaultData) {
-              initialContent[sectionType] = { ...definition.defaultData };
+          Object.entries(template.sectionDefinitions).forEach(
+            ([sectionType, definition]) => {
+              if (!initialContent[sectionType] && definition.defaultData) {
+                initialContent[sectionType] = { ...definition.defaultData };
+              }
             }
-          });
+          );
         }
 
         // Get current user subscription information
         const currentUser = apiClient.getUser?.();
         const isPremiumUser =
-          currentUser?.subscriptionPlan?.type === 'premium' ||
-          currentUser?.subscriptionPlan?.type === 'professional';
+          currentUser?.subscriptionPlan?.type === "premium" ||
+          currentUser?.subscriptionPlan?.type === "professional";
 
         // Create initial portfolio data
         const initialPortfolioData = {
-          _id: 'new-portfolio',
-          title: 'My New Portfolio',
-          subtitle: 'Created with Portfolio Hub',
+          _id: "new-portfolio",
+          title: "My New Portfolio",
+          subtitle: "Created with Portfolio Hub",
           subdomain: generateSubdomain(),
           templateId: template._id,
-          userId: user?.id || 'guest-user',
+          userId: user?.id || "guest-user",
           content: initialContent,
-          activeLayout: template.layouts?.[0]?.id || 'default',
-          activeColorScheme: template.themeOptions?.colorSchemes?.[0]?.id || 'default',
-          activeFontPairing: template.themeOptions?.fontPairings?.[0]?.id || 'default',
+          activeLayout: template.layouts?.[0]?.id || "default",
+          activeColorScheme:
+            template.themeOptions?.colorSchemes?.[0]?.id || "default",
+          activeFontPairing:
+            template.themeOptions?.fontPairings?.[0]?.id || "default",
           customColors: null,
           sectionOrder: defaultSectionOrder,
-          userType: isPremiumUser ? 'premium' : 'free',
+          userType: isPremiumUser ? "premium" : "free",
           subdomainLocked: !isPremiumUser,
           sectionVariants: {},
           animationsEnabled: true,
-          stylePreset: 'modern',
+          stylePreset: "modern",
         };
 
         setPortfolio(initialPortfolioData);
@@ -251,7 +309,7 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
         }
         setSelectedSectionVariants({});
         setAnimationsEnabled(true);
-        setSelectedStylePreset('modern');
+        setSelectedStylePreset("modern");
         setLoading(false);
       };
 
@@ -260,16 +318,21 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
       setError("Failed to initialize template editor.");
       setLoading(false);
     }
-  }, [template, user, isAuthenticated, isClient, portfolioIdParam]);
+  }, [template, user, isClient, portfolioIdParam]);
 
   useEffect(() => {
     if (!isClient || !template || !portfolio) return;
 
-    const activeLayoutId = portfolio.activeLayout || (template.layouts?.[0]?.id || 'default');
-    const activeLayout = template.layouts?.find((l: any) => l.id === activeLayoutId) || template.layouts?.[0];
+    const activeLayoutId =
+      portfolio.activeLayout || template.layouts?.[0]?.id || "default";
+    const activeLayout =
+      template.layouts?.find((l: any) => l.id === activeLayoutId) ||
+      template.layouts?.[0];
 
-    const layoutSections = activeLayout?.structure?.sections ||
-      template.defaultStructure?.layout?.sections || [];
+    const layoutSections =
+      activeLayout?.structure?.sections ||
+      template.defaultStructure?.layout?.sections ||
+      [];
 
     if (portfolio.sectionOrder && portfolio.sectionOrder.length > 0) {
       setSectionOrder(portfolio.sectionOrder);
@@ -286,7 +349,7 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
 
       setPortfolio((prev: any) => ({
         ...prev,
-        sectionOrder: layoutSections
+        sectionOrder: layoutSections,
       }));
     }
 
@@ -294,7 +357,7 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
     if (portfolio.sectionVariants) {
       setSelectedSectionVariants(portfolio.sectionVariants);
     }
-    if (typeof portfolio.animationsEnabled === 'boolean') {
+    if (typeof portfolio.animationsEnabled === "boolean") {
       setAnimationsEnabled(portfolio.animationsEnabled);
     }
     if (portfolio.stylePreset) {
@@ -393,7 +456,7 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
   const handleRemoveSection = (sectionId: string) => {
     if (!portfolio) return;
 
-    const newOrder = sectionOrder.filter(id => id !== sectionId);
+    const newOrder = sectionOrder.filter((id) => id !== sectionId);
 
     setPortfolio((prev: any) => ({
       ...prev,
@@ -411,9 +474,9 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
 
   // Enhanced customization handlers
   const handleSectionVariantUpdate = (sectionId: string, variantId: string) => {
-    setSelectedSectionVariants(prev => ({
+    setSelectedSectionVariants((prev) => ({
       ...prev,
-      [sectionId]: variantId
+      [sectionId]: variantId,
     }));
     setIsSaved(false);
   };
@@ -428,15 +491,17 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
     setIsSaved(false);
   };
 
-  // Updated save draft function to include customization options
+  // Updated save draft function to include customization options and better handle auth errors
   const handleSaveDraft = async () => {
     if (!isAuthenticated) {
-      toast.error('You must be logged in to save your portfolio');
+      toast.error(
+        "You must be logged in to save your portfolio. Please log out and log back in."
+      );
       return;
     }
 
     if (!portfolio) {
-      toast.error('No portfolio data to save');
+      toast.error("No portfolio data to save");
       return;
     }
 
@@ -448,16 +513,62 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
       const userId = currentUser?._id || user?.id;
 
       if (!userId) {
-        throw new Error('User ID is missing');
+        // Force a refresh of the authentication status
+        try {
+          const response = await apiClient.user.getProfile();
+          if (response && response.user && response.user._id) {
+            const refreshedUserId = response.user._id;
+
+            const portfolioToSave = {
+              ...portfolio,
+              userId: refreshedUserId,
+              templateId: template._id,
+              title: portfolio.title || "My Portfolio",
+              subtitle: portfolio.subtitle || "",
+              subdomain:
+                portfolio.subdomain ||
+                `user-${Date.now().toString().slice(-8)}`,
+              isPublished: false,
+              sectionOrder: sectionOrder,
+              sectionVariants: selectedSectionVariants,
+              animationsEnabled: animationsEnabled,
+              stylePreset: selectedStylePreset,
+            };
+
+            // Continue with the save
+            if (process.env.NODE_ENV === "development") {
+              await new Promise((resolve) => setTimeout(resolve, 800));
+            }
+
+            const saveResponse =
+              await apiClient.portfolios.saveDraft(portfolioToSave);
+
+            if (saveResponse && saveResponse.portfolio) {
+              setSavedPortfolioId(saveResponse.portfolio._id);
+              setPortfolio((prev: any) => ({
+                ...prev,
+                _id: saveResponse.portfolio._id,
+              }));
+              setIsSaved(true);
+              toast.success("Portfolio saved as draft!");
+              return;
+            }
+          } else {
+            throw new Error("User ID is missing");
+          }
+        } catch (error) {
+          throw new Error("User ID is missing");
+        }
       }
 
       const portfolioToSave = {
         ...portfolio,
         userId: userId,
         templateId: template._id,
-        title: portfolio.title || 'My Portfolio',
-        subtitle: portfolio.subtitle || '',
-        subdomain: portfolio.subdomain || `user-${Date.now().toString().slice(-8)}`,
+        title: portfolio.title || "My Portfolio",
+        subtitle: portfolio.subtitle || "",
+        subdomain:
+          portfolio.subdomain || `user-${Date.now().toString().slice(-8)}`,
         isPublished: false,
         sectionOrder: sectionOrder,
         sectionVariants: selectedSectionVariants,
@@ -465,7 +576,7 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
         stylePreset: selectedStylePreset,
       };
 
-      if (process.env.NODE_ENV === 'development') {
+      if (process.env.NODE_ENV === "development") {
         await new Promise((resolve) => setTimeout(resolve, 800));
       }
 
@@ -478,22 +589,41 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
           _id: response.portfolio._id,
         }));
         setIsSaved(true);
-        toast.success('Portfolio saved as draft!');
+        toast.success("Portfolio saved as draft!");
       } else {
-        throw new Error('Failed to save portfolio');
+        throw new Error("Failed to save portfolio");
       }
     } catch (err: any) {
-      let errorMessage = 'Failed to save portfolio. Please try again.';
+      let errorMessage = "Failed to save portfolio. Please try again.";
 
-      if (err.message?.includes('already have a portfolio with this template')) {
-        errorMessage = 'You already have a portfolio with this template. Please use the Edit button on the templates page to modify your existing portfolio.';
+      if (
+        err.message?.includes("already have a portfolio with this template")
+      ) {
+        errorMessage =
+          "You already have a portfolio with this template. Please use the Edit button on the templates page to modify your existing portfolio.";
         setTimeout(() => {
-          router.push('/templates');
+          router.push("/templates");
         }, 3000);
-      } else if (err.message?.includes('subdomain is already taken')) {
-        errorMessage = 'This subdomain is already taken. Please choose a different subdomain in the SEO section.';
-      } else if (err.message?.includes('User ID is missing')) {
-        errorMessage = 'Your user information could not be found. Please try logging out and logging back in.';
+      } else if (err.message?.includes("subdomain is already taken")) {
+        errorMessage =
+          "This subdomain is already taken. Please choose a different subdomain in the SEO section.";
+      } else if (
+        err.message?.includes("User ID is missing") ||
+        err.message?.includes("user information")
+      ) {
+        errorMessage =
+          "Your user information could not be found. Please try logging out and logging back in.";
+
+        // Clear auth data and redirect to login after a delay
+        setTimeout(() => {
+          if (typeof apiClient.logout === "function") {
+            apiClient.logout();
+          }
+          router.push(
+            "/auth/signin?redirectTo=" +
+              encodeURIComponent(`/templates/use/${id}`)
+          );
+        }, 3000);
       }
 
       toast.error(errorMessage);
@@ -505,7 +635,17 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
   const handlePublish = async () => {
     if (!portfolio) return;
     if (!isAuthenticated) {
-      toast.error('You must be logged in to publish your portfolio.');
+      toast.error(
+        "You must be logged in to publish your portfolio. Please log out and log back in."
+      );
+
+      // Redirect to login after a short delay
+      setTimeout(() => {
+        router.push(
+          "/auth/signin?redirectTo=" +
+            encodeURIComponent(`/templates/use/${id}`)
+        );
+      }, 3000);
       return;
     }
 
@@ -514,36 +654,51 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
 
       if (!savedPortfolioId) {
         await handleSaveDraft();
+
+        // If we still don't have a saved portfolio ID after trying to save, exit
+        if (!savedPortfolioId) {
+          throw new Error("Failed to save portfolio before publishing");
+        }
       }
 
       const currentUser = apiClient.getUser?.();
       const userId = currentUser?._id || user?.id;
 
       if (!userId) {
-        throw new Error('User ID is missing');
+        // Try to refresh the user information
+        try {
+          const response = await apiClient.user.getProfile();
+          if (!response || !response.user || !response.user._id) {
+            throw new Error("User ID is missing");
+          }
+        } catch (error) {
+          throw new Error("User ID is missing");
+        }
       }
 
       const isPremiumUser =
-        currentUser?.subscriptionPlan?.type === 'premium' &&
+        currentUser?.subscriptionPlan?.type === "premium" &&
         currentUser?.subscriptionPlan?.isActive === true &&
         currentUser?.subscriptionPlan?.features?.customDomain === true;
 
       let subdomain = portfolio.subdomain;
       if (!isPremiumUser) {
-        subdomain = currentUser?.username || `user-${Date.now().toString().slice(-8)}`;
+        subdomain =
+          currentUser?.username || `user-${Date.now().toString().slice(-8)}`;
       } else if (!subdomain) {
-        subdomain = currentUser?.username || `user-${Date.now().toString().slice(-8)}`;
+        subdomain =
+          currentUser?.username || `user-${Date.now().toString().slice(-8)}`;
       }
 
       const portfolioToPublish = {
         ...portfolio,
         userId: userId,
         templateId: template._id,
-        title: portfolio.title || 'My Portfolio',
-        subtitle: portfolio.subtitle || '',
+        title: portfolio.title || "My Portfolio",
+        subtitle: portfolio.subtitle || "",
         subdomain: subdomain,
         subdomainLocked: !isPremiumUser,
-        userType: isPremiumUser ? 'premium' : 'free',
+        userType: isPremiumUser ? "premium" : "free",
         isPublished: true,
         sectionOrder: sectionOrder,
         sectionVariants: selectedSectionVariants,
@@ -551,7 +706,7 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
         stylePreset: selectedStylePreset,
       };
 
-      if (process.env.NODE_ENV === 'development') {
+      if (process.env.NODE_ENV === "development") {
         await new Promise((resolve) => setTimeout(resolve, 1200));
       }
 
@@ -565,16 +720,37 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
           isPublished: true,
         }));
 
-        toast.success('Portfolio published successfully!');
+        toast.success("Portfolio published successfully!");
 
         setTimeout(() => {
           router.push(`/portfolio/${response.portfolio.subdomain}`);
         }, 1500);
       } else {
-        throw new Error('Failed to publish portfolio');
+        throw new Error("Failed to publish portfolio");
       }
-    } catch (err) {
-      toast.error('Failed to publish portfolio. Please try again.');
+    } catch (err: any) {
+      let errorMessage = "Failed to publish portfolio. Please try again.";
+
+      if (
+        err.message?.includes("User ID is missing") ||
+        err.message?.includes("user information")
+      ) {
+        errorMessage =
+          "Your user information could not be found. Please try logging out and logging back in.";
+
+        // Clear auth data and redirect to login after a delay
+        setTimeout(() => {
+          if (typeof apiClient.logout === "function") {
+            apiClient.logout();
+          }
+          router.push(
+            "/auth/signin?redirectTo=" +
+              encodeURIComponent(`/templates/use/${id}`)
+          );
+        }, 3000);
+      }
+
+      toast.error(errorMessage);
     } finally {
       setIsPublishing(false);
     }
@@ -583,7 +759,7 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
   const handlePreview = async () => {
     if (!portfolio) return;
     if (!isAuthenticated) {
-      toast.error('You must be logged in to preview your portfolio.');
+      toast.error("You must be logged in to preview your portfolio.");
       return;
     }
 
@@ -595,12 +771,12 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
       }
 
       if (savedPortfolioId) {
-        window.open(`/portfolio/preview/${savedPortfolioId}`, '_blank');
+        window.open(`/portfolio/preview/${savedPortfolioId}`, "_blank");
       } else {
-        throw new Error('Failed to generate preview');
+        throw new Error("Failed to generate preview");
       }
     } catch (err) {
-      toast.error('Failed to generate preview. Please try again.');
+      toast.error("Failed to generate preview. Please try again.");
     } finally {
       setIsPreviewing(false);
     }
@@ -612,7 +788,7 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
 
   const fetchProfileData = async () => {
     if (!isAuthenticated) {
-      toast.error('You must be logged in to fetch your profile data.');
+      toast.error("You must be logged in to fetch your profile data.");
       return;
     }
 
@@ -620,19 +796,24 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
       const response = await apiClient.user.getProfile();
 
       if (!response || !response.user) {
-        throw new Error('Failed to fetch profile data: Invalid API response');
+        throw new Error("Failed to fetch profile data: Invalid API response");
       }
 
       const profileData = response.user;
 
-      if (!profileData.profile || Object.keys(profileData.profile).length === 0) {
-        toast.warning('Your profile is empty. Please add information to your profile first.');
+      if (
+        !profileData.profile ||
+        Object.keys(profileData.profile).length === 0
+      ) {
+        toast.warning(
+          "Your profile is empty. Please add information to your profile first."
+        );
         return;
       }
 
       let updatedFields: string[] = [];
 
-      setPortfolio(prev => {
+      setPortfolio((prev) => {
         if (!prev) return prev;
         let updatedPortfolio = { ...prev };
 
@@ -642,9 +823,9 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
             header: {
               ...updatedPortfolio.content?.header,
               title: profileData.fullName,
-            }
+            },
           };
-          updatedFields.push('name');
+          updatedFields.push("name");
         }
 
         if (profileData.profile?.profileImage) {
@@ -653,7 +834,7 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
             header: {
               ...updatedPortfolio.content?.header,
               profileImage: profileData.profile.profileImage,
-            }
+            },
           };
           if (updatedPortfolio.content?.about) {
             updatedPortfolio.content = {
@@ -661,10 +842,10 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
               about: {
                 ...updatedPortfolio.content.about,
                 image: profileData.profile.profileImage,
-              }
+              },
             };
           }
-          updatedFields.push('profileImage');
+          updatedFields.push("profileImage");
         }
 
         if (profileData.profile?.bio) {
@@ -673,33 +854,40 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
             about: {
               ...updatedPortfolio.content?.about,
               bio: profileData.profile.bio,
-            }
+            },
           };
-          updatedFields.push('bio');
+          updatedFields.push("bio");
         }
 
-        if (profileData.profile?.skills && profileData.profile.skills.length > 0) {
+        if (
+          profileData.profile?.skills &&
+          profileData.profile.skills.length > 0
+        ) {
           const mappedSkills = profileData.profile.skills.map((skill: any) => ({
             name: skill.name,
             level: skill.level || 80,
-            category: skill.category || 'Technical'
+            category: skill.category || "Technical",
           }));
 
           updatedPortfolio.content = {
             ...updatedPortfolio.content,
             skills: {
-              title: updatedPortfolio.content?.skills?.title || 'Skills',
-              items: mappedSkills
-            }
+              title: updatedPortfolio.content?.skills?.title || "Skills",
+              items: mappedSkills,
+            },
           };
-          updatedFields.push('skills');
+          updatedFields.push("skills");
         }
 
-        if (profileData.profile?.experience && profileData.profile.experience.length > 0) {
+        if (
+          profileData.profile?.experience &&
+          profileData.profile.experience.length > 0
+        ) {
           updatedPortfolio.content = {
             ...updatedPortfolio.content,
             experience: {
-              title: updatedPortfolio.content?.experience?.title || 'Experience',
+              title:
+                updatedPortfolio.content?.experience?.title || "Experience",
               items: profileData.profile.experience.map((exp: any) => ({
                 title: exp.title,
                 company: exp.company,
@@ -707,18 +895,21 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
                 startDate: exp.startDate,
                 endDate: exp.endDate,
                 current: exp.current,
-                description: exp.description
-              }))
-            }
+                description: exp.description,
+              })),
+            },
           };
-          updatedFields.push('experience');
+          updatedFields.push("experience");
         }
 
-        if (profileData.profile?.education && profileData.profile.education.length > 0) {
+        if (
+          profileData.profile?.education &&
+          profileData.profile.education.length > 0
+        ) {
           updatedPortfolio.content = {
             ...updatedPortfolio.content,
             education: {
-              title: updatedPortfolio.content?.education?.title || 'Education',
+              title: updatedPortfolio.content?.education?.title || "Education",
               items: profileData.profile.education.map((edu: any) => ({
                 degree: edu.degree,
                 institution: edu.institution,
@@ -726,36 +917,39 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
                 startDate: edu.startDate,
                 endDate: edu.endDate,
                 current: edu.current,
-                description: edu.description
-              }))
-            }
+                description: edu.description,
+              })),
+            },
           };
-          updatedFields.push('education');
+          updatedFields.push("education");
         }
 
-        if (profileData.profile?.projects && profileData.profile.projects.length > 0) {
+        if (
+          profileData.profile?.projects &&
+          profileData.profile.projects.length > 0
+        ) {
           updatedPortfolio.content = {
             ...updatedPortfolio.content,
             projects: {
-              title: updatedPortfolio.content?.projects?.title || 'Projects',
+              title: updatedPortfolio.content?.projects?.title || "Projects",
               items: profileData.profile.projects.map((project: any) => ({
                 title: project.title,
                 description: project.description,
                 image: project.image,
                 link: project.link,
-                tags: project.tags
-              }))
-            }
+                tags: project.tags,
+              })),
+            },
           };
-          updatedFields.push('projects');
+          updatedFields.push("projects");
         }
 
         if (profileData.profile?.socialLinks) {
           updatedPortfolio.content = {
             ...updatedPortfolio.content,
-            socialLinks: profileData.profile.socialLinks
+            socialLinks: profileData.profile.socialLinks,
           };
-          updatedFields.push('socialLinks');
+          updatedFields.push("socialLinks");
         }
 
         if (profileData.profile?.title) {
@@ -763,35 +957,37 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
             ...updatedPortfolio.content,
             header: {
               ...updatedPortfolio.content?.header,
-              subtitle: profileData.profile.title
-            }
+              subtitle: profileData.profile.title,
+            },
           };
-          updatedFields.push('title');
+          updatedFields.push("title");
         }
 
-        const username = profileData.username || profileData.fullName?.toLowerCase().replace(/\s+/g, '') || '';
+        const username =
+          profileData.username ||
+          profileData.fullName?.toLowerCase().replace(/\s+/g, "") ||
+          "";
 
         const isPremiumUser =
-          profileData.subscriptionPlan?.type === 'premium' &&
+          profileData.subscriptionPlan?.type === "premium" &&
           profileData.subscriptionPlan?.isActive === true &&
           profileData.subscriptionPlan?.features?.customDomain === true;
 
-        updatedPortfolio.userType = isPremiumUser ? 'premium' : 'free';
+        updatedPortfolio.userType = isPremiumUser ? "premium" : "free";
 
         if (!isPremiumUser) {
           updatedPortfolio.subdomain = username;
           updatedPortfolio.subdomainLocked = true;
-          updatedFields.push('subdomain');
-        }
-        else if (isPremiumUser && !updatedPortfolio.customSubdomain) {
+          updatedFields.push("subdomain");
+        } else if (isPremiumUser && !updatedPortfolio.customSubdomain) {
           updatedPortfolio.subdomain = username;
           updatedPortfolio.subdomainLocked = false;
-          updatedFields.push('subdomain');
-        }
-        else if (!updatedPortfolio.subdomain) {
-          updatedPortfolio.subdomain = username || `user-${Date.now().toString().slice(-8)}`;
+          updatedFields.push("subdomain");
+        } else if (!updatedPortfolio.subdomain) {
+          updatedPortfolio.subdomain =
+            username || `user-${Date.now().toString().slice(-8)}`;
           updatedPortfolio.subdomainLocked = !isPremiumUser;
-          updatedFields.push('subdomain');
+          updatedFields.push("subdomain");
         }
 
         setIsSaved(false);
@@ -801,29 +997,30 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
 
       if (updatedFields.length > 0) {
         toast.success(
-          `Profile data imported successfully! Updated: ${updatedFields.join(', ')}.`
+          `Profile data imported successfully! Updated: ${updatedFields.join(", ")}.`
         );
       } else {
         toast.warning(
-          'No new profile data was imported. Your profile may be missing key information.'
+          "No new profile data was imported. Your profile may be missing key information."
         );
       }
     } catch (error: any) {
       if (
         error?.message &&
-        error.message.includes('Failed to fetch profile data: Invalid API response')
+        error.message.includes(
+          "Failed to fetch profile data: Invalid API response"
+        )
       ) {
-        toast.error('Failed to fetch profile data from the server. Please try again later.');
-      } else if (
-        error?.response &&
-        error.response.status === 401
-      ) {
-        toast.error('You are not authorized. Please log in again.');
+        toast.error(
+          "Failed to fetch profile data from the server. Please try again later."
+        );
+      } else if (error?.response && error.response.status === 401) {
+        toast.error("You are not authorized. Please log in again.");
       } else {
         toast.error(
           error?.message
             ? `Failed to fetch profile data: ${error.message}`
-            : 'Failed to fetch profile data. Please try again.'
+            : "Failed to fetch profile data. Please try again."
         );
       }
     }
@@ -833,12 +1030,16 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
     const sections = new Set<string>();
 
     if (template?.sectionDefinitions) {
-      Object.keys(template.sectionDefinitions).forEach(section => sections.add(section));
+      Object.keys(template.sectionDefinitions).forEach((section) =>
+        sections.add(section)
+      );
     }
 
     template?.layouts?.forEach((layout: any) => {
       if (layout.structure?.sections) {
-        layout.structure.sections.forEach((section: string) => sections.add(section));
+        layout.structure.sections.forEach((section: string) =>
+          sections.add(section)
+        );
       }
     });
 
@@ -864,11 +1065,34 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
     );
   }
 
+  // Update the error condition to only show the error message if not authenticated AND not loading
+  if (!isAuthenticated && !loading) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4">
+        <p className="text-red-500">
+          You must be logged in to use the template editor.
+        </p>
+        <Button
+          onClick={() =>
+            (window.location.href =
+              "/auth/signin?redirectTo=" +
+              encodeURIComponent(`/templates/use/${id}`))
+          }
+        >
+          Sign In
+        </Button>
+        <Button variant="outline" onClick={() => router.push("/templates")}>
+          Back to Templates
+        </Button>
+      </div>
+    );
+  }
+
   if (error) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4">
         <p className="text-red-500">{error}</p>
-        <Button onClick={() => router.push('/templates')}>
+        <Button onClick={() => router.push("/templates")}>
           Back to Templates
         </Button>
       </div>
@@ -885,11 +1109,16 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
       <div className="border-b bg-card shadow-sm">
         <div className="container flex h-16 items-center justify-between px-4">
           <div className="flex items-center gap-4">
-            <Link href="/templates" className="text-muted-foreground hover:text-foreground">
+            <Link
+              href="/templates"
+              className="text-muted-foreground hover:text-foreground"
+            >
               <ArrowLeft className="h-4 w-4 mr-1 inline" />
               Back to Templates
             </Link>
-            <h1 className="text-xl font-bold hidden md:block">{updatedTemplate.name}</h1>
+            <h1 className="text-xl font-bold hidden md:block">
+              {updatedTemplate.name}
+            </h1>
           </div>
           <div className="flex items-center gap-2">
             {isAuthenticated && (
@@ -910,7 +1139,9 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
               disabled={isPreviewing}
             >
               <Eye className="h-4 w-4" />
-              <span className="hidden md:inline">{isPreviewing ? "Opening Preview..." : "Open Preview"}</span>
+              <span className="hidden md:inline">
+                {isPreviewing ? "Opening Preview..." : "Open Preview"}
+              </span>
             </Button>
             <Button
               variant="outline"
@@ -920,7 +1151,9 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
               disabled={isSaving}
             >
               <Save className="h-4 w-4" />
-              <span className="hidden md:inline">{isSaving ? "Saving..." : isSaved ? "Saved" : "Save"}</span>
+              <span className="hidden md:inline">
+                {isSaving ? "Saving..." : isSaved ? "Saved" : "Save"}
+              </span>
             </Button>
             <Button
               variant="default"
@@ -930,7 +1163,9 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
               disabled={isPublishing}
             >
               <Share className="h-4 w-4" />
-              <span className="hidden md:inline">{isPublishing ? "Publishing..." : "Publish"}</span>
+              <span className="hidden md:inline">
+                {isPublishing ? "Publishing..." : "Publish"}
+              </span>
             </Button>
           </div>
         </div>
@@ -973,11 +1208,15 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
         />
 
         {/* Content Preview */}
-        <div className={`flex-1 transition-all duration-300 ${showPreview ? 'opacity-100' : 'opacity-95'}`}>
-          <div className={`w-full h-full flex flex-col overflow-hidden bg-gray-100 dark:bg-gray-900 ${viewportMode === 'tablet' ? 'items-center pt-8' : viewportMode === 'mobile' ? 'items-center pt-8' : ''}`}>
+        <div
+          className={`flex-1 transition-all duration-300 ${showPreview ? "opacity-100" : "opacity-95"}`}
+        >
+          <div
+            className={`w-full h-full flex flex-col overflow-hidden bg-gray-100 dark:bg-gray-900 ${viewportMode === "tablet" ? "items-center pt-8" : viewportMode === "mobile" ? "items-center pt-8" : ""}`}
+          >
             {/* Viewport wrapper */}
             <div
-              className={`${viewportMode === 'tablet' ? 'w-[768px] h-[1024px] scale-75 origin-top shadow-xl rounded-xl overflow-hidden' : viewportMode === 'mobile' ? 'w-[390px] h-[844px] scale-75 origin-top shadow-xl rounded-xl overflow-hidden' : 'w-full h-full'}`}
+              className={`${viewportMode === "tablet" ? "w-[768px] h-[1024px] scale-75 origin-top shadow-xl rounded-xl overflow-hidden" : viewportMode === "mobile" ? "w-[390px] h-[844px] scale-75 origin-top shadow-xl rounded-xl overflow-hidden" : "w-full h-full"}`}
             >
               <div className="w-full h-full bg-white dark:bg-black overflow-auto">
                 {portfolio && (
