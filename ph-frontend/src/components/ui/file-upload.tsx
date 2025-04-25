@@ -2,11 +2,10 @@
 
 import React, { useCallback, useState } from 'react'
 import { Button } from './button'
-import { uploadFileToCloudinary } from '@/lib/cloudinary'
 import { toast } from 'sonner'
 
 export interface FileUploadProps {
-  onUploadComplete: (result: { url: string; publicId: string }) => void
+  onUploadComplete: (result: { file: File }) => void
   onUploadError?: (error: string) => void
   allowedTypes?: string[]
   maxSizeMB?: number
@@ -57,28 +56,15 @@ export function FileUpload({
       }
 
       try {
-        setUploading(true)
-
-        // Upload to Cloudinary
-        const result = await uploadFileToCloudinary(file)
-
-        if (!result.success) {
-          throw new Error(result.error || 'Upload failed')
-        }
-
-        onUploadComplete({
-          url: result.url,
-          publicId: result.publicId
-        })
-
-        toast.success('File uploaded successfully')
+        // Let the parent component handle the upload process
+        // This allows components to decide how to upload the file
+        onUploadComplete({ file })
       } catch (error) {
-        console.error('Upload error:', error)
-        const errorMsg = error instanceof Error ? error.message : 'Upload failed'
-        toast.error(`Upload failed: ${errorMsg}`)
+        console.error('File selection error:', error)
+        const errorMsg = error instanceof Error ? error.message : 'Selection failed'
+        toast.error(`File selection failed: ${errorMsg}`)
         onUploadError?.(errorMsg)
       } finally {
-        setUploading(false)
         // Reset the file input
         e.target.value = ''
       }
@@ -100,9 +86,9 @@ export function FileUpload({
         id="file-upload-input"
         type="file"
         accept={allowedTypes.join(',')}
+        className="hidden"
         onChange={handleFileChange}
         disabled={isUploading}
-        className="hidden"
       />
     </div>
   )

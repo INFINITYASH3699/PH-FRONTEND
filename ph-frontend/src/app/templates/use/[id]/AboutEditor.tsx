@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { PlusCircle, X, Upload, UserCircle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useAuth } from '@/components/providers/AuthContext';
 import { toast } from 'sonner';
+import { apiClient } from '@/lib/apiClient';
 
 interface Highlight {
   title: string;
@@ -27,6 +28,8 @@ interface AboutEditorProps {
 export default function AboutEditor({ data, onChange }: AboutEditorProps) {
   // Get user data from auth context
   const { user } = useAuth();
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Set default values if data is empty
   const aboutData = {
@@ -126,6 +129,34 @@ export default function AboutEditor({ data, onChange }: AboutEditorProps) {
     });
   };
 
+  // Handle image upload
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsUploading(true);
+      const result = await apiClient.uploadImage(file, 'about');
+
+      if (result.success && result.image?.url) {
+        handleInputChange('image', result.image.url);
+        toast.success('About section image uploaded successfully');
+      } else {
+        toast.error('Failed to upload image');
+      }
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      toast.error('An unexpected error occurred during upload');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  // Trigger file input click
+  const handleUploadButtonClick = () => {
+    fileInputRef.current?.click();
+  };
+
   return (
     <div className="space-y-5">
       <div className="space-y-2">
@@ -153,7 +184,7 @@ export default function AboutEditor({ data, onChange }: AboutEditorProps) {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="about-image">Profile/About Image URL</Label>
+        <Label htmlFor="about-image">Profile/About Image</Label>
         <div className="flex gap-2">
           <Input
             id="about-image"
@@ -166,9 +197,22 @@ export default function AboutEditor({ data, onChange }: AboutEditorProps) {
             size="icon"
             title="Upload Image"
             type="button"
+            onClick={handleUploadButtonClick}
+            disabled={isUploading}
           >
-            <Upload className="h-4 w-4" />
+            {isUploading ? (
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-solid border-current border-r-transparent"></div>
+            ) : (
+              <Upload className="h-4 w-4" />
+            )}
           </Button>
+          <input
+            type="file"
+            ref={fileInputRef}
+            className="hidden"
+            accept="image/*"
+            onChange={handleImageUpload}
+          />
           {user?.profilePicture && (
             <Button
               variant="outline"
@@ -182,32 +226,21 @@ export default function AboutEditor({ data, onChange }: AboutEditorProps) {
             </Button>
           )}
         </div>
-        {/* Display image preview if available */}
-        {aboutData.image ? (
-          <div className="mt-2 relative h-28 rounded-md overflow-hidden border">
+        <p className="text-xs text-muted-foreground mt-1">
+          Enter an image URL or upload a file (recommended size: 800x600px)
+        </p>
+        {aboutData.image && (
+          <div className="mt-2 relative w-32 h-24 rounded overflow-hidden border">
             <img
               src={aboutData.image}
-              alt="About Preview"
+              alt="About Image Preview"
               className="w-full h-full object-cover"
               onError={(e) => {
-                e.currentTarget.src = 'https://via.placeholder.com/400x200?text=About+Image';
+                e.currentTarget.src = 'https://via.placeholder.com/800x600?text=About';
               }}
             />
-            <Button
-              variant="destructive"
-              size="sm"
-              className="absolute top-1 right-1 h-7 w-7 p-0"
-              onClick={() => handleInputChange('image', '')}
-              title="Remove image"
-            >
-              <X className="h-4 w-4" />
-            </Button>
           </div>
-        ) : user?.profilePicture ? (
-          <div className="mt-2 flex items-center text-sm text-muted-foreground">
-            <span>You have a profile picture available. Click "Use Profile Picture" to add it here.</span>
-          </div>
-        ) : null}
+        )}
       </div>
 
       <div className="space-y-3">

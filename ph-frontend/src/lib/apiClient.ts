@@ -1,4 +1,6 @@
-// API Client for making requests to the backend
+/**
+ * API Client for making requests to the backend
+ */
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
@@ -950,6 +952,53 @@ const api = {
         throw error;
       }
     },
+  },
+
+  // Image upload functionality
+  uploadImage: async (file: File, type: string = 'portfolio') => {
+    try {
+      console.log(`Uploading image of type: ${type}`);
+
+      const formData = new FormData();
+      formData.append('image', file);
+
+      // Use a default portfolio ID if none provided
+      // Try to get a defaultPortfolioId from user data, fallback to 'temp'
+      const user = typeof window !== "undefined" ? getUser() : null;
+      const portfolioId = user?.defaultPortfolioId || 'temp';
+
+      const token = getToken();
+      const headers: HeadersInit = {};
+
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/portfolios/${portfolioId}/upload-image?type=${type}`, {
+        method: 'POST',
+        headers,
+        body: formData,
+        credentials: 'include',
+      });
+
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Image upload error:', error);
+
+      if (isConnectionError(error) && isDev) {
+        // Return a mock image URL for development
+        const mockImageId = `mock-image-${Date.now()}`;
+        return {
+          success: true,
+          image: {
+            url: `https://via.placeholder.com/800x600?text=${type}+Image`,
+            publicId: mockImageId,
+          }
+        };
+      }
+
+      throw error;
+    }
   },
 };
 

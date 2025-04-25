@@ -111,7 +111,7 @@ export default function SEOEditor({
             disabled={!isSubdomainEditable}
           />
           <span className="flex items-center pl-2 pr-3 bg-gray-100 border-y border-r border-gray-300 rounded-r-md text-sm text-gray-600">
-            .portfoliohub.io
+            .portfolio-hubspot.vercel.app
           </span>
         </div>
 

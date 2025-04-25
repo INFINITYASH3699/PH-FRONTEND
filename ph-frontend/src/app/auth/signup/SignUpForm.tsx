@@ -163,7 +163,7 @@ export default function SignUpForm() {
                     />
                   </FormControl>
                   <div className="text-xs text-muted-foreground">
-                    This will be your portfolio URL: <span className="font-medium">portfoliohub.com/{field.value || "username"}</span>
+                    This will be your portfolio URL: <span className="font-medium">portfolio-hubspot.vercel.app/portfolio/{field.value || "username"}</span>
                   </div>
                   <FormMessage />
                 </FormItem>

@@ -194,20 +194,20 @@ export default function ProjectsEditor({ data, onChange, isLoading = false }: Pr
 
     try {
       setUploadLoading(true);
-      const imageData = await apiClient.uploadImage(file, 'project');
+      const result = await apiClient.uploadImage(file, 'project');
 
-      if (imageData && imageData.url) {
+      if (result.success && result.image?.url) {
         setCurrentProject({
           ...currentProject,
-          imageUrl: imageData.url,
+          imageUrl: result.image.url,
         });
-        toast.success('Image uploaded successfully');
+        toast.success('Project image uploaded successfully');
       } else {
         toast.error('Failed to upload image');
       }
     } catch (error) {
       console.error('Error uploading image:', error);
-      toast.error('An unexpected error occurred');
+      toast.error('An unexpected error occurred during upload');
     } finally {
       setUploadLoading(false);
     }

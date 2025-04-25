@@ -563,16 +563,18 @@ export default function SkillsEditor({ data, onChange, isLoading = false }: Skil
               Group your skills by categories such as Frontend, Backend, Design, etc.
             </CardDescription>
           </div>
-          <DialogTrigger asChild>
-            <Button size="sm" onClick={() => {
-              setIsSkillsDialogOpen(true);
-              setNewSkillCategory({ name: '', skills: [] });
-              setEditCategoryIndex(-1);
-            }}>
-              <PlusCircle className="h-4 w-4 mr-2" />
-              Add Category
-            </Button>
-          </DialogTrigger>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button size="sm" onClick={() => {
+                setIsSkillsDialogOpen(true);
+                setNewSkillCategory({ name: '', skills: [] });
+                setEditCategoryIndex(-1);
+              }}>
+                <PlusCircle className="h-4 w-4 mr-2" />
+                Add Category
+              </Button>
+            </DialogTrigger>
+          </Dialog>
         </CardHeader>
         <CardContent>
           <DragDropContext onDragEnd={handleMainDragEnd}>

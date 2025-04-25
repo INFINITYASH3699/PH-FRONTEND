@@ -3,6 +3,8 @@ import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { EditableText } from '../editable/EditableText';
 import FileUpload from '@/components/ui/file-upload';
+import { apiClient } from '@/lib/apiClient';
+import { toast } from 'react-hot-toast';
 
 interface WorkSectionProps {
   data: {
@@ -92,6 +94,34 @@ const WorkSection: React.FC<WorkSectionProps> = ({
         ...data,
         works: newWorks
       });
+    }
+  };
+
+  // Handle direct file upload for a work item using apiClient
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setUploadingImageIndex(index);
+
+      // Use apiClient for consistency with other editors
+      const result = await apiClient.uploadImage(file, 'work');
+
+      if (result.success && result.image?.url) {
+        handleImageUpdate(index, {
+          url: result.image.url,
+          publicId: result.image.publicId
+        });
+
+        toast.success('Work image uploaded successfully');
+      } else {
+        throw new Error('Upload failed');
+      }
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      handleImageUploadError(error instanceof Error ? error.message : 'Upload failed');
+      toast.error('Failed to upload image');
     }
   };
 
@@ -263,12 +293,30 @@ const WorkSection: React.FC<WorkSectionProps> = ({
                   {editable && (
                     <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <FileUpload
-                        onUploadComplete={(result) => handleImageUpdate(index, result)}
+                        onUploadComplete={async (result) => {
+                          setUploadingImageIndex(index);
+                          try {
+                            const uploadResult = await apiClient.uploadImage(result.file, 'work');
+                            if (uploadResult.success && uploadResult.image?.url) {
+                              handleImageUpdate(index, {
+                                url: uploadResult.image.url,
+                                publicId: uploadResult.image.publicId,
+                              });
+                              toast.success('Work image uploaded successfully');
+                            } else {
+                              throw new Error('Upload failed');
+                            }
+                          } catch (error) {
+                            console.error('Error uploading image:', error);
+                            handleImageUploadError(error instanceof Error ? error.message : 'Upload failed');
+                            toast.error('Failed to upload image');
+                          }
+                        }}
                         onUploadError={handleImageUploadError}
-                        buttonText="Change Image"
                         uploading={uploadingImageIndex === index}
-                        variant="secondary"
-                        className="bg-white/80 text-xs"
+                        buttonText="Upload Image"
+                        variant="outline"
+                        className="w-full"
                       />
                     </div>
                   )}
@@ -403,12 +451,30 @@ const WorkSection: React.FC<WorkSectionProps> = ({
                   {editable && (
                     <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <FileUpload
-                        onUploadComplete={(result) => handleImageUpdate(index, result)}
+                        onUploadComplete={async (result) => {
+                          setUploadingImageIndex(index);
+                          try {
+                            const uploadResult = await apiClient.uploadImage(result.file, 'work');
+                            if (uploadResult.success && uploadResult.image?.url) {
+                              handleImageUpdate(index, {
+                                url: uploadResult.image.url,
+                                publicId: uploadResult.image.publicId,
+                              });
+                              toast.success('Work image uploaded successfully');
+                            } else {
+                              throw new Error('Upload failed');
+                            }
+                          } catch (error) {
+                            console.error('Error uploading image:', error);
+                            handleImageUploadError(error instanceof Error ? error.message : 'Upload failed');
+                            toast.error('Failed to upload image');
+                          }
+                        }}
                         onUploadError={handleImageUploadError}
-                        buttonText="Change Image"
                         uploading={uploadingImageIndex === index}
-                        variant="secondary"
-                        className="bg-white/80 text-xs"
+                        buttonText="Upload Image"
+                        variant="outline"
+                        className="w-full"
                       />
                     </div>
                   )}
@@ -475,12 +541,30 @@ const WorkSection: React.FC<WorkSectionProps> = ({
                     {editable && (
                       <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <FileUpload
-                          onUploadComplete={(result) => handleImageUpdate(index, result)}
+                          onUploadComplete={async (result) => {
+                            setUploadingImageIndex(index);
+                            try {
+                              const uploadResult = await apiClient.uploadImage(result.file, 'work');
+                              if (uploadResult.success && uploadResult.image?.url) {
+                                handleImageUpdate(index, {
+                                  url: uploadResult.image.url,
+                                  publicId: uploadResult.image.publicId,
+                                });
+                                toast.success('Work image uploaded successfully');
+                              } else {
+                                throw new Error('Upload failed');
+                              }
+                            } catch (error) {
+                              console.error('Error uploading image:', error);
+                              handleImageUploadError(error instanceof Error ? error.message : 'Upload failed');
+                              toast.error('Failed to upload image');
+                            }
+                          }}
                           onUploadError={handleImageUploadError}
-                          buttonText="Change Image"
                           uploading={uploadingImageIndex === index}
-                          variant="secondary"
-                          className="bg-white/80 text-xs"
+                          buttonText="Upload Image"
+                          variant="outline"
+                          className="w-full"
                         />
                       </div>
                     )}
@@ -488,11 +572,30 @@ const WorkSection: React.FC<WorkSectionProps> = ({
                 ) : editable ? (
                   <div className="relative w-full md:w-1/3 h-64 rounded-lg bg-muted flex items-center justify-center">
                     <FileUpload
-                      onUploadComplete={(result) => handleImageUpdate(index, result)}
+                      onUploadComplete={async (result) => {
+                        setUploadingImageIndex(index);
+                        try {
+                          const uploadResult = await apiClient.uploadImage(result.file, 'work');
+                          if (uploadResult.success && uploadResult.image?.url) {
+                            handleImageUpdate(index, {
+                              url: uploadResult.image.url,
+                              publicId: uploadResult.image.publicId,
+                            });
+                            toast.success('Work image uploaded successfully');
+                          } else {
+                            throw new Error('Upload failed');
+                          }
+                        } catch (error) {
+                          console.error('Error uploading image:', error);
+                          handleImageUploadError(error instanceof Error ? error.message : 'Upload failed');
+                          toast.error('Failed to upload image');
+                        }
+                      }}
                       onUploadError={handleImageUploadError}
-                      buttonText="Add Image"
                       uploading={uploadingImageIndex === index}
-                      variant="secondary"
+                      buttonText="Upload Image"
+                      variant="outline"
+                      className="w-full"
                     />
                   </div>
                 ) : null}

@@ -495,7 +495,7 @@ function PortfolioCard({
     e.stopPropagation();
 
     const formattedSubdomain = getFormattedSubdomain();
-    const url = `${window.location.origin}/portfolio/${formattedSubdomain}`;
+    const url = `${window.location.protocol}//portfolio-hubspot.vercel.app/portfolio/${formattedSubdomain}`;
 
     if (navigator.share) {
       navigator.share({

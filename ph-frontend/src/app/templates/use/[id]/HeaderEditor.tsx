@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { PlusCircle, X, Upload } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { toast } from 'sonner';
+import { apiClient } from '@/lib/apiClient';
 
 interface HeaderEditorProps {
   data: {
@@ -18,6 +20,8 @@ interface HeaderEditorProps {
 
 export default function HeaderEditor({ data, onChange }: HeaderEditorProps) {
   const [newNavItem, setNewNavItem] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Set default values if data is empty
   const headerData = {
@@ -34,6 +38,34 @@ export default function HeaderEditor({ data, onChange }: HeaderEditorProps) {
       ...headerData,
       [field]: value
     });
+  };
+
+  // Handle image upload
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsUploading(true);
+      const result = await apiClient.uploadImage(file, 'profile');
+
+      if (result.success && result.image?.url) {
+        handleInputChange('profileImage', result.image.url);
+        toast.success('Profile image uploaded successfully');
+      } else {
+        toast.error('Failed to upload profile image');
+      }
+    } catch (error) {
+      console.error('Error uploading profile image:', error);
+      toast.error('An unexpected error occurred during upload');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  // Trigger file input click
+  const handleUploadButtonClick = () => {
+    fileInputRef.current?.click();
   };
 
   // Handle navigation item addition
@@ -87,7 +119,7 @@ export default function HeaderEditor({ data, onChange }: HeaderEditorProps) {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="profile-image">Profile Image URL</Label>
+        <Label htmlFor="profile-image">Profile Image</Label>
         <div className="flex gap-2">
           <Input
             id="profile-image"
@@ -95,10 +127,30 @@ export default function HeaderEditor({ data, onChange }: HeaderEditorProps) {
             onChange={(e) => handleInputChange('profileImage', e.target.value)}
             placeholder="https://example.com/your-image.jpg"
           />
-          <Button variant="outline" size="icon" title="Upload Image">
-            <Upload className="h-4 w-4" />
+          <Button
+            variant="outline"
+            size="icon"
+            title="Upload Image"
+            onClick={handleUploadButtonClick}
+            disabled={isUploading}
+          >
+            {isUploading ? (
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-solid border-current border-r-transparent"></div>
+            ) : (
+              <Upload className="h-4 w-4" />
+            )}
           </Button>
+          <input
+            type="file"
+            ref={fileInputRef}
+            className="hidden"
+            accept="image/*"
+            onChange={handleImageUpload}
+          />
         </div>
+        <p className="text-xs text-muted-foreground mt-1">
+          Enter an image URL or upload a file (recommended size: 500x500px)
+        </p>
         {headerData.profileImage && (
           <div className="mt-2 relative w-16 h-16 rounded-full overflow-hidden border">
             <img

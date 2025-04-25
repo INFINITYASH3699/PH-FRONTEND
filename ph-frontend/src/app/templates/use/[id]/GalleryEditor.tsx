@@ -155,20 +155,20 @@ export default function GalleryEditor({ data, onChange, isLoading = false }: Gal
 
     try {
       setUploadLoading(true);
-      const imageData = await apiClient.uploadImage(file, 'portfolio');
+      const result = await apiClient.uploadImage(file, 'gallery');
 
-      if (imageData && imageData.url) {
+      if (result.success && result.image?.url) {
         setCurrentItem({
           ...currentItem,
-          imageUrl: imageData.url,
+          imageUrl: result.image.url,
         });
-        toast.success('Image uploaded successfully');
+        toast.success('Gallery image uploaded successfully');
       } else {
         toast.error('Failed to upload image');
       }
     } catch (error) {
       console.error('Error uploading image:', error);
-      toast.error('An unexpected error occurred');
+      toast.error('An unexpected error occurred during upload');
     } finally {
       setUploadLoading(false);
     }

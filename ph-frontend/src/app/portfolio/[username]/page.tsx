@@ -145,6 +145,8 @@ export default function PublishedPortfolioPage() {
                   <Image
                     src={
                       portfolio.content?.about?.profileImage ||
+                      portfolio.content?.about?.image ||
+                      portfolio.content?.header?.profileImage ||
                       portfolio.headerImage?.url ||
                       `https://ui-avatars.com/api/?name=${encodeURIComponent(username)}`
                     }

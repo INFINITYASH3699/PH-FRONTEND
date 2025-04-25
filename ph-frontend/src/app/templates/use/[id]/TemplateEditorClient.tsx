@@ -91,7 +91,19 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
             }>(`/portfolios/${portfolioIdParam}`, "GET");
 
             if (response && response.success && response.portfolio) {
-              setPortfolio(response.portfolio);
+              // Get current user subscription information
+              const currentUser = apiClient.getUser?.();
+              const isPremiumUser =
+                currentUser?.subscriptionPlan?.type === 'premium' ||
+                currentUser?.subscriptionPlan?.type === 'professional';
+
+              // Update portfolio with current subscription status
+              const updatedPortfolio = {
+                ...response.portfolio,
+                userType: isPremiumUser ? 'premium' : 'free'
+              };
+
+              setPortfolio(updatedPortfolio);
               setSavedPortfolioId(response.portfolio._id);
 
               // Ensure the section order is loaded from the portfolio or set from template
@@ -192,6 +204,12 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
           });
         }
 
+        // Get current user subscription information
+        const currentUser = apiClient.getUser?.();
+        const isPremiumUser =
+          currentUser?.subscriptionPlan?.type === 'premium' ||
+          currentUser?.subscriptionPlan?.type === 'professional';
+
         // Create initial portfolio data
         const initialPortfolioData = {
           _id: 'new-portfolio',
@@ -206,6 +224,8 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
           activeFontPairing: template.themeOptions?.fontPairings?.[0]?.id || 'default',
           customColors: null,
           sectionOrder: defaultSectionOrder,
+          userType: isPremiumUser ? 'premium' : 'free',
+          subdomainLocked: !isPremiumUser
         };
 
         setPortfolio(initialPortfolioData);
