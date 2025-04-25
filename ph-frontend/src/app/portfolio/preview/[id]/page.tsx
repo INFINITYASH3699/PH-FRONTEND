@@ -138,8 +138,8 @@ export default function PortfolioPreviewPage() {
       // Create the preview URL, ensuring we use the current origin
       const previewUrl =
         portfolio && portfolio.isPublished
-          ? `/portfolio/${portfolio.subdomain || "preview"}?view=full`
-          : `${window.location.origin}/api/preview/${portfolioId}?view=full`;
+          ? `/portfolio/${portfolio.subdomain || "preview"}?view=full&template=true`
+          : `${window.location.origin}/api/preview/${portfolioId}?view=full&template=true`;
 
       setIframeUrl(previewUrl);
     }
