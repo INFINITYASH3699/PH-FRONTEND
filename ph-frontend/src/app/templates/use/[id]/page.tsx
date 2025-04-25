@@ -1,4 +1,4 @@
-"user clients"
+"user client"
 
 import React, { Suspense } from 'react';
 import { notFound } from 'next/navigation';
