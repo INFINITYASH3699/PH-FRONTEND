@@ -33,8 +33,12 @@ import {
   ChevronRight,
   ChevronDown,
   MoreHorizontal,
-  Search
+  Search,
+  Paintbrush,
+  Sparkles,
+  Layers
 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 
 interface SidebarEditorProps {
   template: any;
@@ -58,6 +62,14 @@ interface SidebarEditorProps {
   previewLoading: boolean;
   publishLoading: boolean;
   showPreview?: boolean;
+
+  // New props for enhanced customization
+  selectedSectionVariants: Record<string, string>;
+  onSectionVariantUpdate: (sectionId: string, variantId: string) => void;
+  animationsEnabled: boolean;
+  onAnimationsToggle: (enabled: boolean) => void;
+  selectedStylePreset: string;
+  onStylePresetUpdate: (presetId: string) => void;
 }
 
 export default function SidebarEditor({
@@ -81,17 +93,26 @@ export default function SidebarEditor({
   draftSaved,
   previewLoading,
   publishLoading,
-  showPreview = false
+  showPreview = false,
+
+  // New props for enhanced customization
+  selectedSectionVariants,
+  onSectionVariantUpdate,
+  animationsEnabled,
+  onAnimationsToggle,
+  selectedStylePreset,
+  onStylePresetUpdate
 }: SidebarEditorProps) {
   const [isClient, setIsClient] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const [configTab, setConfigTab] = useState<'sections' | 'theme' | 'layout' | 'css'>('sections');
+  const [configTab, setConfigTab] = useState<
+    'sections' | 'theme' | 'layout' | 'css' | 'variants' | 'animations' | 'style'
+  >('sections');
   const [searchTerm, setSearchTerm] = useState('');
   const [showManageSections, setShowManageSections] = useState(false);
   const [portfolioState, setPortfolio] = useState<any>(portfolio);
 
-  // Keep portfolioState in sync with portfolio prop
   useEffect(() => {
     setPortfolio(portfolio);
   }, [portfolio]);
@@ -109,36 +130,29 @@ export default function SidebarEditor({
     return () => window.removeEventListener('resize', checkIfMobile);
   }, []);
 
-  // Get all available sections from template
   const getAllAvailableSections = () => {
     const sections = new Set<string>();
 
-    // First add sections from the template schema
     if (template?.sectionDefinitions) {
       Object.keys(template.sectionDefinitions).forEach(section => sections.add(section));
     }
 
-    // Then add sections from all layouts
     template?.layouts?.forEach((layout: any) => {
       if (layout.structure?.sections) {
         layout.structure.sections.forEach((section: string) => sections.add(section));
       }
     });
 
-    // Also ensure we capture any sections mentioned in defaultStructure
     if (template?.defaultStructure?.layout?.sections) {
       template.defaultStructure.layout.sections.forEach((section: string) => sections.add(section));
     }
 
-    // Ensure required sections are always available
     const requiredSections = template?.defaultStructure?.config?.requiredSections || ['header', 'about'];
     requiredSections.forEach(section => sections.add(section));
 
-    // Convert Set to Array
     return Array.from(sections);
   };
 
-  // Get section title from template definitions or use capitalized section ID
   const getSectionTitle = (sectionId: string) => {
     if (sectionId === 'header') return 'Header & Profile';
     if (sectionId === 'socialLinks') return 'Social Media';
@@ -150,7 +164,6 @@ export default function SidebarEditor({
     return templateTitle || defaultTitle;
   };
 
-  // Get section description or default description
   const getSectionDescription = (sectionId: string) => {
     switch (sectionId) {
       case 'header':
@@ -178,22 +191,18 @@ export default function SidebarEditor({
     }
   };
 
-  // Get content for a specific section
   const getContentForSection = (sectionId: string) => {
     return portfolioState?.content?.[sectionId] || {};
   };
 
-  // Handle section click
   const handleSectionClick = (sectionId: string) => {
     setActiveSection(sectionId);
 
-    // If we're on mobile, collapse the sidebar after selection
     if (isMobile) {
       setSidebarCollapsed(true);
     }
   };
 
-  // Handle section reordering
   const handleDragEnd = (result: DropResult) => {
     if (!result.destination) return;
 
@@ -204,141 +213,130 @@ export default function SidebarEditor({
     onSectionReorder(items);
   };
 
-  // Render editor component for active section
-  const renderSectionEditor = (section: string) => {
-    if (!section) return null;
+  // --- New: Section Variant Selector ---
+  const renderSectionVariantSelector = (sectionType: string) => {
+    const sectionVariants = template?.sectionVariants?.[sectionType] || [];
 
-    switch (section) {
-      case 'header':
-        return (
-          <div className="mb-4">
-            <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md text-yellow-800">
-              <p className="text-sm">
-                <strong>Note:</strong> Make sure to add a profile image for better visibility. Your header will be visible on the published portfolio.
-              </p>
-            </div>
-            <HeaderEditor
-              data={getContentForSection('header')}
-              onChange={(data) => onUpdateSection('header', data)}
-            />
-          </div>
-        );
-      case 'about':
-        return (
-          <AboutEditor
-            data={getContentForSection('about')}
-            onChange={(data) => onUpdateSection('about', data)}
-          />
-        );
-      case 'projects':
-      case 'categories':
-        return (
-          <ProjectsEditor
-            data={getContentForSection(section)}
-            onChange={(data) => onUpdateSection(section, data)}
-          />
-        );
-      case 'skills':
-        return (
-          <SkillsEditor
-            data={getContentForSection('skills')}
-            onChange={(data) => onUpdateSection('skills', data)}
-          />
-        );
-      case 'experience':
-        return (
-          <ExperienceEditor
-            data={getContentForSection('experience')}
-            onChange={(data) => onUpdateSection('experience', data)}
-          />
-        );
-      case 'education':
-        return (
-          <EducationEditor
-            data={getContentForSection('education')}
-            onChange={(data) => onUpdateSection('education', data)}
-          />
-        );
-      case 'gallery':
-      case 'galleries':
-        return (
-          <GalleryEditor
-            data={getContentForSection(section)}
-            onChange={(data) => onUpdateSection(section, data)}
-          />
-        );
-      case 'contact':
-        return (
-          <ContactEditor
-            data={getContentForSection('contact')}
-            onChange={(data) => onUpdateSection('contact', data)}
-          />
-        );
-      case 'socialLinks':
-        return (
-          <SocialLinksEditor
-            data={portfolioState?.content?.socialLinks || {}}
-            onChange={(data) => onUpdateSection('socialLinks', data)}
-          />
-        );
-      case 'seo': {
-        // Subdomain lock logic
-        const userType = portfolioState?.userType || 'free';
-        // Free users: subdomain is locked after first publish; premium users: always editable
-        const isSubdomainLocked =
-          userType === 'premium' ? false : portfolioState?.subdomainLocked === true;
-
-        return (
-          <SEOEditor
-            data={getContentForSection('seo')}
-            onChange={(data) => onUpdateSection('seo', data)}
-            subdomain={portfolioState?.subdomain || ''}
-            onSubdomainChange={(newSubdomain: string) => {
-              if (userType === 'premium' || !isSubdomainLocked) {
-                setPortfolio((prev: any) => ({
-                  ...prev,
-                  subdomain: newSubdomain,
-                  customSubdomain: true
-                }));
-                // Optionally, call onUpdateSection or onUpdateSection('seo', ...) if SEO data includes subdomain
-              }
-            }}
-            isSubdomainLocked={isSubdomainLocked}
-            userType={userType}
-          />
-        );
-      }
-      default:
-        // For any section without a specific editor
-        return (
-          <div className="p-4 bg-muted/30 rounded-md">
-            <p className="text-sm text-muted-foreground mb-2">
-              {getSectionTitle(section)} section editor
-            </p>
-            <textarea
-              className="w-full p-2 border rounded-md min-h-[200px]"
-              placeholder={`Edit your ${getSectionTitle(section)} content here`}
-              value={JSON.stringify(getContentForSection(section), null, 2)}
-              onChange={(e) => {
-                try {
-                  const data = JSON.parse(e.target.value);
-                  onUpdateSection(section, data);
-                } catch (error) {
-                  // Handle invalid JSON
-                }
-              }}
-            />
-          </div>
-        );
+    if (!sectionVariants || sectionVariants.length === 0) {
+      return (
+        <div className="text-sm text-muted-foreground text-center py-4">
+          No variants available for this section.
+        </div>
+      );
     }
+
+    const selectedVariant = selectedSectionVariants[sectionType] || '';
+
+    return (
+      <div className="space-y-3">
+        <h4 className="text-sm font-medium">Select Section Variant</h4>
+        <div className="grid grid-cols-1 gap-2">
+          {sectionVariants.map((variant: any) => (
+            <button
+              key={variant.id}
+              onClick={() => onSectionVariantUpdate(sectionType, variant.id)}
+              className={`p-3 rounded-md text-left transition-colors ${
+                selectedVariant === variant.id
+                  ? 'bg-primary/10 border border-primary text-primary'
+                  : 'bg-muted/30 hover:bg-muted/50 border'
+              }`}
+            >
+              <div className="font-medium">{variant.name}</div>
+              <div className="text-xs text-muted-foreground">{variant.description}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
   };
 
-  // Toggle sidebar visibility
-  const toggleSidebar = () => {
-    setSidebarCollapsed(!sidebarCollapsed);
+  // --- New: Style Preset Selector ---
+  const renderStylePresetSelector = () => {
+    const stylePresets = template?.stylePresets || {};
+
+    if (!stylePresets || Object.keys(stylePresets).length === 0) {
+      return (
+        <div className="text-sm text-muted-foreground text-center py-4">
+          No style presets available.
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-3">
+        <h4 className="text-sm font-medium">Select Style Preset</h4>
+        <div className="grid grid-cols-1 gap-2">
+          {Object.entries(stylePresets).map(([presetId, preset]: [string, any]) => (
+            <button
+              key={presetId}
+              onClick={() => onStylePresetUpdate(presetId)}
+              className={`p-3 rounded-md text-left transition-colors ${
+                selectedStylePreset === presetId
+                  ? 'bg-primary/10 border border-primary text-primary'
+                  : 'bg-muted/30 hover:bg-muted/50 border'
+              }`}
+              style={{
+                borderRadius: preset.styles?.borderRadius || '0.5rem',
+                boxShadow: preset.styles?.boxShadow || 'none',
+                fontWeight: preset.styles?.fontWeight || 'normal'
+              }}
+            >
+              <div className="font-medium">{preset.name}</div>
+              <div className="text-xs text-muted-foreground">{preset.description}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
   };
 
-  // Render config panel based on selected tab
+  // --- New: Animation Options ---
+  const renderAnimationOptions = () => {
+    const animations = template?.animations || {};
+
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h4 className="text-sm font-medium">Enable Animations</h4>
+            <p className="text-xs text-muted-foreground">Add smooth animations to sections</p>
+          </div>
+          <Switch
+            checked={animationsEnabled}
+            onCheckedChange={onAnimationsToggle}
+          />
+        </div>
+
+        {animationsEnabled && (
+          <div className="space-y-3">
+            <h4 className="text-sm font-medium">Available Animations</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {Object.entries(animations).map(([animationId, animation]: [string, any]) => (
+                <div
+                  key={animationId}
+                  className="p-3 rounded-md bg-muted/30 border text-left"
+                >
+                  <div className="font-medium">{animation.name}</div>
+                  <div className="text-xs text-muted-foreground">{animation.type} animation ({animation.duration}ms)</div>
+                </div>
+              ))}
+            </div>
+
+            <div className="p-3 bg-muted/30 rounded-md text-xs text-muted-foreground">
+              <p className="font-medium mb-1">Animation Info:</p>
+              <ul className="list-disc list-inside space-y-1">
+                <li>Animations are applied automatically to each section</li>
+                <li>Header uses fade-in, About uses slide-up, etc.</li>
+                <li>Animations trigger when the section comes into view</li>
+              </ul>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // --- Updated: renderConfigPanel with new tabs ---
   const renderConfigPanel = () => {
     switch (configTab) {
       case 'sections':
@@ -465,15 +463,226 @@ export default function SidebarEditor({
             />
           </div>
         );
+      case 'variants':
+        if (activeSection) {
+          return (
+            <div className="p-4">
+              <h3 className="text-lg font-semibold mb-4">Section Variants</h3>
+              {renderSectionVariantSelector(activeSection)}
+            </div>
+          );
+        }
+        return (
+          <div className="p-4">
+            <h3 className="text-lg font-semibold mb-4">Section Variants</h3>
+            <p className="text-muted-foreground text-sm">
+              Select a section to view available variants.
+            </p>
+          </div>
+        );
+      case 'animations':
+        return (
+          <div className="p-4">
+            <h3 className="text-lg font-semibold mb-4">Animation Settings</h3>
+            {renderAnimationOptions()}
+          </div>
+        );
+      case 'style':
+        return (
+          <div className="p-4">
+            <h3 className="text-lg font-semibold mb-4">Style Presets</h3>
+            {renderStylePresetSelector()}
+          </div>
+        );
       default:
         return null;
     }
   };
 
-  // Find "special" sections that aren't in the main order but are always available
+  // --- Updated: renderSectionEditor with section variant selector ---
+  const renderSectionEditor = (section: string) => {
+    if (!section) return null;
+
+    // Section variant selector (if available and not for special sections)
+    const showVariantSelector =
+      section !== 'seo' &&
+      section !== 'socialLinks' &&
+      template?.sectionVariants?.[section]?.length > 0;
+
+    const variantSelector =
+      showVariantSelector ? (
+        <div className="mb-4 p-4 bg-muted/20 border rounded-lg">
+          <h4 className="text-sm font-medium mb-2">Section Style</h4>
+          <div className="grid grid-cols-1 gap-2">
+            {template.sectionVariants[section].map((variant: any) => (
+              <button
+                key={variant.id}
+                onClick={() => onSectionVariantUpdate(section, variant.id)}
+                className={`p-2 text-left rounded-md text-sm transition-colors ${
+                  selectedSectionVariants[section] === variant.id
+                    ? 'bg-primary/10 border border-primary text-primary'
+                    : 'bg-white dark:bg-gray-800 border hover:bg-muted/20'
+                }`}
+              >
+                <span className="font-medium">{variant.name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null;
+
+    switch (section) {
+      case 'header':
+        return (
+          <div className="mb-4">
+            {variantSelector}
+            <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md text-yellow-800">
+              <p className="text-sm">
+                <strong>Note:</strong> Make sure to add a profile image for better visibility. Your header will be visible on the published portfolio.
+              </p>
+            </div>
+            <HeaderEditor
+              data={getContentForSection('header')}
+              onChange={(data) => onUpdateSection('header', data)}
+            />
+          </div>
+        );
+      case 'about':
+        return (
+          <div>
+            {variantSelector}
+            <AboutEditor
+              data={getContentForSection('about')}
+              onChange={(data) => onUpdateSection('about', data)}
+            />
+          </div>
+        );
+      case 'projects':
+      case 'categories':
+        return (
+          <div>
+            {variantSelector}
+            <ProjectsEditor
+              data={getContentForSection(section)}
+              onChange={(data) => onUpdateSection(section, data)}
+            />
+          </div>
+        );
+      case 'skills':
+        return (
+          <div>
+            {variantSelector}
+            <SkillsEditor
+              data={getContentForSection('skills')}
+              onChange={(data) => onUpdateSection('skills', data)}
+            />
+          </div>
+        );
+      case 'experience':
+        return (
+          <div>
+            {variantSelector}
+            <ExperienceEditor
+              data={getContentForSection('experience')}
+              onChange={(data) => onUpdateSection('experience', data)}
+            />
+          </div>
+        );
+      case 'education':
+        return (
+          <div>
+            {variantSelector}
+            <EducationEditor
+              data={getContentForSection('education')}
+              onChange={(data) => onUpdateSection('education', data)}
+            />
+          </div>
+        );
+      case 'gallery':
+      case 'galleries':
+        return (
+          <div>
+            {variantSelector}
+            <GalleryEditor
+              data={getContentForSection(section)}
+              onChange={(data) => onUpdateSection(section, data)}
+            />
+          </div>
+        );
+      case 'contact':
+        return (
+          <div>
+            {variantSelector}
+            <ContactEditor
+              data={getContentForSection('contact')}
+              onChange={(data) => onUpdateSection('contact', data)}
+            />
+          </div>
+        );
+      case 'socialLinks':
+        return (
+          <SocialLinksEditor
+            data={portfolioState?.content?.socialLinks || {}}
+            onChange={(data) => onUpdateSection('socialLinks', data)}
+          />
+        );
+      case 'seo': {
+        const userType = portfolioState?.userType || 'free';
+        const isSubdomainLocked =
+          userType === 'premium' ? false : portfolioState?.subdomainLocked === true;
+
+        return (
+          <SEOEditor
+            data={getContentForSection('seo')}
+            onChange={(data) => onUpdateSection('seo', data)}
+            subdomain={portfolioState?.subdomain || ''}
+            onSubdomainChange={(newSubdomain: string) => {
+              if (userType === 'premium' || !isSubdomainLocked) {
+                setPortfolio((prev: any) => ({
+                  ...prev,
+                  subdomain: newSubdomain,
+                  customSubdomain: true
+                }));
+              }
+            }}
+            isSubdomainLocked={isSubdomainLocked}
+            userType={userType}
+          />
+        );
+      }
+      default:
+        return (
+          <div>
+            {variantSelector}
+            <div className="p-4 bg-muted/30 rounded-md">
+              <p className="text-sm text-muted-foreground mb-2">
+                {getSectionTitle(section)} section editor
+              </p>
+              <textarea
+                className="w-full p-2 border rounded-md min-h-[200px]"
+                placeholder={`Edit your ${getSectionTitle(section)} content here`}
+                value={JSON.stringify(getContentForSection(section), null, 2)}
+                onChange={(e) => {
+                  try {
+                    const data = JSON.parse(e.target.value);
+                    onUpdateSection(section, data);
+                  } catch (error) {
+                    // Handle invalid JSON
+                  }
+                }}
+              />
+            </div>
+          </div>
+        );
+    }
+  };
+
+  const toggleSidebar = () => {
+    setSidebarCollapsed(!sidebarCollapsed);
+  };
+
   const specialSections = ['socialLinks', 'seo'];
 
-  // Filtered sections for the sidebar
   const filteredSections = sectionOrder.filter(
     section => section.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -494,13 +703,13 @@ export default function SidebarEditor({
     </Button>
   );
 
-  // Main sidebar component (left panel)
+  // --- Updated: Sidebar with new configTab buttons ---
   const Sidebar = () => (
     <div
       className={`h-full border-r bg-gray-50 dark:bg-gray-900 transition-all duration-300 ${
-        sidebarCollapsed ? 'w-0 -translate-x-full md:translate-x-0 md:w-0 opacity-0' : 'w-full md:w-60 lg:w-72 translate-x-0 opacity-100'
+        sidebarCollapsed ? 'w-0 -translate-x-full md:translate-x-0 md:w-0 opacity-0' : 'w-full md:w-60 lg:w-80 translate-x-0 opacity-100'
       } ${isMobile && !sidebarCollapsed ? 'fixed inset-0 z-40' : ''}`}
-      style={{ maxWidth: sidebarCollapsed ? 0 : isMobile ? '100%' : '18rem' }}
+      style={{ maxWidth: sidebarCollapsed ? 0 : isMobile ? '100%' : '20rem' }}
     >
       <div className="flex flex-col h-full">
         <div className="p-4 border-b flex items-center justify-between">
@@ -580,8 +789,9 @@ export default function SidebarEditor({
           </ul>
         </ScrollArea>
 
-        <div className="p-3 border-t mt-auto">
-          <div className="grid grid-cols-4 gap-1">
+        {/* --- Updated: Sidebar Footer with new configTab buttons --- */}
+        <div className="p-3 border-t mt-auto bg-white dark:bg-gray-800">
+          <div className="grid grid-cols-6 gap-1">
             <Button
               variant={configTab === 'sections' ? 'default' : 'outline'}
               size="sm"
@@ -610,13 +820,31 @@ export default function SidebarEditor({
               <span className="text-[10px]">Layout</span>
             </Button>
             <Button
-              variant={configTab === 'css' ? 'default' : 'outline'}
+              variant={configTab === 'variants' ? 'default' : 'outline'}
               size="sm"
               className="flex flex-col items-center justify-center h-16 space-y-1 p-1"
-              onClick={() => setConfigTab('css')}
+              onClick={() => setConfigTab('variants')}
             >
-              <Code className="h-4 w-4" />
-              <span className="text-[10px]">CSS</span>
+              <Layers className="h-4 w-4" />
+              <span className="text-[10px]">Variants</span>
+            </Button>
+            <Button
+              variant={configTab === 'animations' ? 'default' : 'outline'}
+              size="sm"
+              className="flex flex-col items-center justify-center h-16 space-y-1 p-1"
+              onClick={() => setConfigTab('animations')}
+            >
+              <Sparkles className="h-4 w-4" />
+              <span className="text-[10px]">Effects</span>
+            </Button>
+            <Button
+              variant={configTab === 'style' ? 'default' : 'outline'}
+              size="sm"
+              className="flex flex-col items-center justify-center h-16 space-y-1 p-1"
+              onClick={() => setConfigTab('style')}
+            >
+              <Paintbrush className="h-4 w-4" />
+              <span className="text-[10px]">Style</span>
             </Button>
           </div>
         </div>
@@ -624,7 +852,7 @@ export default function SidebarEditor({
     </div>
   );
 
-  // Config panel (for section management, theme, layout, css)
+  // Config panel (for section management, theme, layout, css, variants, etc.)
   const ConfigPanel = () => (
     <div className="fixed inset-0 z-50 bg-background flex flex-col">
       <div className="border-b p-4 flex items-center justify-between">
@@ -639,8 +867,8 @@ export default function SidebarEditor({
       </div>
 
       <div className="flex-1 overflow-auto">
-        <Tabs defaultValue="sections">
-          <TabsList className="w-full justify-start px-4 pt-4">
+        <Tabs defaultValue={configTab}>
+          <TabsList className="w-full justify-start px-4 pt-4 flex flex-wrap gap-2">
             <TabsTrigger value="sections" onClick={() => setConfigTab('sections')}>
               Sections
             </TabsTrigger>
@@ -652,6 +880,15 @@ export default function SidebarEditor({
             </TabsTrigger>
             <TabsTrigger value="css" onClick={() => setConfigTab('css')}>
               Custom CSS
+            </TabsTrigger>
+            <TabsTrigger value="variants" onClick={() => setConfigTab('variants')}>
+              Variants
+            </TabsTrigger>
+            <TabsTrigger value="animations" onClick={() => setConfigTab('animations')}>
+              Effects
+            </TabsTrigger>
+            <TabsTrigger value="style" onClick={() => setConfigTab('style')}>
+              Style
             </TabsTrigger>
           </TabsList>
 
@@ -665,6 +902,15 @@ export default function SidebarEditor({
             {renderConfigPanel()}
           </TabsContent>
           <TabsContent value="css" className="p-0">
+            {renderConfigPanel()}
+          </TabsContent>
+          <TabsContent value="variants" className="p-0">
+            {renderConfigPanel()}
+          </TabsContent>
+          <TabsContent value="animations" className="p-0">
+            {renderConfigPanel()}
+          </TabsContent>
+          <TabsContent value="style" className="p-0">
             {renderConfigPanel()}
           </TabsContent>
         </Tabs>
@@ -737,7 +983,7 @@ export default function SidebarEditor({
         <ScrollArea className="flex-1 p-4 overflow-auto">
           {renderSectionEditor(activeSection)}
 
-          <div className="h-24" /> {/* Padding at bottom for better scrolling experience */}
+          <div className="h-24" />
         </ScrollArea>
 
         <div className="border-t p-3 mt-auto bg-background">
@@ -768,10 +1014,8 @@ export default function SidebarEditor({
 
   return (
     <>
-      {/* Mobile sidebar toggle */}
       <SidebarToggle />
 
-      {/* Backdrop for mobile sidebar */}
       {isMobile && !sidebarCollapsed && (
         <div
           className="fixed inset-0 bg-black/20 z-30"
@@ -779,16 +1023,11 @@ export default function SidebarEditor({
         />
       )}
 
-      {/* Main editor layout - sidebar + content panel */}
       <div className="flex flex-1 h-full overflow-hidden">
-        {/* Sidebar panel */}
         <Sidebar />
-
-        {/* Content panel (if not showing preview) */}
         {!showPreview && <ContentPanel />}
       </div>
 
-      {/* Config panel overlay (when active) */}
       {showManageSections && <ConfigPanel />}
     </>
   );

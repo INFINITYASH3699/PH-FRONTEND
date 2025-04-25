@@ -12,6 +12,14 @@ interface SectionDefinition {
   type: string;
   allowedComponents: string[];
   defaultData: Record<string, any>;
+  // Add support for variants
+  variants?: string[];
+  // Add support for layouts within sections
+  layouts?: string[];
+  // Add support for animations
+  animations?: string[];
+  // Add style presets
+  stylePresets?: Record<string, any>[];
 }
 
 // Define layout configuration
@@ -23,6 +31,28 @@ interface LayoutConfig {
     sections: string[];
     gridSystem: string;
     spacing?: Record<string, number>;
+    // Add responsive configuration
+    responsive?: {
+      mobile?: {
+        sections?: string[];
+        layout?: string;
+      };
+      tablet?: {
+        sections?: string[];
+        layout?: string;
+      };
+      desktop?: {
+        sections?: string[];
+        layout?: string;
+      };
+    };
+    // Add support for section grouping
+    groups?: {
+      [key: string]: {
+        name: string;
+        sections: string[];
+      };
+    };
   };
 }
 
@@ -52,6 +82,17 @@ interface FontPairing {
   };
 }
 
+// Add new interface for animation configuration
+interface AnimationConfig {
+  id: string;
+  name: string;
+  type: 'fade' | 'slide' | 'zoom' | 'reveal' | string;
+  duration: number;
+  delay?: number;
+  easing?: string;
+  direction?: 'up' | 'down' | 'left' | 'right' | string;
+}
+
 // Define spacing configuration
 interface SpacingConfig {
   id: string;
@@ -70,6 +111,8 @@ interface ThemeOptions {
       multiplier: number;
     };
   };
+  // Add advanced themes
+  advancedThemes?: Record<string, any>[];
 }
 
 // Define component mapping
@@ -77,6 +120,15 @@ interface ComponentMapping {
   [platform: string]: {
     [componentType: string]: string;
   };
+}
+
+// Define section variant
+interface SectionVariant {
+  id: string;
+  name: string;
+  description: string;
+  previewImage?: string;
+  configuration: Record<string, any>;
 }
 
 export interface ITemplate extends Document {
@@ -110,16 +162,7 @@ export interface ITemplate extends Document {
   sectionDefinitions?: {
     [sectionType: string]: SectionDefinition;
   };
-  themeOptions?: {
-    colorSchemes: ColorScheme[];
-    fontPairings: FontPairing[];
-    spacing: {
-      [key: string]: {
-        base: number;
-        multiplier: number;
-      };
-    };
-  };
+  themeOptions?: ThemeOptions;
   componentMapping?: ComponentMapping;
   customizationOptions: {
     colorSchemes: Array<{
@@ -135,6 +178,27 @@ export interface ITemplate extends Document {
       body: string;
     }>;
     layouts: string[];
+  };
+
+  // New customization fields
+  animations?: {
+    [animationName: string]: AnimationConfig;
+  };
+  sectionVariants?: {
+    [sectionType: string]: SectionVariant[];
+  };
+  stylePresets?: {
+    [presetName: string]: {
+      name: string;
+      description: string;
+      styles: Record<string, any>;
+    };
+  };
+  responsiveLayouts?: {
+    [deviceType: string]: {
+      layout: string;
+      sections: string[];
+    };
   };
 }
 
@@ -182,7 +246,11 @@ const SectionDefinitionSchema = new Schema(
   {
     type: { type: String, required: true },
     allowedComponents: [{ type: String }],
-    defaultData: { type: Schema.Types.Mixed, default: {} }
+    defaultData: { type: Schema.Types.Mixed, default: {} },
+    variants: [{ type: String }],
+    layouts: [{ type: String }],
+    animations: [{ type: String }],
+    stylePresets: [{ type: Schema.Types.Mixed }]
   },
   { _id: false }
 );
@@ -196,8 +264,36 @@ const LayoutConfigSchema = new Schema(
     structure: {
       sections: [{ type: String }],
       gridSystem: { type: String, required: true },
-      spacing: { type: Schema.Types.Mixed }
+      spacing: { type: Schema.Types.Mixed },
+      responsive: { type: Schema.Types.Mixed },
+      groups: { type: Schema.Types.Mixed }
     }
+  },
+  { _id: false }
+);
+
+// Define schema for animation configuration
+const AnimationConfigSchema = new Schema(
+  {
+    id: { type: String, required: true },
+    name: { type: String, required: true },
+    type: { type: String, required: true },
+    duration: { type: Number, required: true },
+    delay: { type: Number },
+    easing: { type: String },
+    direction: { type: String }
+  },
+  { _id: false }
+);
+
+// Define schema for section variant
+const SectionVariantSchema = new Schema(
+  {
+    id: { type: String, required: true },
+    name: { type: String, required: true },
+    description: { type: String, required: true },
+    previewImage: { type: String },
+    configuration: { type: Schema.Types.Mixed, required: true }
   },
   { _id: false }
 );
@@ -207,7 +303,8 @@ const ThemeOptionsSchema = new Schema(
   {
     colorSchemes: [ColorSchemeSchema],
     fontPairings: [FontPairingSchema],
-    spacing: { type: Schema.Types.Mixed, default: {} }
+    spacing: { type: Schema.Types.Mixed, default: {} },
+    advancedThemes: [{ type: Schema.Types.Mixed }]
   },
   { _id: false }
 );
@@ -350,6 +447,24 @@ const TemplateSchema = new Schema<ITemplate>(
       ],
       layouts: [String],
     },
+
+    // New customization fields
+    animations: {
+      type: Schema.Types.Mixed,
+      default: {},
+    },
+    sectionVariants: {
+      type: Schema.Types.Mixed,
+      default: {},
+    },
+    stylePresets: {
+      type: Schema.Types.Mixed,
+      default: {},
+    },
+    responsiveLayouts: {
+      type: Schema.Types.Mixed,
+      default: {},
+    },
   },
   {
     timestamps: true,
@@ -439,6 +554,173 @@ TemplateSchema.pre('save', function(next) {
         fonts: categoryFonts
       }
     ];
+  }
+
+  // Initialize default animations if not set
+  if (!this.animations || Object.keys(this.animations).length === 0) {
+    this.animations = {
+      fadeIn: {
+        id: 'fadeIn',
+        name: 'Fade In',
+        type: 'fade',
+        duration: 800,
+        easing: 'ease-in-out'
+      },
+      slideUp: {
+        id: 'slideUp',
+        name: 'Slide Up',
+        type: 'slide',
+        direction: 'up',
+        duration: 600,
+        easing: 'ease-out'
+      },
+      zoomIn: {
+        id: 'zoomIn',
+        name: 'Zoom In',
+        type: 'zoom',
+        duration: 500,
+        easing: 'ease'
+      }
+    };
+  }
+
+  // Initialize default section variants if not set
+  if (!this.sectionVariants || Object.keys(this.sectionVariants).length === 0) {
+    this.sectionVariants = {
+      header: [
+        {
+          id: 'standard',
+          name: 'Standard',
+          description: 'Standard header with name and title',
+          configuration: { variant: 'centered', alignment: 'left' }
+        },
+        {
+          id: 'centered',
+          name: 'Centered',
+          description: 'Centered header with profile image',
+          configuration: { variant: 'centered', alignment: 'center' }
+        },
+        {
+          id: 'minimal',
+          name: 'Minimal',
+          description: 'Minimal header with name and title only',
+          configuration: { variant: 'minimal', alignment: 'left' }
+        },
+        {
+          id: 'hero',
+          name: 'Hero',
+          description: 'Full-screen hero header with background image',
+          configuration: { variant: 'hero', alignment: 'center' }
+        },
+        {
+          id: 'split',
+          name: 'Split',
+          description: 'Split layout with image on one side and text on the other',
+          configuration: { variant: 'split', alignment: 'left' }
+        }
+      ],
+      about: [
+        {
+          id: 'standard',
+          name: 'Standard',
+          description: 'Standard about section with bio',
+          configuration: { variant: 'standard' }
+        },
+        {
+          id: 'withImage',
+          name: 'With Image',
+          description: 'About section with image',
+          configuration: { variant: 'with-image' }
+        },
+        {
+          id: 'withHighlights',
+          name: 'With Highlights',
+          description: 'About section with highlights',
+          configuration: { variant: 'with-highlights' }
+        },
+        {
+          id: 'minimal',
+          name: 'Minimal',
+          description: 'Minimal about section with just essential info',
+          configuration: { variant: 'minimal' }
+        }
+      ],
+      projects: [
+        {
+          id: 'grid',
+          name: 'Grid Layout',
+          description: 'Projects displayed in a grid',
+          configuration: { layout: 'grid', columns: 3 }
+        },
+        {
+          id: 'list',
+          name: 'List Layout',
+          description: 'Projects displayed in a vertical list',
+          configuration: { layout: 'list' }
+        },
+        {
+          id: 'featured',
+          name: 'Featured Project',
+          description: 'One featured project with smaller projects below',
+          configuration: { layout: 'featured' }
+        }
+      ],
+      skills: [
+        {
+          id: 'bars',
+          name: 'Skill Bars',
+          description: 'Skills displayed as progress bars',
+          configuration: { display: 'bars' }
+        },
+        {
+          id: 'tags',
+          name: 'Skill Tags',
+          description: 'Skills displayed as tags/pills',
+          configuration: { display: 'tags' }
+        },
+        {
+          id: 'categories',
+          name: 'Categorized Skills',
+          description: 'Skills grouped by categories',
+          configuration: { display: 'categories' }
+        }
+      ]
+    };
+  }
+
+  // Initialize style presets if not set
+  if (!this.stylePresets || Object.keys(this.stylePresets).length === 0) {
+    this.stylePresets = {
+      modern: {
+        name: 'Modern',
+        description: 'Clean, modern style with rounded corners and subtle shadows',
+        styles: {
+          borderRadius: '0.5rem',
+          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)',
+          fontWeight: 'normal'
+        }
+      },
+      minimal: {
+        name: 'Minimal',
+        description: 'Minimalist style with thin borders and no shadows',
+        styles: {
+          borderRadius: '0.25rem',
+          boxShadow: 'none',
+          borderWidth: '1px',
+          fontWeight: 'light'
+        }
+      },
+      bold: {
+        name: 'Bold',
+        description: 'Bold style with strong colors and thick borders',
+        styles: {
+          borderRadius: '0.75rem',
+          boxShadow: '0 10px 15px rgba(0, 0, 0, 0.1)',
+          borderWidth: '3px',
+          fontWeight: 'bold'
+        }
+      }
+    };
   }
 
   next();

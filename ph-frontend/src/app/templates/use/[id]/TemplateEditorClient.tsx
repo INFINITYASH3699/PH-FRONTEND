@@ -45,6 +45,11 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
   const [sectionOrder, setSectionOrder] = useState<string[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState(template);
 
+  // Enhanced customization state
+  const [selectedSectionVariants, setSelectedSectionVariants] = useState<Record<string, string>>({});
+  const [animationsEnabled, setAnimationsEnabled] = useState<boolean>(true);
+  const [selectedStylePreset, setSelectedStylePreset] = useState<string>('modern');
+
   // Set isClient to true when component mounts and check authentication
   useEffect(() => {
     setIsClient(true);
@@ -121,6 +126,17 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
                 setActiveSection(templateSections[0]);
               }
 
+              // Load enhanced customization state from portfolio if present
+              if (response.portfolio.sectionVariants) {
+                setSelectedSectionVariants(response.portfolio.sectionVariants);
+              }
+              if (typeof response.portfolio.animationsEnabled === 'boolean') {
+                setAnimationsEnabled(response.portfolio.animationsEnabled);
+              }
+              if (response.portfolio.stylePreset) {
+                setSelectedStylePreset(response.portfolio.stylePreset);
+              }
+
               setLoading(false);
               return;
             } else {
@@ -152,7 +168,6 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
 
         // Prepare initial content based on section definitions
         const initialContent: Record<string, any> = {
-          // Default required sections
           header: {
             title: user?.name || 'Your Name',
             subtitle:
@@ -194,10 +209,8 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
           },
         };
 
-        // Add template-specific section content from section definitions
         if (template.sectionDefinitions) {
           Object.entries(template.sectionDefinitions).forEach(([sectionType, definition]) => {
-            // Skip already populated sections
             if (!initialContent[sectionType] && definition.defaultData) {
               initialContent[sectionType] = { ...definition.defaultData };
             }
@@ -225,15 +238,20 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
           customColors: null,
           sectionOrder: defaultSectionOrder,
           userType: isPremiumUser ? 'premium' : 'free',
-          subdomainLocked: !isPremiumUser
+          subdomainLocked: !isPremiumUser,
+          sectionVariants: {},
+          animationsEnabled: true,
+          stylePreset: 'modern',
         };
 
         setPortfolio(initialPortfolioData);
         setSectionOrder(defaultSectionOrder);
-        // Set the first section as active if available
         if (defaultSectionOrder.length > 0) {
           setActiveSection(defaultSectionOrder[0]);
         }
+        setSelectedSectionVariants({});
+        setAnimationsEnabled(true);
+        setSelectedStylePreset('modern');
         setLoading(false);
       };
 
@@ -244,7 +262,6 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
     }
   }, [template, user, isAuthenticated, isClient, portfolioIdParam]);
 
-  // Initialize section order when template/portfolio changes
   useEffect(() => {
     if (!isClient || !template || !portfolio) return;
 
@@ -257,27 +274,34 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
     if (portfolio.sectionOrder && portfolio.sectionOrder.length > 0) {
       setSectionOrder(portfolio.sectionOrder);
 
-      // Set active section if none is selected
       if (!activeSection && portfolio.sectionOrder.length > 0) {
         setActiveSection(portfolio.sectionOrder[0]);
       }
     } else if (layoutSections.length > 0) {
       setSectionOrder(layoutSections);
 
-      // Set active section if none is selected
       if (!activeSection && layoutSections.length > 0) {
         setActiveSection(layoutSections[0]);
       }
 
-      // Also update portfolio with proper section order
       setPortfolio((prev: any) => ({
         ...prev,
         sectionOrder: layoutSections
       }));
     }
+
+    // Load enhanced customization state from portfolio if present
+    if (portfolio.sectionVariants) {
+      setSelectedSectionVariants(portfolio.sectionVariants);
+    }
+    if (typeof portfolio.animationsEnabled === 'boolean') {
+      setAnimationsEnabled(portfolio.animationsEnabled);
+    }
+    if (portfolio.stylePreset) {
+      setSelectedStylePreset(portfolio.stylePreset);
+    }
   }, [isClient, template, portfolio, activeSection]);
 
-  // Handler for section updates
   const handleSectionUpdate = (sectionId: string, data: any) => {
     if (!portfolio) return;
 
@@ -292,7 +316,6 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
     setIsSaved(false);
   };
 
-  // Handler for theme selection
   const handleThemeSelect = (colorSchemeId: string, fontPairingId: string) => {
     if (!portfolio) return;
 
@@ -305,11 +328,9 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
     setIsSaved(false);
   };
 
-  // Handler for layout selection
   const handleLayoutSelect = (layoutId: string) => {
     if (!portfolio) return;
 
-    // When layout changes, update section order to match new layout's default
     const newLayout = template.layouts?.find((l: any) => l.id === layoutId);
     const newSectionOrder = newLayout?.structure?.sections || [];
 
@@ -321,7 +342,6 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
 
     setSectionOrder(newSectionOrder);
 
-    // Set active section to first section in new order
     if (newSectionOrder.length > 0) {
       setActiveSection(newSectionOrder[0]);
     }
@@ -329,7 +349,6 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
     setIsSaved(false);
   };
 
-  // Handler for custom CSS updates
   const handleCustomCssUpdate = (css: string) => {
     if (!portfolio) return;
 
@@ -344,7 +363,6 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
     setIsSaved(false);
   };
 
-  // Handler for section reordering
   const handleSectionReorder = (newOrder: string[]) => {
     if (!portfolio) return;
 
@@ -357,7 +375,6 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
     setIsSaved(false);
   };
 
-  // Handler for adding a section
   const handleAddSection = (sectionId: string) => {
     if (!portfolio || sectionOrder.includes(sectionId)) return;
 
@@ -373,7 +390,6 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
     setIsSaved(false);
   };
 
-  // Handler for removing a section
   const handleRemoveSection = (sectionId: string) => {
     if (!portfolio) return;
 
@@ -386,7 +402,6 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
 
     setSectionOrder(newOrder);
 
-    // If we're removing the active section, select another one
     if (activeSection === sectionId && newOrder.length > 0) {
       setActiveSection(newOrder[0]);
     }
@@ -394,7 +409,26 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
     setIsSaved(false);
   };
 
-  // Update the handleSaveDraft function to properly prepare portfolio data
+  // Enhanced customization handlers
+  const handleSectionVariantUpdate = (sectionId: string, variantId: string) => {
+    setSelectedSectionVariants(prev => ({
+      ...prev,
+      [sectionId]: variantId
+    }));
+    setIsSaved(false);
+  };
+
+  const handleStylePresetUpdate = (presetId: string) => {
+    setSelectedStylePreset(presetId);
+    setIsSaved(false);
+  };
+
+  const handleAnimationsToggle = (enabled: boolean) => {
+    setAnimationsEnabled(enabled);
+    setIsSaved(false);
+  };
+
+  // Updated save draft function to include customization options
   const handleSaveDraft = async () => {
     if (!isAuthenticated) {
       toast.error('You must be logged in to save your portfolio');
@@ -426,6 +460,9 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
         subdomain: portfolio.subdomain || `user-${Date.now().toString().slice(-8)}`,
         isPublished: false,
         sectionOrder: sectionOrder,
+        sectionVariants: selectedSectionVariants,
+        animationsEnabled: animationsEnabled,
+        stylePreset: selectedStylePreset,
       };
 
       if (process.env.NODE_ENV === 'development') {
@@ -465,7 +502,6 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
     }
   };
 
-  // Handler for publishing portfolio
   const handlePublish = async () => {
     if (!portfolio) return;
     if (!isAuthenticated) {
@@ -480,7 +516,6 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
         await handleSaveDraft();
       }
 
-      // Get current user and check for premium subscription
       const currentUser = apiClient.getUser?.();
       const userId = currentUser?._id || user?.id;
 
@@ -488,19 +523,15 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
         throw new Error('User ID is missing');
       }
 
-      // Check if user has premium subscription with custom domain feature
       const isPremiumUser =
         currentUser?.subscriptionPlan?.type === 'premium' &&
         currentUser?.subscriptionPlan?.isActive === true &&
         currentUser?.subscriptionPlan?.features?.customDomain === true;
 
-      // For free users, ensure subdomain is their username
       let subdomain = portfolio.subdomain;
       if (!isPremiumUser) {
-        // Free users must use their username as subdomain
         subdomain = currentUser?.username || `user-${Date.now().toString().slice(-8)}`;
       } else if (!subdomain) {
-        // Premium users can customize, but default to username if not set
         subdomain = currentUser?.username || `user-${Date.now().toString().slice(-8)}`;
       }
 
@@ -511,10 +542,13 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
         title: portfolio.title || 'My Portfolio',
         subtitle: portfolio.subtitle || '',
         subdomain: subdomain,
-        subdomainLocked: !isPremiumUser, // Lock subdomain for free users after publishing
+        subdomainLocked: !isPremiumUser,
         userType: isPremiumUser ? 'premium' : 'free',
         isPublished: true,
         sectionOrder: sectionOrder,
+        sectionVariants: selectedSectionVariants,
+        animationsEnabled: animationsEnabled,
+        stylePreset: selectedStylePreset,
       };
 
       if (process.env.NODE_ENV === 'development') {
@@ -546,7 +580,6 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
     }
   };
 
-  // Handler for previewing the portfolio
   const handlePreview = async () => {
     if (!portfolio) return;
     if (!isAuthenticated) {
@@ -573,12 +606,10 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
     }
   };
 
-  // Toggle preview mode
   const togglePreview = () => {
     setShowPreview(!showPreview);
   };
 
-  // Function to fetch profile data and populate the template
   const fetchProfileData = async () => {
     if (!isAuthenticated) {
       toast.error('You must be logged in to fetch your profile data.');
@@ -605,7 +636,6 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
         if (!prev) return prev;
         let updatedPortfolio = { ...prev };
 
-        // Update header section
         if (profileData.fullName) {
           updatedPortfolio.content = {
             ...updatedPortfolio.content,
@@ -617,9 +647,7 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
           updatedFields.push('name');
         }
 
-        // If user has a profile photo, use it for header and about section
         if (profileData.profile?.profileImage) {
-          // Update header
           updatedPortfolio.content = {
             ...updatedPortfolio.content,
             header: {
@@ -627,8 +655,6 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
               profileImage: profileData.profile.profileImage,
             }
           };
-
-          // Also update about section image if the about section has an image field
           if (updatedPortfolio.content?.about) {
             updatedPortfolio.content = {
               ...updatedPortfolio.content,
@@ -638,11 +664,9 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
               }
             };
           }
-
           updatedFields.push('profileImage');
         }
 
-        // Update about section if profile bio exists
         if (profileData.profile?.bio) {
           updatedPortfolio.content = {
             ...updatedPortfolio.content,
@@ -654,9 +678,7 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
           updatedFields.push('bio');
         }
 
-        // Update skills section if profile skills exist
         if (profileData.profile?.skills && profileData.profile.skills.length > 0) {
-          // Properly map skills data from the profile
           const mappedSkills = profileData.profile.skills.map((skill: any) => ({
             name: skill.name,
             level: skill.level || 80,
@@ -673,7 +695,6 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
           updatedFields.push('skills');
         }
 
-        // Update experience section if profile experience exists
         if (profileData.profile?.experience && profileData.profile.experience.length > 0) {
           updatedPortfolio.content = {
             ...updatedPortfolio.content,
@@ -693,7 +714,6 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
           updatedFields.push('experience');
         }
 
-        // Update education section if profile education exists
         if (profileData.profile?.education && profileData.profile.education.length > 0) {
           updatedPortfolio.content = {
             ...updatedPortfolio.content,
@@ -713,7 +733,6 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
           updatedFields.push('education');
         }
 
-        // Update projects section if profile projects exist
         if (profileData.profile?.projects && profileData.profile.projects.length > 0) {
           updatedPortfolio.content = {
             ...updatedPortfolio.content,
@@ -731,7 +750,6 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
           updatedFields.push('projects');
         }
 
-        // Update social links if profile social links exist
         if (profileData.profile?.socialLinks) {
           updatedPortfolio.content = {
             ...updatedPortfolio.content,
@@ -740,7 +758,6 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
           updatedFields.push('socialLinks');
         }
 
-        // Update subtitle with user's title if available
         if (profileData.profile?.title) {
           updatedPortfolio.content = {
             ...updatedPortfolio.content,
@@ -752,35 +769,28 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
           updatedFields.push('title');
         }
 
-        // Set proper subdomain based on subscription plan
         const username = profileData.username || profileData.fullName?.toLowerCase().replace(/\s+/g, '') || '';
 
-        // Check subscription plan - default to 'free' if not specified
         const isPremiumUser =
           profileData.subscriptionPlan?.type === 'premium' &&
           profileData.subscriptionPlan?.isActive === true &&
           profileData.subscriptionPlan?.features?.customDomain === true;
 
-        // Store user type for UI display
         updatedPortfolio.userType = isPremiumUser ? 'premium' : 'free';
 
-        // For free users, use username as subdomain (locked)
         if (!isPremiumUser) {
           updatedPortfolio.subdomain = username;
           updatedPortfolio.subdomainLocked = true;
           updatedFields.push('subdomain');
         }
-        // For premium users, set default as username but allow editing
         else if (isPremiumUser && !updatedPortfolio.customSubdomain) {
-          // Default to username but don't lock it
           updatedPortfolio.subdomain = username;
           updatedPortfolio.subdomainLocked = false;
           updatedFields.push('subdomain');
         }
-        // If subscription plan not specified, use default behavior
         else if (!updatedPortfolio.subdomain) {
           updatedPortfolio.subdomain = username || `user-${Date.now().toString().slice(-8)}`;
-          updatedPortfolio.subdomainLocked = !isPremiumUser; // Lock it for free users
+          updatedPortfolio.subdomainLocked = !isPremiumUser;
           updatedFields.push('subdomain');
         }
 
@@ -819,7 +829,6 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
     }
   };
 
-  // Get all available sections from template
   const getAllAvailableSections = () => {
     const sections = new Set<string>();
 
@@ -871,7 +880,7 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
   }
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden">
+    <div className="flex h-screen flex-col overflow-hidden w-full">
       {/* Top navigation bar */}
       <div className="border-b bg-card shadow-sm">
         <div className="container flex h-16 items-center justify-between px-4">
@@ -928,8 +937,8 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
       </div>
 
       {/* Main content area with sidebar and editor content */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar with sections */}
+      <div className="flex flex-1 overflow-hidden w-full">
+        {/* SidebarEditor */}
         <SidebarEditor
           template={template}
           portfolio={portfolio}
@@ -952,20 +961,42 @@ export default function TemplateEditorClient({ template, user, id }: TemplateEdi
           previewLoading={isPreviewing}
           publishLoading={isPublishing}
           showPreview={showPreview}
+          // Enhanced customization props
+          selectedSectionVariants={selectedSectionVariants}
+          onSectionVariantUpdate={handleSectionVariantUpdate}
+          animationsEnabled={animationsEnabled}
+          onAnimationsToggle={handleAnimationsToggle}
+          selectedStylePreset={selectedStylePreset}
+          onStylePresetUpdate={handleStylePresetUpdate}
+          viewportMode={viewportMode}
+          setViewportMode={setViewportMode}
         />
 
-        {/* Preview area */}
-        {showPreview && (
-          <div className="flex-1 overflow-auto bg-gray-50 dark:bg-gray-900">
-            <div className="container mx-auto p-4">
-              <TemplateRenderer
-                template={template}
-                portfolio={portfolio}
-                sectionOrder={sectionOrder}
-              />
+        {/* Content Preview */}
+        <div className={`flex-1 transition-all duration-300 ${showPreview ? 'opacity-100' : 'opacity-95'}`}>
+          <div className={`w-full h-full flex flex-col overflow-hidden bg-gray-100 dark:bg-gray-900 ${viewportMode === 'tablet' ? 'items-center pt-8' : viewportMode === 'mobile' ? 'items-center pt-8' : ''}`}>
+            {/* Viewport wrapper */}
+            <div
+              className={`${viewportMode === 'tablet' ? 'w-[768px] h-[1024px] scale-75 origin-top shadow-xl rounded-xl overflow-hidden' : viewportMode === 'mobile' ? 'w-[390px] h-[844px] scale-75 origin-top shadow-xl rounded-xl overflow-hidden' : 'w-full h-full'}`}
+            >
+              <div className="w-full h-full bg-white dark:bg-black overflow-auto">
+                {portfolio && (
+                  <TemplateRenderer
+                    template={updatedTemplate}
+                    portfolio={portfolio}
+                    editable={false}
+                    customColors={portfolio.customColors}
+                    sectionOrder={sectionOrder}
+                    // Pass enhanced customization props
+                    animation={animationsEnabled}
+                    stylePreset={selectedStylePreset}
+                    sectionVariants={selectedSectionVariants}
+                  />
+                )}
+              </div>
             </div>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

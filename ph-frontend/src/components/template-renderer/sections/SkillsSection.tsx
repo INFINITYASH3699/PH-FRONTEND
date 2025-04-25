@@ -2,39 +2,52 @@ import React from 'react';
 import { EditableText } from '../editable/EditableText';
 import { Button } from '@/components/ui/button';
 
+interface SkillCategory {
+  name: string;
+  skills: Array<{
+    name: string;
+    proficiency?: number;
+  }>;
+}
+
 interface SkillsSectionProps {
   data: {
     title?: string;
     subtitle?: string;
-    skills?: Array<{
-      name: string;
-      level?: number;
-      category?: string;
-    }>;
-    variant?: 'tags' | 'bars' | 'categories' | 'grid';
-    showLevels?: boolean;
-    categorized?: boolean;
+    categories?: SkillCategory[];
+    display?: 'bars' | 'tags' | 'categories'; // Display type for rendering skills
+    showProficiency?: boolean; // Whether to show proficiency levels
     backgroundColor?: string;
     textColor?: string;
   };
   template: any;
   editable?: boolean;
   onUpdate?: (newData: any) => void;
+  stylePreset?: any; // Style preset
 }
 
 const SkillsSection: React.FC<SkillsSectionProps> = ({
   data,
   template,
   editable = false,
-  onUpdate
+  onUpdate,
+  stylePreset
 }) => {
-  // Determine variant based on template category or specified variant
-  const variant = data.variant ||
-    (template.category === 'designer' ? 'categories' :
-     template.category === 'developer' ? 'bars' : 'tags');
+  // Get display type or use default based on template category
+  const display = data.display ||
+    (template.category === 'developer' ? 'bars' :
+     template.category === 'designer' ? 'categories' : 'tags');
 
-  // Ensure we have skills array
-  const skills = data.skills || [];
+  // Apply style preset
+  const borderRadius = stylePreset?.styles?.borderRadius || '0.5rem';
+  const boxShadow = stylePreset?.styles?.boxShadow || '0 4px 6px rgba(0, 0, 0, 0.05)';
+  const borderWidth = stylePreset?.styles?.borderWidth || '1px';
+
+  // Show proficiency by default for bars, but can be overridden
+  const showProficiency = data.showProficiency !== false && display === 'bars';
+
+  // Ensure we have categories
+  const categories = data.categories || [];
 
   // Handle text updates
   const handleTextUpdate = (field: string, value: string) => {
@@ -46,328 +59,488 @@ const SkillsSection: React.FC<SkillsSectionProps> = ({
     }
   };
 
-  // Handle skill update
-  const handleSkillUpdate = (index: number, field: string, value: string | number) => {
+  // Handle adding a category
+  const handleAddCategory = () => {
     if (onUpdate && editable) {
-      const newSkills = [...skills];
-
-      if (!newSkills[index]) {
-        newSkills[index] = { name: '' };
-      }
-
-      newSkills[index] = {
-        ...newSkills[index],
-        [field]: value
-      };
-
-      onUpdate({
-        ...data,
-        skills: newSkills
-      });
-    }
-  };
-
-  // Handle adding a new skill
-  const handleAddSkill = () => {
-    if (onUpdate && editable) {
-      const newSkills = [
-        ...skills,
+      const newCategories = [
+        ...categories,
         {
-          name: 'New Skill',
-          level: 75,
-          category: 'Other'
+          name: 'New Category',
+          skills: [
+            { name: 'New Skill', proficiency: 80 }
+          ]
         }
       ];
 
       onUpdate({
         ...data,
-        skills: newSkills
+        categories: newCategories
+      });
+    }
+  };
+
+  // Handle updating a category
+  const handleCategoryUpdate = (index: number, field: string, value: string) => {
+    if (onUpdate && editable) {
+      const newCategories = [...categories];
+
+      if (!newCategories[index]) {
+        newCategories[index] = { name: '', skills: [] };
+      }
+
+      newCategories[index] = {
+        ...newCategories[index],
+        [field]: value
+      };
+
+      onUpdate({
+        ...data,
+        categories: newCategories
+      });
+    }
+  };
+
+  // Handle removing a category
+  const handleRemoveCategory = (index: number) => {
+    if (onUpdate && editable) {
+      const newCategories = [...categories];
+      newCategories.splice(index, 1);
+
+      onUpdate({
+        ...data,
+        categories: newCategories
+      });
+    }
+  };
+
+  // Handle adding a skill to a category
+  const handleAddSkill = (categoryIndex: number) => {
+    if (onUpdate && editable) {
+      const newCategories = [...categories];
+      const category = newCategories[categoryIndex];
+
+      if (!category.skills) {
+        category.skills = [];
+      }
+
+      category.skills.push({ name: 'New Skill', proficiency: 70 });
+
+      onUpdate({
+        ...data,
+        categories: newCategories
+      });
+    }
+  };
+
+  // Handle updating a skill
+  const handleSkillUpdate = (categoryIndex: number, skillIndex: number, field: string, value: any) => {
+    if (onUpdate && editable) {
+      const newCategories = [...categories];
+      const category = newCategories[categoryIndex];
+
+      if (!category.skills) {
+        category.skills = [];
+      }
+
+      if (!category.skills[skillIndex]) {
+        category.skills[skillIndex] = { name: '' };
+      }
+
+      category.skills[skillIndex] = {
+        ...category.skills[skillIndex],
+        [field]: value
+      };
+
+      onUpdate({
+        ...data,
+        categories: newCategories
       });
     }
   };
 
   // Handle removing a skill
-  const handleRemoveSkill = (index: number) => {
+  const handleRemoveSkill = (categoryIndex: number, skillIndex: number) => {
     if (onUpdate && editable) {
-      const newSkills = [...skills];
-      newSkills.splice(index, 1);
+      const newCategories = [...categories];
+      const category = newCategories[categoryIndex];
+
+      if (!category.skills) {
+        return;
+      }
+
+      category.skills.splice(skillIndex, 1);
 
       onUpdate({
         ...data,
-        skills: newSkills
+        categories: newCategories
       });
     }
   };
 
-  // Get unique categories from skills
-  const getCategories = () => {
-    const categories = new Set<string>();
-    skills.forEach(skill => {
-      if (skill.category) {
-        categories.add(skill.category);
-      } else {
-        categories.add('Other');
-      }
-    });
-    return Array.from(categories);
+  // Handle display type change
+  const handleDisplayChange = (newDisplay: 'bars' | 'tags' | 'categories') => {
+    if (onUpdate && editable) {
+      onUpdate({
+        ...data,
+        display: newDisplay
+      });
+    }
   };
 
-  // Render skills in a tags layout
-  const renderTagsLayout = () => {
+  // Handle toggling proficiency display
+  const handleToggleProficiency = () => {
+    if (onUpdate && editable) {
+      onUpdate({
+        ...data,
+        showProficiency: !showProficiency
+      });
+    }
+  };
+
+  // Get color for skill bar based on proficiency
+  const getSkillColor = (proficiency: number) => {
+    if (proficiency >= 80) return 'bg-green-500';
+    if (proficiency >= 60) return 'bg-blue-500';
+    if (proficiency >= 40) return 'bg-yellow-500';
+    return 'bg-red-500';
+  };
+
+  // Render display type selector
+  const renderDisplaySelector = () => {
+    if (!editable) return null;
+
     return (
-      <div className="flex flex-wrap gap-3">
-        {skills.map((skill, index) => (
-          <div
-            key={index}
-            className="px-4 py-2 bg-muted/40 rounded-full relative flex items-center"
+      <div className="mb-6 p-4 bg-muted/20 border rounded-lg">
+        <h4 className="text-sm font-medium mb-3">Skills Display</h4>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            variant={display === 'bars' ? 'default' : 'outline'}
+            onClick={() => handleDisplayChange('bars')}
           >
-            {editable && (
-              <button
-                className="absolute -top-2 -right-2 text-red-500 font-bold bg-white rounded-full w-5 h-5 flex items-center justify-center text-xs shadow-sm hover:bg-red-50"
-                onClick={() => handleRemoveSkill(index)}
-              >
-                ✕
-              </button>
-            )}
-            <EditableText
-              value={skill.name}
-              onChange={(value) => handleSkillUpdate(index, 'name', value)}
-              editable={editable}
-              className="font-medium"
+            Progress Bars
+          </Button>
+          <Button
+            size="sm"
+            variant={display === 'tags' ? 'default' : 'outline'}
+            onClick={() => handleDisplayChange('tags')}
+          >
+            Tags
+          </Button>
+          <Button
+            size="sm"
+            variant={display === 'categories' ? 'default' : 'outline'}
+            onClick={() => handleDisplayChange('categories')}
+          >
+            Categories
+          </Button>
+        </div>
+
+        {display === 'bars' && (
+          <div className="mt-3 flex items-center">
+            <input
+              type="checkbox"
+              id="showProficiency"
+              checked={showProficiency}
+              onChange={handleToggleProficiency}
+              className="mr-2"
             />
-            {data.showLevels && skill.level !== undefined && (
-              <span className="ml-2 text-xs text-muted-foreground">{skill.level}%</span>
-            )}
-          </div>
-        ))}
-        {editable && (
-          <button
-            className="px-4 py-2 border border-dashed rounded-full hover:bg-muted/20 text-muted-foreground"
-            onClick={handleAddSkill}
-          >
-            + Add Skill
-          </button>
-        )}
-      </div>
-    );
-  };
-
-  // Render skills with progress bars
-  const renderBarsLayout = () => {
-    return (
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {skills.map((skill, index) => (
-          <div key={index} className="relative">
-            {editable && (
-              <button
-                className="absolute -top-2 -right-2 text-red-500 font-bold bg-white rounded-full w-5 h-5 flex items-center justify-center text-xs shadow-sm hover:bg-red-50"
-                onClick={() => handleRemoveSkill(index)}
-              >
-                ✕
-              </button>
-            )}
-            <div className="flex justify-between mb-1.5">
-              <EditableText
-                value={skill.name}
-                onChange={(value) => handleSkillUpdate(index, 'name', value)}
-                editable={editable}
-                className="font-medium"
-              />
-              {data.showLevels && skill.level !== undefined && (
-                <span className="text-sm text-muted-foreground">{skill.level}%</span>
-              )}
-            </div>
-            <div className="h-2.5 w-full bg-muted rounded-full overflow-hidden">
-              <div
-                className="h-full bg-primary rounded-full"
-                style={{ width: `${skill.level || 0}%` }}
-              ></div>
-            </div>
-            {editable && data.showLevels && (
-              <input
-                type="range"
-                min="0"
-                max="100"
-                value={skill.level || 50}
-                onChange={(e) => handleSkillUpdate(index, 'level', parseInt(e.target.value, 10))}
-                className="w-full mt-1"
-              />
-            )}
-          </div>
-        ))}
-        {editable && (
-          <div
-            className="h-12 border border-dashed rounded-lg flex items-center justify-center cursor-pointer hover:bg-muted/20"
-            onClick={handleAddSkill}
-          >
-            <span className="text-muted-foreground">+ Add Skill</span>
+            <label htmlFor="showProficiency" className="text-sm">Show Proficiency Percentage</label>
           </div>
         )}
       </div>
     );
   };
 
-  // Render skills organized by categories
-  const renderCategoriesLayout = () => {
-    const categories = getCategories();
-
+  // Render skills with bars
+  const renderSkillsAsBars = () => {
     return (
       <div className="space-y-8">
-        {categories.map((category) => (
-          <div key={category} className="mb-6">
-            <h3 className="text-xl font-semibold mb-4">{category}</h3>
-            <div className="flex flex-wrap gap-3">
-              {skills
-                .filter(skill => (skill.category || 'Other') === category)
-                .map((skill, index) => {
-                  const skillIndex = skills.findIndex(s => s === skill);
-                  return (
+        {categories.map((category, categoryIndex) => (
+          <div key={categoryIndex} className="relative">
+            {editable && (
+              <Button
+                variant="destructive"
+                size="sm"
+                className="absolute -top-2 right-0"
+                onClick={() => handleRemoveCategory(categoryIndex)}
+              >
+                Remove
+              </Button>
+            )}
+
+            <EditableText
+              value={category.name || `Category ${categoryIndex + 1}`}
+              onChange={(value) => handleCategoryUpdate(categoryIndex, 'name', value)}
+              editable={editable}
+              className="text-xl font-semibold mb-4"
+            />
+
+            <div className="space-y-3">
+              {category.skills?.map((skill, skillIndex) => (
+                <div key={skillIndex} className="relative">
+                  <div className="flex justify-between mb-1">
+                    <EditableText
+                      value={skill.name || `Skill ${skillIndex + 1}`}
+                      onChange={(value) => handleSkillUpdate(categoryIndex, skillIndex, 'name', value)}
+                      editable={editable}
+                      className="text-sm font-medium"
+                    />
+
+                    {showProficiency && (
+                      <span className="text-sm text-muted-foreground">{skill.proficiency || 0}%</span>
+                    )}
+
+                    {editable && (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        className="h-6 absolute -top-1 right-0"
+                        onClick={() => handleRemoveSkill(categoryIndex, skillIndex)}
+                      >
+                        ✕
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Skill bar */}
+                  <div className="w-full bg-muted rounded-full h-2.5">
                     <div
-                      key={skillIndex}
-                      className="px-4 py-2 bg-muted/40 rounded-full relative flex items-center"
-                    >
-                      {editable && (
-                        <button
-                          className="absolute -top-2 -right-2 text-red-500 font-bold bg-white rounded-full w-5 h-5 flex items-center justify-center text-xs shadow-sm hover:bg-red-50"
-                          onClick={() => handleRemoveSkill(skillIndex)}
-                        >
-                          ✕
-                        </button>
-                      )}
-                      <EditableText
-                        value={skill.name}
-                        onChange={(value) => handleSkillUpdate(skillIndex, 'name', value)}
-                        editable={editable}
-                        className="font-medium"
-                      />
-                      {editable && (
-                        <select
-                          value={skill.category || 'Other'}
-                          onChange={(e) => handleSkillUpdate(skillIndex, 'category', e.target.value)}
-                          className="ml-2 text-xs p-1 border rounded bg-transparent"
-                        >
-                          {categories.map(cat => (
-                            <option key={cat} value={cat}>{cat}</option>
-                          ))}
-                          <option value="New Category">+ New Category</option>
-                        </select>
-                      )}
-                    </div>
-                  );
-                })}
+                      className={`${getSkillColor(skill.proficiency || 0)} h-2.5 rounded-full`}
+                      style={{ width: `${skill.proficiency || 0}%` }}
+                    />
+                  </div>
+
+                  {editable && (
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={skill.proficiency || 0}
+                      onChange={(e) => handleSkillUpdate(categoryIndex, skillIndex, 'proficiency', parseInt(e.target.value))}
+                      className="w-full mt-1"
+                    />
+                  )}
+                </div>
+              ))}
+
+              {editable && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-2"
+                  onClick={() => handleAddSkill(categoryIndex)}
+                >
+                  Add Skill
+                </Button>
+              )}
             </div>
           </div>
         ))}
-        {editable && (
-          <div className="mt-4 flex gap-4">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleAddSkill}
-            >
-              + Add Skill
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                const newCategory = prompt('Enter new category name:');
-                if (newCategory) {
-                  const newSkill = {
-                    name: 'New Skill',
-                    level: 75,
-                    category: newCategory
-                  };
-                  onUpdate?.({
-                    ...data,
-                    skills: [...skills, newSkill]
-                  });
-                }
-              }}
-            >
-              + Add Category
-            </Button>
-          </div>
-        )}
       </div>
     );
   };
 
-  // Render skills in a grid layout
-  const renderGridLayout = () => {
+  // Render skills as tags
+  const renderSkillsAsTags = () => {
     return (
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        {skills.map((skill, index) => (
+      <div className="space-y-8">
+        {categories.map((category, categoryIndex) => (
+          <div key={categoryIndex} className="relative">
+            {editable && (
+              <Button
+                variant="destructive"
+                size="sm"
+                className="absolute -top-2 right-0"
+                onClick={() => handleRemoveCategory(categoryIndex)}
+              >
+                Remove
+              </Button>
+            )}
+
+            <EditableText
+              value={category.name || `Category ${categoryIndex + 1}`}
+              onChange={(value) => handleCategoryUpdate(categoryIndex, 'name', value)}
+              editable={editable}
+              className="text-xl font-semibold mb-4"
+            />
+
+            <div className="flex flex-wrap gap-2">
+              {category.skills?.map((skill, skillIndex) => (
+                <div key={skillIndex} className="group relative">
+                  <span
+                    className="px-3 py-1.5 rounded-full border bg-muted/30 inline-block"
+                    style={{
+                      borderRadius: borderRadius,
+                      boxShadow: boxShadow,
+                      borderWidth: borderWidth,
+                    }}
+                  >
+                    {editable ? (
+                      <input
+                        type="text"
+                        value={skill.name || ''}
+                        onChange={(e) => handleSkillUpdate(categoryIndex, skillIndex, 'name', e.target.value)}
+                        className="bg-transparent outline-none text-sm w-full"
+                      />
+                    ) : (
+                      <span className="text-sm">{skill.name}</span>
+                    )}
+                  </span>
+
+                  {editable && (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="h-5 w-5 p-0 absolute -top-2 -right-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => handleRemoveSkill(categoryIndex, skillIndex)}
+                    >
+                      ✕
+                    </Button>
+                  )}
+                </div>
+              ))}
+
+              {editable && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleAddSkill(categoryIndex)}
+                >
+                  + Add Skill
+                </Button>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  // Render skills by categories in cards
+  const renderSkillsByCategories = () => {
+    return (
+      <div
+        className="grid gap-6"
+        style={{
+          gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))'
+        }}
+      >
+        {categories.map((category, categoryIndex) => (
           <div
-            key={index}
-            className="p-4 border rounded-lg bg-muted/10 text-center relative"
+            key={categoryIndex}
+            className="relative p-4"
+            style={{
+              borderRadius: borderRadius,
+              boxShadow: boxShadow,
+              border: `${borderWidth} solid var(--color-secondary, #e5e7eb)`,
+            }}
           >
             {editable && (
-              <button
-                className="absolute top-2 right-2 text-red-500 font-bold bg-white rounded-full w-5 h-5 flex items-center justify-center text-xs shadow-sm hover:bg-red-50"
-                onClick={() => handleRemoveSkill(index)}
+              <Button
+                variant="destructive"
+                size="sm"
+                className="absolute -top-2 -right-2"
+                onClick={() => handleRemoveCategory(categoryIndex)}
               >
                 ✕
-              </button>
+              </Button>
             )}
+
             <EditableText
-              value={skill.name}
-              onChange={(value) => handleSkillUpdate(index, 'name', value)}
+              value={category.name || `Category ${categoryIndex + 1}`}
+              onChange={(value) => handleCategoryUpdate(categoryIndex, 'name', value)}
               editable={editable}
-              className="font-medium text-lg"
+              className="text-lg font-semibold mb-3"
             />
-            {data.showLevels && skill.level !== undefined && (
-              <div className="mt-2">
-                <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-primary rounded-full"
-                    style={{ width: `${skill.level || 0}%` }}
-                  ></div>
-                </div>
-                {editable && (
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={skill.level || 50}
-                    onChange={(e) => handleSkillUpdate(index, 'level', parseInt(e.target.value, 10))}
-                    className="w-full mt-1"
-                  />
-                )}
-              </div>
+
+            <ul className="space-y-2">
+              {category.skills?.map((skill, skillIndex) => (
+                <li key={skillIndex} className="relative">
+                  <div className="flex items-center justify-between">
+                    <EditableText
+                      value={skill.name || `Skill ${skillIndex + 1}`}
+                      onChange={(value) => handleSkillUpdate(categoryIndex, skillIndex, 'name', value)}
+                      editable={editable}
+                      className="text-sm"
+                    />
+
+                    {editable && (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        className="h-6 w-6 p-0"
+                        onClick={() => handleRemoveSkill(categoryIndex, skillIndex)}
+                      >
+                        ✕
+                      </Button>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+
+            {editable && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-3 w-full"
+                onClick={() => handleAddSkill(categoryIndex)}
+              >
+                Add Skill
+              </Button>
             )}
           </div>
         ))}
+
         {editable && (
           <div
-            className="p-4 border border-dashed rounded-lg flex items-center justify-center cursor-pointer hover:bg-muted/20 h-full"
-            onClick={handleAddSkill}
+            className="border border-dashed rounded-lg p-4 flex items-center justify-center cursor-pointer hover:bg-muted/20"
+            style={{
+              borderRadius: borderRadius,
+              minHeight: '150px'
+            }}
+            onClick={handleAddCategory}
           >
-            <span className="text-muted-foreground">+ Add Skill</span>
+            <span className="text-muted-foreground">+ Add Category</span>
           </div>
         )}
       </div>
     );
   };
 
-  // Render the skills section based on variant
+  // Render the appropriate skills display
   const renderSkills = () => {
-    switch (variant) {
+    if (categories.length === 0) {
+      return (
+        <div className="text-center p-8 border border-dashed rounded-lg">
+          <p className="text-muted-foreground mb-4">
+            No skills added yet. Add your first skill category to showcase your expertise.
+          </p>
+          {editable && (
+            <Button onClick={handleAddCategory}>
+              Add Skill Category
+            </Button>
+          )}
+        </div>
+      );
+    }
+
+    switch (display) {
       case 'bars':
-        return renderBarsLayout();
-      case 'categories':
-        return renderCategoriesLayout();
-      case 'grid':
-        return renderGridLayout();
+        return renderSkillsAsBars();
       case 'tags':
+        return renderSkillsAsTags();
+      case 'categories':
+        return renderSkillsByCategories();
       default:
-        return renderTagsLayout();
+        return renderSkillsAsBars();
     }
   };
 
   return (
     <section
-      className="py-16 relative w-full"
+      className="py-16 w-full"
       style={{
         backgroundColor: data.backgroundColor,
         color: data.textColor
@@ -375,13 +548,14 @@ const SkillsSection: React.FC<SkillsSectionProps> = ({
       id="skills"
     >
       <div className="container px-4 md:px-6">
-        <div className="mb-10">
+        <div className="flex flex-col items-start mb-8">
           <EditableText
             value={data.title || 'Skills'}
             onChange={(value) => handleTextUpdate('title', value)}
             editable={editable}
-            className="text-3xl font-bold mb-4"
+            className="text-3xl font-bold mb-3"
           />
+
           {data.subtitle && (
             <EditableText
               value={data.subtitle}
@@ -392,36 +566,17 @@ const SkillsSection: React.FC<SkillsSectionProps> = ({
           )}
         </div>
 
+        {renderDisplaySelector()}
         {renderSkills()}
-      </div>
 
-      {/* Edit Controls - Only shown in edit mode */}
-      {editable && (
-        <div className="absolute top-2 right-2 bg-white/80 backdrop-blur-sm p-2 rounded-md shadow-sm border z-10">
-          <div className="text-xs font-medium mb-1">Skills Style</div>
-          <select
-            value={variant}
-            onChange={(e) => onUpdate?.({ ...data, variant: e.target.value })}
-            className="text-xs p-1 border rounded w-full mb-2"
-          >
-            <option value="tags">Tags</option>
-            <option value="bars">Progress Bars</option>
-            <option value="categories">Categories</option>
-            <option value="grid">Grid</option>
-          </select>
-
-          <div className="flex items-center gap-2 mb-2">
-            <input
-              type="checkbox"
-              id="showLevels"
-              checked={data.showLevels !== false}
-              onChange={(e) => onUpdate?.({ ...data, showLevels: e.target.checked })}
-              className="w-3 h-3"
-            />
-            <label htmlFor="showLevels" className="text-xs">Show Levels</label>
+        {editable && categories.length > 0 && display !== 'categories' && (
+          <div className="mt-8 text-center">
+            <Button onClick={handleAddCategory}>
+              Add Another Category
+            </Button>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </section>
   );
 };

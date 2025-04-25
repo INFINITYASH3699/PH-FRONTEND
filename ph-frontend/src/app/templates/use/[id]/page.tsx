@@ -1,123 +1,72 @@
-// This is a server component that wraps the client component
-import React, { Suspense } from 'react';
-import { notFound } from 'next/navigation';
+import { Metadata } from 'next';
 import TemplateEditorClient from './TemplateEditorClient';
+import VariationExplorer from './VariationExplorer';
+import { notFound } from 'next/navigation';
+import apiClient from '@/lib/apiClient';
 
-// Loading fallback component
-function Loading() {
-  return (
-    <div className="flex min-h-screen items-center justify-center">
-      <div className="text-center">
-        <div
-          className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]"
-          role="status"
-        >
-          <span className="!absolute !-m-px !h-px !w-px !overflow-hidden !whitespace-nowrap !border-0 !p-0 ![clip:rect(0,0,0,0)]">
-            Loading...
-          </span>
-        </div>
-        <p className="mt-4">Loading template editor...</p>
-      </div>
-    </div>
-  );
-}
+export const dynamic = 'force-dynamic';
 
-// Dummy template data for fallback when API fails
-const FALLBACK_TEMPLATE = {
-  _id: 'fallback-template',
-  name: 'Template Preview',
-  category: 'developer',
-  layouts: [
-    {
-      id: 'default',
-      name: 'Standard Layout',
-      structure: {
-        sections: ['header', 'about', 'projects', 'skills', 'experience', 'contact'],
-        gridSystem: '12-column',
-      },
-    },
-  ],
-  themeOptions: {
-    colorSchemes: [
-      {
-        id: 'default',
-        name: 'Default',
-        colors: {
-          primary: '#6366f1',
-          background: '#ffffff',
-          text: '#111827',
-          muted: '#f3f4f6',
-          accent: '#8b5cf6',
-        },
-      },
-      {
-        id: 'dark',
-        name: 'Dark',
-        colors: {
-          primary: '#8b5cf6',
-          background: '#0f172a',
-          text: '#f8fafc',
-          muted: '#1e293b',
-          accent: '#ec4899',
-        },
-      },
-    ],
-    fontPairings: [
-      {
-        id: 'default',
-        name: 'Default',
-        fonts: {
-          heading: 'Inter',
-          body: 'Inter',
-        },
-      },
-    ],
-  },
-};
-
-// Function to get user data
-const getCurrentUser = async () => {
-  // This would be replaced with actual auth logic in a real app
-  return {
-    id: 'user123',
-    name: 'Demo User',
-    portfolios: [],
-  };
-};
-
-// Server component that fetches the data and passes it to the client component
-export default async function TemplateEditorPage({ params }: { params: { id: string } }) {
-  if (!params.id) {
-    return notFound();
-  }
-
-  let template = FALLBACK_TEMPLATE;
-  const user = await getCurrentUser();
-
+// Server-side function to fetch template by ID
+async function getTemplate(id: string) {
   try {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-    const response = await fetch(`${apiUrl}/templates/${params.id}`, {
-      cache: 'no-store',
-      next: { revalidate: 60 },
-    }).catch((error) => {
-      console.error('Network error when fetching template:', error);
-      return null;
-    });
+    const response = await apiClient.serverRequest<{
+      success: boolean;
+      template: any;
+    }>(`/templates/${id}`, 'GET', undefined, undefined);
 
-    if (response && response.ok) {
-      const data = await response.json();
-      if (data && data.template) {
-        template = data.template;
-      }
+    if (response.success && response.template) {
+      return response.template;
     }
+
+    return null;
   } catch (error) {
     console.error('Error fetching template:', error);
-    // We'll use the fallback template
+    return null;
+  }
+}
+
+export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
+  const template = await getTemplate(params.id);
+
+  if (!template) {
+    return {
+      title: 'Template Not Found',
+    };
   }
 
+  return {
+    title: `Customize "${template.name}" Template | Portfolio Hub`,
+    description: `Customize the ${template.name} template to create your professional portfolio.`,
+  };
+}
+
+export default async function TemplateEditorPage({ params }: { params: { id: string } }) {
+  // Fetch template data
+  const template = await getTemplate(params.id);
+
+  if (!template) {
+    notFound();
+  }
+
+  // Get current user (server-side)
+  const user = await apiClient.getServerUser();
+
+  // Enhanced data for template rendering
+  const enhancedTemplate = {
+    ...template,
+    _id: template._id || params.id,
+    // Default values if missing
+    sectionVariants: template.sectionVariants || {},
+    stylePresets: template.stylePresets || {},
+    animations: template.animations || {},
+  };
+
+  // Here we'd also fetch any existing portfolio that uses this template
+
   return (
-    <Suspense fallback={<Loading />}>
-      <TemplateEditorClient template={template} user={user} id={params.id} />
-    </Suspense>
+    <>
+      <TemplateEditorClient template={enhancedTemplate} user={user} id={params.id} />
+      <VariationExplorer templateId={params.id} />
+    </>
   );
 }
