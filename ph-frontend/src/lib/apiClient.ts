@@ -260,8 +260,88 @@ export const isAuthenticated = (): boolean => {
   return !!getToken();
 };
 
+// Server-side request function (for use in Server Components)
+export async function serverRequest<T = any>(
+  endpoint: string,
+  method: string = "GET",
+  data?: any,
+  headers?: Record<string, string>
+): Promise<T> {
+  try {
+    const url = `${API_BASE_URL}${endpoint}`;
+
+    const options: RequestInit = {
+      method,
+      headers: {
+        "Content-Type": "application/json",
+        ...headers,
+      },
+      cache: "no-store", // Disable caching to ensure fresh data
+    };
+
+    // Add body for non-GET requests
+    if (method !== "GET" && data) {
+      options.body = JSON.stringify(data);
+    }
+
+    console.log(`Server sending ${method} request to ${url}`);
+
+    const response = await fetch(url, options);
+
+    // Handle errors
+    if (!response.ok) {
+      const errorText = await response.text();
+      let errorMessage = `API Error: ${response.status} ${response.statusText}`;
+      try {
+        const errorJson = JSON.parse(errorText);
+        if (errorJson.message) {
+          errorMessage = errorJson.message;
+        }
+      } catch (e) {
+        // If not valid JSON, use text directly
+        if (errorText) {
+          errorMessage = errorText;
+        }
+      }
+
+      throw new Error(errorMessage);
+    }
+
+    // Parse response
+    const result = (await response.json()) as T;
+    return result;
+  } catch (error) {
+    console.error(`Server API request error (${endpoint}):`, error);
+    throw error;
+  }
+}
+
+// Add getServerUser function for server-side authentication
+export async function getServerUser(): Promise<User | null> {
+  try {
+    // This function should be called from a server component
+    // It doesn't have access to client-side cookies or localStorage
+
+    // For development only
+    if (isDev) {
+      console.log("Returning mock user for development");
+      return MOCK_DATA.users[0] as User;
+    }
+
+    // In production, you would need to pass the auth token via headers or cookies
+    return null;
+  } catch (error) {
+    console.error("Error getting server user:", error);
+    return null;
+  }
+}
+
 // Main API client implementation
 const api = {
+  // Add these two functions to the api object
+  serverRequest,
+  getServerUser,
+
   // Generic request method for client components
   request: async <T = any>(
     endpoint: string,
@@ -955,35 +1035,38 @@ const api = {
   },
 
   // Image upload functionality
-  uploadImage: async (file: File, type: string = 'portfolio') => {
+  uploadImage: async (file: File, type: string = "portfolio") => {
     try {
       console.log(`Uploading image of type: ${type}`);
 
       const formData = new FormData();
-      formData.append('image', file);
+      formData.append("image", file);
 
       // Use a default portfolio ID if none provided
       // Try to get a defaultPortfolioId from user data, fallback to 'temp'
       const user = typeof window !== "undefined" ? getUser() : null;
-      const portfolioId = user?.defaultPortfolioId || 'temp';
+      const portfolioId = user?.defaultPortfolioId || "temp";
 
       const token = getToken();
       const headers: HeadersInit = {};
 
       if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
+        headers["Authorization"] = `Bearer ${token}`;
       }
 
-      const response = await fetch(`${API_BASE_URL}/portfolios/${portfolioId}/upload-image?type=${type}`, {
-        method: 'POST',
-        headers,
-        body: formData,
-        credentials: 'include',
-      });
+      const response = await fetch(
+        `${API_BASE_URL}/portfolios/${portfolioId}/upload-image?type=${type}`,
+        {
+          method: "POST",
+          headers,
+          body: formData,
+          credentials: "include",
+        }
+      );
 
       return handleResponse(response);
     } catch (error) {
-      console.error('Image upload error:', error);
+      console.error("Image upload error:", error);
 
       if (isConnectionError(error) && isDev) {
         // Return a mock image URL for development
@@ -993,7 +1076,7 @@ const api = {
           image: {
             url: `https://via.placeholder.com/800x600?text=${type}+Image`,
             publicId: mockImageId,
-          }
+          },
         };
       }
 
