@@ -1,10 +1,12 @@
-import { useState } from 'react';
-import { PlusCircle, X, Upload } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { PlusCircle, X, Upload, UserCircle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { useAuth } from '@/components/providers/AuthContext';
+import { toast } from 'sonner';
 
 interface Highlight {
   title: string;
@@ -23,6 +25,9 @@ interface AboutEditorProps {
 }
 
 export default function AboutEditor({ data, onChange }: AboutEditorProps) {
+  // Get user data from auth context
+  const { user } = useAuth();
+
   // Set default values if data is empty
   const aboutData = {
     title: data?.title || 'About Me',
@@ -34,6 +39,37 @@ export default function AboutEditor({ data, onChange }: AboutEditorProps) {
       { title: 'Experience', description: 'Highlight your years of experience or key skills.' },
       { title: 'Education', description: 'Share your educational background.' }
     ]
+  };
+
+  // Check if user has a profile picture when the component mounts
+  useEffect(() => {
+    // If no image is set yet but user has a profile picture, suggest using it
+    if (!aboutData.image && user?.profilePicture) {
+      // Show a toast notification suggesting to use the profile picture
+      toast.info(
+        <div className="flex flex-col">
+          <div className="font-medium">Profile picture detected</div>
+          <div className="text-sm">Click "Use Profile Picture" to add it to your About section</div>
+        </div>,
+        {
+          duration: 5000,
+          action: {
+            label: "Use Now",
+            onClick: () => handleUseProfilePicture()
+          }
+        }
+      );
+    }
+  }, [user]);
+
+  // Handle using the user's profile picture
+  const handleUseProfilePicture = () => {
+    if (user?.profilePicture) {
+      handleInputChange('image', user.profilePicture);
+      toast.success('Profile picture added to About section');
+    } else {
+      toast.error('No profile picture found. Upload one in your profile settings.');
+    }
   };
 
   // Handle input changes for simple fields
@@ -125,11 +161,29 @@ export default function AboutEditor({ data, onChange }: AboutEditorProps) {
             onChange={(e) => handleInputChange('image', e.target.value)}
             placeholder="https://example.com/about-image.jpg"
           />
-          <Button variant="outline" size="icon" title="Upload Image">
+          <Button
+            variant="outline"
+            size="icon"
+            title="Upload Image"
+            type="button"
+          >
             <Upload className="h-4 w-4" />
           </Button>
+          {user?.profilePicture && (
+            <Button
+              variant="outline"
+              className="flex items-center gap-1 whitespace-nowrap px-3"
+              onClick={handleUseProfilePicture}
+              type="button"
+              title="Use your profile picture"
+            >
+              <UserCircle className="h-4 w-4" />
+              <span className="hidden sm:inline">Use Profile Picture</span>
+            </Button>
+          )}
         </div>
-        {aboutData.image && (
+        {/* Display image preview if available */}
+        {aboutData.image ? (
           <div className="mt-2 relative h-28 rounded-md overflow-hidden border">
             <img
               src={aboutData.image}
@@ -139,8 +193,21 @@ export default function AboutEditor({ data, onChange }: AboutEditorProps) {
                 e.currentTarget.src = 'https://via.placeholder.com/400x200?text=About+Image';
               }}
             />
+            <Button
+              variant="destructive"
+              size="sm"
+              className="absolute top-1 right-1 h-7 w-7 p-0"
+              onClick={() => handleInputChange('image', '')}
+              title="Remove image"
+            >
+              <X className="h-4 w-4" />
+            </Button>
           </div>
-        )}
+        ) : user?.profilePicture ? (
+          <div className="mt-2 flex items-center text-sm text-muted-foreground">
+            <span>You have a profile picture available. Click "Use Profile Picture" to add it here.</span>
+          </div>
+        ) : null}
       </div>
 
       <div className="space-y-3">

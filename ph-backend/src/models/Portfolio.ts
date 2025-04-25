@@ -19,6 +19,8 @@ export interface IPortfolio extends Document {
   isPublished: boolean;
   viewCount: number;
   customDomain?: string;
+  // Add portfolioOrder field for sequential numbering of multiple published portfolios
+  portfolioOrder?: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -92,6 +94,11 @@ const PortfolioSchema = new Schema<IPortfolio>(
       lowercase: true,
       sparse: true,
     },
+    // Add portfolioOrder field for sequential numbering of multiple published portfolios
+    portfolioOrder: {
+      type: Number,
+      default: 0, // 0 is the default for the main portfolio, 1+ for additional portfolios
+    },
   },
   {
     timestamps: true,
@@ -107,17 +114,20 @@ PortfolioSchema.index({ userId: 1 });
 // Add index on subdomain (not unique)
 PortfolioSchema.index({ subdomain: 1 });
 
+// Add compound index for userId + subdomain + portfolioOrder for faster lookups
+PortfolioSchema.index({ userId: 1, subdomain: 1, portfolioOrder: 1 });
+
 PortfolioSchema.index({ customDomain: 1 }, { sparse: true, unique: true });
 
 // Add a pre-save hook for debugging
 PortfolioSchema.pre('save', function(next) {
-  console.log(`Saving portfolio: ${this._id}, title: ${this.title}, template: ${this.templateId || 'none'}, user: ${this.userId}`);
+  console.log(`Saving portfolio: ${this._id}, title: ${this.title}, template: ${this.templateId || 'none'}, user: ${this.userId}, order: ${this.portfolioOrder}`);
   next();
 });
 
 // Add a post-save hook for debugging
 PortfolioSchema.post('save', function(doc) {
-  console.log(`Portfolio saved successfully: ${doc._id}, title: ${doc.title}`);
+  console.log(`Portfolio saved successfully: ${doc._id}, title: ${doc.title}, order: ${doc.portfolioOrder}`);
 });
 
 const Portfolio = mongoose.model<IPortfolio>('Portfolio', PortfolioSchema);

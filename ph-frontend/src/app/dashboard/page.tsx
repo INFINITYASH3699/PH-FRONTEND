@@ -35,6 +35,8 @@ interface Portfolio {
     category?: string;
   };
   viewCount: number;
+  // For premium users, portfolioOrder indicates the order for subdomain suffixes
+  portfolioOrder?: number;
 }
 
 export default function DashboardPage() {
@@ -42,6 +44,10 @@ export default function DashboardPage() {
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
   const [loading, setLoading] = useState(true);
   const [authStatus, setAuthStatus] = useState<'loading' | 'authenticated' | 'unauthenticated'>('loading');
+
+  // Check if the user has premium features
+  const isPremiumUser = user?.subscriptionPlan?.type === 'premium' || user?.subscriptionPlan?.type === 'professional';
+  const hasMultiplePortfoliosFeature = isPremiumUser && user?.subscriptionPlan?.features?.multiplePortfolios;
 
   // Log auth status for debugging
   useEffect(() => {
@@ -51,7 +57,8 @@ export default function DashboardPage() {
       user: user ? {
         id: user.id,
         email: user.email,
-        username: user.username
+        username: user.username,
+        subscriptionPlan: user.subscriptionPlan
       } : null
     });
   }, [isAuthenticated, authLoading, user]);
@@ -91,7 +98,8 @@ export default function DashboardPage() {
               title: p.title,
               template: typeof p.templateId === 'object' ? p.templateId.name : p.templateId,
               subdomain: p.subdomain,
-              isPublished: p.isPublished
+              isPublished: p.isPublished,
+              portfolioOrder: p.portfolioOrder
             }))
           );
           setPortfolios(response.portfolios);
@@ -117,29 +125,41 @@ export default function DashboardPage() {
     try {
       // If we're publishing a portfolio (currently unpublished)
       if (!currentState) {
-        // First, show a confirmation if other portfolios are already published
-        const publishedPortfolios = portfolios.filter(p => p.isPublished && p._id !== portfolioId);
+        if (!hasMultiplePortfoliosFeature) {
+          // For free users, check for other published portfolios first
+          const publishedPortfolios = portfolios.filter(p => p.isPublished && p._id !== portfolioId);
 
-        if (publishedPortfolios.length > 0) {
-          if (!window.confirm(
-            `Publishing this portfolio will unpublish your currently published portfolio "${publishedPortfolios[0].title}". Continue?`
-          )) {
-            return; // User canceled the action
+          if (publishedPortfolios.length > 0) {
+            if (!window.confirm(
+              `Publishing this portfolio will unpublish your currently published portfolio "${publishedPortfolios[0].title}". Continue?`
+            )) {
+              return; // User canceled the action
+            }
+
+            // Optimistically update UI to show the change in publish state
+            setPortfolios(prevPortfolios =>
+              prevPortfolios.map(portfolio => ({
+                ...portfolio,
+                isPublished: portfolio._id === portfolioId ? true : false
+              }))
+            );
+          } else {
+            // No other published portfolios, just update this one
+            setPortfolios(prevPortfolios =>
+              prevPortfolios.map(portfolio =>
+                portfolio._id === portfolioId
+                  ? { ...portfolio, isPublished: !currentState }
+                  : portfolio
+              )
+            );
           }
-
-          // Optimistically update UI to show the change in publish state
-          setPortfolios(prevPortfolios =>
-            prevPortfolios.map(portfolio => ({
-              ...portfolio,
-              isPublished: portfolio._id === portfolioId ? true : false
-            }))
-          );
         } else {
-          // No other published portfolios, just update this one
+          // For premium users with multiple portfolios feature
+          // Just update this portfolio's published state
           setPortfolios(prevPortfolios =>
             prevPortfolios.map(portfolio =>
               portfolio._id === portfolioId
-                ? { ...portfolio, isPublished: !currentState }
+                ? { ...portfolio, isPublished: true }
                 : portfolio
             )
           );
@@ -149,7 +169,7 @@ export default function DashboardPage() {
         setPortfolios(prevPortfolios =>
           prevPortfolios.map(portfolio =>
             portfolio._id === portfolioId
-              ? { ...portfolio, isPublished: !currentState }
+              ? { ...portfolio, isPublished: false }
               : portfolio
           )
         );
@@ -245,8 +265,8 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Portfolio Policy Banner - Updated with clearer information */}
-          <div className="mb-6 p-3 bg-blue-50 border border-blue-100 rounded-md flex items-center gap-3 text-blue-800">
+          {/* Portfolio Policy Banner - Updated with clearer information about plan differences */}
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-100 rounded-md flex items-start gap-3 text-blue-800">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               width="24"
@@ -257,16 +277,41 @@ export default function DashboardPage() {
               strokeWidth="2"
               strokeLinecap="round"
               strokeLinejoin="round"
-              className="h-5 w-5 flex-shrink-0"
+              className="h-5 w-5 flex-shrink-0 mt-1"
             >
               <circle cx="12" cy="12" r="10"/>
               <path d="M12 16v-4"/>
               <path d="M12 8h.01"/>
             </svg>
             <div>
-              <p className="text-sm">
-                <strong>Multiple Portfolios Management:</strong> You can create different portfolios using different templates to showcase various aspects of your work. <span className="font-semibold">Only one portfolio can be published at a time</span>. Publishing a new portfolio will automatically unpublish any previously published portfolio.
+              <p className="text-sm font-medium mb-1">
+                Multiple Portfolios Management
               </p>
+
+              {isPremiumUser && hasMultiplePortfoliosFeature ? (
+                <div>
+                  <p className="text-sm mb-1">
+                    <span className="font-semibold">Premium Plan Benefit:</span> You can publish multiple portfolios simultaneously!
+                  </p>
+                  <ul className="text-sm list-disc pl-5 space-y-1">
+                    <li>Your main portfolio is available at <code>yourname.portfoliohub.com</code></li>
+                    <li>Additional portfolios are automatically available at <code>yourname-1.portfoliohub.com</code>, <code>yourname-2.portfoliohub.com</code>, etc.</li>
+                    <li>You can create different portfolios with different templates to showcase various aspects of your work</li>
+                  </ul>
+                </div>
+              ) : (
+                <div>
+                  <p className="text-sm mb-1">
+                    <span className="font-semibold">Free Plan Limitation:</span> You can create multiple portfolios but only one can be published at a time.
+                  </p>
+                  <p className="text-sm mb-1">
+                    Publishing a new portfolio will automatically unpublish any previously published one.
+                  </p>
+                  <p className="text-sm italic">
+                    Upgrade to Premium to publish multiple portfolios simultaneously with sequential subdomains.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -287,6 +332,8 @@ export default function DashboardPage() {
                       portfolio={portfolio}
                       onPublishToggle={handlePublishToggle}
                       onDelete={handleDelete}
+                      isPremiumUser={isPremiumUser}
+                      hasMultiplePortfoliosFeature={hasMultiplePortfoliosFeature}
                     />
                   ))}
                 </div>
@@ -419,15 +466,36 @@ function EmptyState() {
   );
 }
 
-// Portfolio card component
-function PortfolioCard({ portfolio, onPublishToggle, onDelete }: { portfolio: Portfolio, onPublishToggle: (id: string, currentState: boolean) => void, onDelete: (id: string) => void }) {
+// Portfolio card component - updated to show the subdomain with order for premium users
+function PortfolioCard({
+  portfolio,
+  onPublishToggle,
+  onDelete,
+  isPremiumUser,
+  hasMultiplePortfoliosFeature
+}: {
+  portfolio: Portfolio,
+  onPublishToggle: (id: string, currentState: boolean) => void,
+  onDelete: (id: string) => void,
+  isPremiumUser?: boolean,
+  hasMultiplePortfoliosFeature?: boolean
+}) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
-  const handleShare = (e: React.MouseEvent, subdomain: string) => {
+  // Format subdomain based on portfolio order and subscription plan
+  const getFormattedSubdomain = () => {
+    if (isPremiumUser && hasMultiplePortfoliosFeature && portfolio.isPublished && portfolio.portfolioOrder && portfolio.portfolioOrder > 0) {
+      return `${portfolio.subdomain}-${portfolio.portfolioOrder}`;
+    }
+    return portfolio.subdomain;
+  };
+
+  const handleShare = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
 
-    const url = `${window.location.origin}/portfolio/${subdomain}`;
+    const formattedSubdomain = getFormattedSubdomain();
+    const url = `${window.location.origin}/portfolio/${formattedSubdomain}`;
 
     if (navigator.share) {
       navigator.share({
@@ -502,15 +570,16 @@ function PortfolioCard({ portfolio, onPublishToggle, onDelete }: { portfolio: Po
           )}
         </div>
 
-        {/* Add Last Updated timestamp */}
-        <div className="text-xs text-muted-foreground mb-2">
-          Last updated: {new Date(portfolio.updatedAt).toLocaleDateString('en-US', {
+        {/* Add subdomain and Last Updated timestamp */}
+        <div className="text-xs text-muted-foreground mb-2 flex flex-col gap-1">
+          <div>URL: <code>{getFormattedSubdomain()}.portfoliohub.com</code></div>
+          <div>Last updated: {new Date(portfolio.updatedAt).toLocaleDateString('en-US', {
             year: 'numeric',
             month: 'short',
             day: 'numeric',
             hour: '2-digit',
             minute: '2-digit'
-          })}
+          })}</div>
         </div>
 
         <div className="flex items-center justify-between">
@@ -536,7 +605,7 @@ function PortfolioCard({ portfolio, onPublishToggle, onDelete }: { portfolio: Po
       </CardContent>
       <CardFooter className="flex justify-between border-t pt-4">
         <div className="flex gap-2">
-          <Link href={`/portfolio/${portfolio.subdomain}`} target="_blank">
+          <Link href={`/portfolio/${getFormattedSubdomain()}`} target="_blank">
             <Button variant="outline" size="sm">
               View
             </Button>
@@ -545,7 +614,7 @@ function PortfolioCard({ portfolio, onPublishToggle, onDelete }: { portfolio: Po
             <Button
               variant="outline"
               size="sm"
-              onClick={(e) => handleShare(e, portfolio.subdomain)}
+              onClick={(e) => handleShare(e)}
               className="text-violet-600 border-violet-200 hover:bg-violet-50"
             >
               <svg

@@ -20,15 +20,35 @@ export default function PublishedPortfolioPage() {
   const searchParams = useSearchParams();
   const isFullView = searchParams.get('view') === 'full';
 
-  // Fetch portfolio data
   useEffect(() => {
     const fetchPortfolio = async () => {
       if (!username) return;
 
       try {
         setLoading(true);
+
+        // Parse the username to extract the base username and portfolio order if present
+        // Example: "username-1" -> { baseUsername: "username", order: 1 }
+        let baseUsername = username;
+        let portfolioOrder = undefined;
+
+        // Check if the username has a number suffix like username-1, username-2, etc.
+        const usernameMatch = username.match(/^(.*?)(?:-(\d+))?$/);
+        if (usernameMatch) {
+          baseUsername = usernameMatch[1]; // The base part without the number
+          if (usernameMatch[2]) {
+            portfolioOrder = parseInt(usernameMatch[2]);
+          }
+        }
+
         // Call the API to get portfolio by subdomain
-        const response = await apiClient.request(`/portfolios/subdomain/${username}`);
+        // If portfolioOrder is defined, pass it as a query parameter
+        let endpoint = `/portfolios/subdomain/${baseUsername}`;
+        if (portfolioOrder !== undefined) {
+          endpoint += `?order=${portfolioOrder}`;
+        }
+
+        const response = await apiClient.request(endpoint);
 
         if (response.success && response.portfolio) {
           setPortfolio(response.portfolio);
@@ -41,8 +61,6 @@ export default function PublishedPortfolioPage() {
         // For development fallback to sample data
         if (process.env.NODE_ENV === 'development') {
           console.log('Using fallback data for development');
-          // portfolios is not defined in this file, so this fallback will not work unless you import or define it.
-          // We'll just show notFound for now.
           notFound();
         } else {
           notFound();
@@ -74,6 +92,12 @@ export default function PublishedPortfolioPage() {
     return notFound();
   }
 
+  // Extract portfolio order information for the page title
+  const portfolioOrderSuffix =
+    portfolio.portfolioOrder && portfolio.portfolioOrder > 0
+      ? ` (${portfolio.portfolioOrder})`
+      : '';
+
   return (
     <div className="min-h-screen flex flex-col bg-white dark:bg-gray-950">
       <main className="flex-grow">
@@ -83,20 +107,17 @@ export default function PublishedPortfolioPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
               <div className="space-y-6">
                 <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tighter">
-                  {
-                    (portfolio.content?.about?.title) ||
+                  {(portfolio.content?.about?.title) ||
                     (portfolio.content?.header?.title) ||
                     portfolio.title ||
-                    username
-                  }
+                    username}
+                  {portfolioOrderSuffix}
                 </h1>
                 <p className="text-xl text-muted-foreground max-w-[600px]">
-                  {
-                    (portfolio.content?.about?.bio) ||
+                  {(portfolio.content?.about?.bio) ||
                     (portfolio.content?.header?.subtitle) ||
                     portfolio.subtitle ||
-                    'Portfolio'
-                  }
+                    'Portfolio'}
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4">
                   <a href="#contact">
@@ -137,7 +158,7 @@ export default function PublishedPortfolioPage() {
           </div>
         </section>
 
-        {/* Dynamically render sections based on portfolio content */}
+        {/* Projects Section */}
         {portfolio.content?.projects?.items?.length > 0 && (
           <section id="projects" className="py-24 border-b">
             <div className="container px-4 md:px-6">

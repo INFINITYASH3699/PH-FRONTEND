@@ -43,6 +43,26 @@ export async function middleware(request: NextRequest) {
     pathname === path || pathname.startsWith(`${path}/`)
   );
 
+  // Handle portfolio subdomains with sequential numbering for premium users
+  // Format: /portfolio/username-1, /portfolio/username-2, etc.
+  if (pathname.startsWith('/portfolio/')) {
+    // Extract the username from the path
+    const segments = pathname.split('/');
+    if (segments.length >= 3) {
+      const usernameWithPossibleOrder = segments[2];
+
+      // Check if it contains a dash followed by numbers (e.g., username-1)
+      const match = usernameWithPossibleOrder.match(/^(.+)-(\d+)$/);
+      if (match) {
+        const baseUsername = match[1];
+        const order = parseInt(match[2]);
+
+        // Log the subdomain access
+        console.log(`Middleware: Accessing portfolio with sequential subdomain: ${baseUsername} order ${order}`);
+      }
+    }
+  }
+
   // If it's a protected path and user is not authenticated, redirect to sign in
   if (isProtectedPath && !isAuthenticated) {
     console.log(`Middleware: Redirecting unauthenticated user from ${pathname} to /auth/signin`);
@@ -70,9 +90,11 @@ export const config = {
   matcher: [
     // Match protected paths
     '/dashboard/:path*',
-    '/profile/:path*', 
+    '/profile/:path*',
     '/templates/use/:path*',
     // Match auth-only paths
     '/auth/:path*',
+    // Match portfolio paths for subdomain routing
+    '/portfolio/:username*',
   ],
 };

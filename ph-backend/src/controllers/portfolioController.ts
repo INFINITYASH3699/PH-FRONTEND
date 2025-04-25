@@ -43,11 +43,17 @@ export const createPortfolio = async (
 
     // Check if user is on a free plan - if so, they can only use their username as subdomain
     const isFreePlan = user.subscriptionPlan?.type === "free";
+    const isPremiumPlan =
+      user.subscriptionPlan?.type === "premium" ||
+      user.subscriptionPlan?.type === "professional";
+    const hasMultiplePortfoliosFeature =
+      isPremiumPlan && user.subscriptionPlan?.features?.multiplePortfolios;
 
     if (isFreePlan && subdomain.toLowerCase() !== user.username.toLowerCase()) {
       return res.status(403).json({
         success: false,
-        message: "Free plan users can only use their username as subdomain. Upgrade to a paid plan to use custom subdomains.",
+        message:
+          "Free plan users can only use their username as subdomain. Upgrade to a paid plan to use custom subdomains.",
       });
     }
 
@@ -91,7 +97,10 @@ export const createPortfolio = async (
       }
     }
 
-    // If this portfolio is being published, check publishing limitations
+    // Initialize portfolioOrder to 0 (default/main portfolio)
+    let portfolioOrder = 0;
+
+    // If this portfolio is being published, handle publishing rules based on subscription plan
     if (req.body.isPublished) {
       // For free plan users, automatically unpublish any existing published portfolio
       if (isFreePlan) {
@@ -111,14 +120,31 @@ export const createPortfolio = async (
             `Automatically unpublished portfolio ${existingPublishedPortfolio._id} for user ${req.user.id} as they are publishing a new portfolio`
           );
         }
+      } else if (hasMultiplePortfoliosFeature) {
+        // For premium users with multiple portfolios feature
+        // Check if there are existing published portfolios with the same base subdomain
+        const existingPublishedPortfolios = await Portfolio.find({
+          userId: req.user.id,
+          subdomain: subdomain.toLowerCase(),
+          isPublished: true,
+        }).sort({ portfolioOrder: -1 }); // Get in descending order to find highest order
+
+        if (existingPublishedPortfolios.length > 0) {
+          // If there are existing published portfolios with the same subdomain,
+          // set the portfolioOrder to be one higher than the highest existing order
+          portfolioOrder =
+            (existingPublishedPortfolios[0]?.portfolioOrder || 0) + 1;
+          console.log(
+            `Setting portfolioOrder to ${portfolioOrder} for the new portfolio`
+          );
+        }
       } else {
-        // For paid plans, unpublish other portfolios with the same subdomain
+        // For paid plans without multiple portfolios feature, unpublish other portfolios with the same subdomain
         await Portfolio.updateMany(
           {
             userId: req.user.id,
             subdomain: subdomain.toLowerCase(),
             isPublished: true,
-            // _id: { $ne: req.params.id } // Not needed on create
           },
           { $set: { isPublished: false } }
         );
@@ -129,7 +155,7 @@ export const createPortfolio = async (
     console.log(
       `Creating new portfolio for user ${req.user.id} with template ${
         templateId || "none"
-      }`
+      } and portfolioOrder ${portfolioOrder}`
     );
     const newPortfolio = new Portfolio({
       title,
@@ -139,6 +165,7 @@ export const createPortfolio = async (
       templateId: templateId || null,
       content: content || {},
       isPublished: req.body.isPublished || false,
+      portfolioOrder: portfolioOrder,
     });
 
     // Save the new portfolio
@@ -280,6 +307,11 @@ export const updatePortfolio = async (
 
     // Check if user is on a free plan
     const isFreePlan = user.subscriptionPlan?.type === "free";
+    const isPremiumPlan =
+      user.subscriptionPlan?.type === "premium" ||
+      user.subscriptionPlan?.type === "professional";
+    const hasMultiplePortfoliosFeature =
+      isPremiumPlan && user.subscriptionPlan?.features?.multiplePortfolios;
 
     // If subdomain is being changed
     if (subdomain && subdomain.toLowerCase() !== portfolio.subdomain) {
@@ -287,7 +319,8 @@ export const updatePortfolio = async (
       if (isFreePlan && subdomain.toLowerCase() !== user.username.toLowerCase()) {
         return res.status(403).json({
           success: false,
-          message: "Free plan users can only use their username as subdomain. Upgrade to a paid plan to use custom subdomains.",
+          message:
+            "Free plan users can only use their username as subdomain. Upgrade to a paid plan to use custom subdomains.",
         });
       }
 
@@ -304,6 +337,27 @@ export const updatePortfolio = async (
         });
       }
 
+      // If changing subdomain and portfolio is published, need to handle portfolioOrder
+      if (portfolio.isPublished && hasMultiplePortfoliosFeature) {
+        // Reset portfolioOrder to 0 for the first portfolio with the new subdomain
+        const existingPortfoliosWithNewSubdomain = await Portfolio.find({
+          userId: req.user.id,
+          subdomain: subdomain.toLowerCase(),
+          isPublished: true,
+          _id: { $ne: portfolio._id },
+        }).sort({ portfolioOrder: -1 });
+
+        if (existingPortfoliosWithNewSubdomain.length > 0) {
+          // If there are existing published portfolios with the new subdomain,
+          // set the portfolioOrder to be one higher than the highest existing order
+          portfolio.portfolioOrder =
+            (existingPortfoliosWithNewSubdomain[0]?.portfolioOrder || 0) + 1;
+        } else {
+          // If no existing portfolios with this subdomain, reset to 0
+          portfolio.portfolioOrder = 0;
+        }
+      }
+
       // Update the subdomain
       portfolio.subdomain = subdomain.toLowerCase();
     }
@@ -315,7 +369,7 @@ export const updatePortfolio = async (
         const existingPublishedPortfolio = await Portfolio.findOne({
           userId: req.user.id,
           isPublished: true,
-          _id: { $ne: portfolio._id }
+          _id: { $ne: portfolio._id },
         });
 
         if (existingPublishedPortfolio) {
@@ -329,8 +383,29 @@ export const updatePortfolio = async (
             `Automatically unpublished portfolio ${existingPublishedPortfolio._id} for user ${req.user.id} as they are publishing a new portfolio`
           );
         }
+      } else if (hasMultiplePortfoliosFeature) {
+        // For premium users with multiple portfolios feature
+        // If publishing a portfolio, determine its portfolioOrder based on existing portfolios
+        const existingPublishedPortfolios = await Portfolio.find({
+          userId: req.user.id,
+          subdomain: portfolio.subdomain,
+          isPublished: true,
+          _id: { $ne: portfolio._id },
+        }).sort({ portfolioOrder: -1 });
+
+        if (existingPublishedPortfolios.length > 0) {
+          // Set the portfolioOrder to be one higher than the highest existing order
+          portfolio.portfolioOrder =
+            (existingPublishedPortfolios[0]?.portfolioOrder || 0) + 1;
+          console.log(
+            `Setting portfolioOrder to ${portfolio.portfolioOrder} for the portfolio being published`
+          );
+        } else {
+          // If no other published portfolios with this subdomain, set to 0
+          portfolio.portfolioOrder = 0;
+        }
       } else {
-        // For paid plans, unpublish other portfolios with the same subdomain to avoid conflict
+        // For paid plans without multiple portfolios feature, unpublish other portfolios with the same subdomain
         console.log(
           `User ${req.user.id} is publishing portfolio ${portfolio._id} with subdomain ${portfolio.subdomain}. Unpublishing other portfolios with the same subdomain.`
         );
@@ -345,6 +420,33 @@ export const updatePortfolio = async (
           { $set: { isPublished: false } }
         );
       }
+    } else if (
+      isPublished === false &&
+      portfolio.isPublished &&
+      hasMultiplePortfoliosFeature
+    ) {
+      // If a portfolio is being unpublished, we need to reorder other portfolios
+      // Find all published portfolios with the same subdomain, ordered by portfolioOrder
+      const publishedPortfolios = await Portfolio.find({
+        userId: req.user.id,
+        subdomain: portfolio.subdomain,
+        isPublished: true,
+        _id: { $ne: portfolio._id },
+      }).sort({ portfolioOrder: 1 });
+
+      // Reorder the remaining published portfolios
+      for (let i = 0; i < publishedPortfolios.length; i++) {
+        // Skip if the order doesn't need to change
+        if (publishedPortfolios[i].portfolioOrder === i) continue;
+
+        await Portfolio.updateOne(
+          { _id: publishedPortfolios[i]._id },
+          { $set: { portfolioOrder: i } }
+        );
+        console.log(
+          `Reordered portfolio ${publishedPortfolios[i]._id} to order ${i}`
+        );
+      }
     }
 
     // Update fields
@@ -356,8 +458,8 @@ export const updatePortfolio = async (
     if (content) {
       // Ensure we merge the content object properly rather than overwrite it
       portfolio.content = {
-        ...(typeof portfolio.content === 'object' ? portfolio.content : {}),
-        ...content
+        ...(typeof portfolio.content === "object" ? portfolio.content : {}),
+        ...content,
       };
     }
 
@@ -399,7 +501,8 @@ export const updatePortfolio = async (
         if (existingPortfolioWithDomain) {
           return res.status(400).json({
             success: false,
-            message: "This domain is already in use. Please choose a different one.",
+            message:
+              "This domain is already in use. Please choose a different one.",
             portfolio: portfolio,
           });
         }
@@ -537,6 +640,9 @@ export const getPortfolioBySubdomain = async (
   try {
     const { subdomain } = req.params;
     const customDomain = req.query.customDomain as string | undefined;
+    const portfolioOrder = req.query.order
+      ? parseInt(req.query.order as string)
+      : undefined;
 
     let portfolio = null;
 
@@ -550,12 +656,42 @@ export const getPortfolioBySubdomain = async (
 
     // If not found by custom domain or no custom domain provided, look for published portfolio with subdomain
     if (!portfolio) {
+      // Extract the base subdomain and potential order number from the subdomain
+      let baseSubdomain = subdomain.toLowerCase();
+      let orderFromSubdomain: number | undefined = undefined;
+
+      // Check if the subdomain has a number suffix like username-1, username-2, etc.
+      const subdomainMatch = subdomain.match(/^(.*?)(?:-(\d+))?$/);
+      if (subdomainMatch) {
+        baseSubdomain = subdomainMatch[1]; // The base part without the number
+        if (subdomainMatch[2]) {
+          orderFromSubdomain = parseInt(subdomainMatch[2]);
+        }
+      }
+
+      const targetOrder =
+        orderFromSubdomain !== undefined
+          ? orderFromSubdomain
+          : portfolioOrder !== undefined
+          ? portfolioOrder
+          : 0;
+
+      // First try to find by exact order number
       portfolio = await Portfolio.findOne({
-        subdomain: subdomain.toLowerCase(),
+        subdomain: baseSubdomain,
+        portfolioOrder: targetOrder,
         isPublished: true,
-      })
-        .sort({ updatedAt: -1 }) // Use the most recently updated if multiple (should not happen)
-        .populate("templateId", "name category");
+      }).populate("templateId", "name category");
+
+      // If not found and no specific order was requested, get the default (order 0)
+      if (!portfolio && targetOrder === 0) {
+        portfolio = await Portfolio.findOne({
+          subdomain: baseSubdomain,
+          isPublished: true,
+        })
+          .sort({ portfolioOrder: 1 }) // Get the lowest order number (should be 0 for main portfolio)
+          .populate("templateId", "name category");
+      }
     }
 
     if (!portfolio) {

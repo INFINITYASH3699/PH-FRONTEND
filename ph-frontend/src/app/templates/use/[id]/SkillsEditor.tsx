@@ -3,14 +3,17 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { Plus, Trash2, Edit2 } from 'lucide-react';
-import { FetchProfileButton } from '@/components/ui/fetch-profile-button';
+import { Plus, Trash2, Edit2, PlusCircle, ArrowUpDown, GripVertical } from 'lucide-react';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 import apiClient from '@/lib/apiClient';
+import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd';
 
 // Define skill item interface
 interface SkillItem {
+  id?: string; // Add id for drag-and-drop
   name: string;
   proficiency: number;
 }
@@ -27,59 +30,87 @@ interface SkillsContent {
 
 // Updated props to match how it's being used in EditorSidebar
 interface SkillsEditorProps {
-  data: SkillsContent; // Use the correct type for data
-  onChange: (content: SkillsContent) => void; // Changed from onSave to onChange
+  data: SkillsContent;
+  onChange: (content: SkillsContent) => void;
   isLoading?: boolean;
 }
 
 export default function SkillsEditor({ data, onChange, isLoading = false }: SkillsEditorProps) {
-  const [categories, setCategories] = useState<SkillCategory[]>(Array.isArray(data?.categories) ? data.categories : []);
+  const [categories, setCategories] = useState<SkillCategory[]>(
+    Array.isArray(data?.categories)
+      ? data.categories.map(category => ({
+          ...category,
+          skills: category.skills.map(skill => ({
+            ...skill,
+            id: skill.id || `skill-${Math.random().toString(36).substring(2, 9)}` // Ensure each skill has an ID
+          }))
+        }))
+      : []
+  );
+
+  const [isSkillsDialogOpen, setIsSkillsDialogOpen] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newSkillName, setNewSkillName] = useState('');
   const [newSkillProficiency, setNewSkillProficiency] = useState(75);
   const [activeCategoryIndex, setActiveCategoryIndex] = useState<number | null>(null);
   const [editingSkill, setEditingSkill] = useState<{ categoryIndex: number; skillIndex: number } | null>(null);
+  const [editCategoryIndex, setEditCategoryIndex] = useState<number>(-1);
+  const [newSkillCategory, setNewSkillCategory] = useState<SkillCategory>({ name: '', skills: [] });
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [isFetching, setIsFetching] = useState(false);
 
-  // Function to add a new category
-  const handleAddCategory = () => {
-    if (!newCategoryName.trim()) {
-      setErrors({ categoryName: 'Category name is required' });
+  // Function to add or update a skill category
+  const handleAddSkillCategory = () => {
+    if (!newSkillCategory.name.trim()) {
+      toast.error('Category name is required');
       return;
     }
 
-    // Check if category name already exists
-    if (categories.some(cat => cat.name.toLowerCase() === newCategoryName.trim().toLowerCase())) {
-      setErrors({ categoryName: 'Category with this name already exists' });
+    if (newSkillCategory.skills.length === 0) {
+      toast.error('Add at least one skill to this category');
       return;
     }
 
-    // Clear any errors
-    setErrors({});
+    let updatedCategories = [...categories];
 
-    // Add the new category
-    const updatedCategories = [
-      ...categories,
-      {
-        name: newCategoryName.trim(),
-        skills: []
-      }
-    ];
+    if (editCategoryIndex >= 0) {
+      // Update existing category
+      updatedCategories[editCategoryIndex] = { ...newSkillCategory };
+      toast.success(`"${newSkillCategory.name}" category updated`);
+    } else {
+      // Add new category
+      updatedCategories.push({ ...newSkillCategory });
+      toast.success(`"${newSkillCategory.name}" category added`);
+    }
 
-    // Update state
     setCategories(updatedCategories);
-    setNewCategoryName('');
-    setActiveCategoryIndex(updatedCategories.length - 1);
+    setIsSkillsDialogOpen(false);
+    setNewSkillCategory({ name: '', skills: [] });
+    setNewSkillName('');
+    setNewSkillProficiency(75);
+    setEditCategoryIndex(-1);
 
-    toast.success('Category added successfully');
-
-    // Save changes
+    // Save changes to parent component
     onChange({ categories: updatedCategories });
   };
 
+  // Function to edit a category
+  const handleEditSkillCategory = (index: number) => {
+    // Ensure all skills have IDs before editing
+    const categoryToEdit = {
+      ...categories[index],
+      skills: categories[index].skills.map(skill => ({
+        ...skill,
+        id: skill.id || `skill-${Math.random().toString(36).substring(2, 9)}`
+      }))
+    };
+    setEditCategoryIndex(index);
+    setNewSkillCategory(categoryToEdit);
+    setIsSkillsDialogOpen(true);
+  };
+
   // Function to delete a category
-  const handleDeleteCategory = (index: number) => {
+  const handleDeleteSkillCategory = (index: number) => {
     if (!window.confirm(`Are you sure you want to delete the "${categories[index].name}" category and all its skills?`)) {
       return;
     }
@@ -103,80 +134,133 @@ export default function SkillsEditor({ data, onChange, isLoading = false }: Skil
     onChange({ categories: updatedCategories });
   };
 
-  // Add or update a skill in a category
-  const handleAddSkill = (categoryIndex: number) => {
+  // Add a skill to the current category in the dialog
+  const handleAddSkill = () => {
     if (!newSkillName.trim()) {
-      setErrors({ skillName: 'Skill name is required' });
+      toast.error('Skill name is required');
       return;
     }
 
-    // Check if skill already exists in this category (if we're not editing it)
-    if (
-      !editingSkill &&
-      categories[categoryIndex].skills.some(
-        skill => skill.name.toLowerCase() === newSkillName.trim().toLowerCase()
-      )
-    ) {
-      setErrors({ skillName: 'Skill already exists in this category' });
-      return;
-    }
+    const editingIndex = editingSkill ? editingSkill.skillIndex : -1;
+    const updatedSkills = [...newSkillCategory.skills];
 
-    setErrors({});
-    const updatedCategories = [...categories];
-    let successMessage = '';
-
-    if (editingSkill && editingSkill.categoryIndex === categoryIndex) {
-      updatedCategories[categoryIndex].skills[editingSkill.skillIndex] = {
+    if (editingIndex >= 0) {
+      // Update existing skill
+      updatedSkills[editingIndex] = {
+        ...updatedSkills[editingIndex],
         name: newSkillName.trim(),
         proficiency: newSkillProficiency,
       };
-      successMessage = `"${newSkillName.trim()}" skill updated`;
-      setEditingSkill(null);
     } else {
-      updatedCategories[categoryIndex].skills.push({
+      // Check if skill already exists in this category
+      if (updatedSkills.some(skill => skill.name.toLowerCase() === newSkillName.trim().toLowerCase())) {
+        toast.error('A skill with this name already exists in this category');
+        return;
+      }
+
+      // Add new skill
+      updatedSkills.push({
+        id: `skill-${Math.random().toString(36).substring(2, 9)}`,
         name: newSkillName.trim(),
         proficiency: newSkillProficiency,
       });
-      successMessage = `"${newSkillName.trim()}" skill added`;
     }
 
-    setCategories(updatedCategories);
+    setNewSkillCategory({
+      ...newSkillCategory,
+      skills: updatedSkills,
+    });
+
     setNewSkillName('');
     setNewSkillProficiency(75);
-    toast.success(successMessage);
-
-    onChange({ categories: updatedCategories });
+    setEditingSkill(null);
   };
 
-  // Delete a skill
-  const handleDeleteSkill = (categoryIndex: number, skillIndex: number) => {
-    const updatedCategories = [...categories];
-    const skillName = updatedCategories[categoryIndex].skills[skillIndex].name;
-    updatedCategories[categoryIndex].skills.splice(skillIndex, 1);
-    setCategories(updatedCategories);
+  // Edit a skill within the dialog
+  const handleEditSkill = (index: number) => {
+    const skill = newSkillCategory.skills[index];
+    setNewSkillName(skill.name);
+    setNewSkillProficiency(skill.proficiency);
+    setEditingSkill({ categoryIndex: -1, skillIndex: index });
+  };
 
-    if (
-      editingSkill &&
-      editingSkill.categoryIndex === categoryIndex &&
-      editingSkill.skillIndex === skillIndex
-    ) {
+  // Delete a skill within the dialog
+  const handleDeleteSkill = (index: number) => {
+    const updatedSkills = [...newSkillCategory.skills];
+    updatedSkills.splice(index, 1);
+
+    setNewSkillCategory({
+      ...newSkillCategory,
+      skills: updatedSkills,
+    });
+
+    if (editingSkill && editingSkill.skillIndex === index) {
       setEditingSkill(null);
       setNewSkillName('');
       setNewSkillProficiency(75);
+    } else if (editingSkill && editingSkill.skillIndex > index) {
+      setEditingSkill({
+        categoryIndex: editingSkill.categoryIndex,
+        skillIndex: editingSkill.skillIndex - 1
+      });
     }
-
-    toast.success(`"${skillName}" skill deleted`);
-
-    onChange({ categories: updatedCategories });
   };
 
-  // Start editing a skill
-  const handleEditSkill = (categoryIndex: number, skillIndex: number) => {
-    const skill = categories[categoryIndex].skills[skillIndex];
-    setNewSkillName(skill.name);
-    setNewSkillProficiency(skill.proficiency);
-    setEditingSkill({ categoryIndex, skillIndex });
-    setErrors({});
+  // Handle drag end for skills in the dialog
+  const handleDialogDragEnd = (result: DropResult) => {
+    const { destination, source } = result;
+
+    // If dropped outside the list or dropped at the same position
+    if (!destination || (destination.index === source.index)) {
+      return;
+    }
+
+    const reorderedSkills = [...newSkillCategory.skills];
+    const [movedSkill] = reorderedSkills.splice(source.index, 1);
+    reorderedSkills.splice(destination.index, 0, movedSkill);
+
+    setNewSkillCategory({
+      ...newSkillCategory,
+      skills: reorderedSkills
+    });
+  };
+
+  // Handle drag end for skills in the main display
+  const handleMainDragEnd = (result: DropResult) => {
+    const { destination, source, draggableId } = result;
+
+    // If dropped outside the list or no destination
+    if (!destination) {
+      return;
+    }
+
+    // Extract the category index from the droppable ID (format: "category-{index}")
+    const categoryIndex = parseInt(source.droppableId.split('-')[1]);
+
+    // If the item was dropped in a different category or dropped at the same position
+    if (destination.droppableId !== source.droppableId || destination.index === source.index) {
+      return;
+    }
+
+    // Clone the categories array
+    const updatedCategories = [...categories];
+    const categorySkills = [...updatedCategories[categoryIndex].skills];
+
+    // Reorder skills within the category
+    const [movedSkill] = categorySkills.splice(source.index, 1);
+    categorySkills.splice(destination.index, 0, movedSkill);
+
+    // Update the category with reordered skills
+    updatedCategories[categoryIndex].skills = categorySkills;
+
+    // Update state
+    setCategories(updatedCategories);
+
+    // Notify parent component of changes
+    onChange({ categories: updatedCategories });
+
+    // Show success toast
+    toast.success('Skill order updated');
   };
 
   // Handle fetching skills from profile
@@ -201,11 +285,18 @@ export default function SkillsEditor({ data, onChange, isLoading = false }: Skil
             'skills' in profileData.profile.skills[0]) {
           // Already in category format - clone the data structure
           const skillCategories = JSON.parse(JSON.stringify(profileData.profile.skills));
-          setCategories(skillCategories);
-          if (skillCategories.length > 0) {
-            setActiveCategoryIndex(0);
-          }
-          onChange({ categories: skillCategories });
+
+          // Add IDs to each skill for drag-and-drop functionality
+          const categoriesWithIds = skillCategories.map((category: SkillCategory) => ({
+            ...category,
+            skills: category.skills.map((skill: SkillItem) => ({
+              ...skill,
+              id: `skill-${Math.random().toString(36).substring(2, 9)}`
+            }))
+          }));
+
+          setCategories(categoriesWithIds);
+          onChange({ categories: categoriesWithIds });
           toast.success('Skills successfully imported from your profile');
         }
         // Handle flat skill array with category property
@@ -224,6 +315,7 @@ export default function SkillsEditor({ data, onChange, isLoading = false }: Skil
 
             // Add skill to appropriate category
             skillsByCategory[categoryName].push({
+              id: `skill-${Math.random().toString(36).substring(2, 9)}`,
               name: skill.name,
               // Use level if available, otherwise use proficiency, default to 75
               proficiency: skill.level || skill.proficiency || 75
@@ -238,9 +330,6 @@ export default function SkillsEditor({ data, onChange, isLoading = false }: Skil
 
           // Update state
           setCategories(newCategories);
-          if (newCategories.length > 0) {
-            setActiveCategoryIndex(0);
-          }
 
           // Call onChange to update parent component
           onChange({ categories: newCategories });
@@ -309,200 +398,265 @@ export default function SkillsEditor({ data, onChange, isLoading = false }: Skil
           </Button>
         </div>
         <p className="text-muted-foreground">
-          Add and organize your skills into categories.
+          Organize your skills into categories to showcase your expertise. Drag skills to reorder them.
         </p>
       </div>
 
-      {/* Category management */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-xl">Skill Categories</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-2 mb-4">
-            <div className="w-full">
+      {/* Dialog for adding/editing skill categories */}
+      <Dialog open={isSkillsDialogOpen} onOpenChange={setIsSkillsDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>
+              {editCategoryIndex >= 0 ? 'Edit Skill Category' : 'Add Skill Category'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="category-name">Category Name</Label>
               <Input
-                placeholder="New Category (e.g., Frontend)"
-                value={newCategoryName}
-                onChange={e => setNewCategoryName(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleAddCategory();
-                  }
-                }}
-                className={errors.categoryName ? 'border-red-500' : ''}
+                id="category-name"
+                placeholder="e.g., Frontend, Backend, Design"
+                value={newSkillCategory.name}
+                onChange={(e) => setNewSkillCategory(prev => ({ ...prev, name: e.target.value }))}
               />
-              {errors.categoryName && (
-                <p className="text-red-500 text-xs mt-1">{errors.categoryName}</p>
-              )}
             </div>
-            <Button
-              onClick={handleAddCategory}
-              disabled={!newCategoryName.trim() || isLoading}
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              Add
-            </Button>
-          </div>
 
-          {categories.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-              {categories.map((category, index) => (
-                <div
-                  key={index}
-                  className={`p-3 border rounded-md flex justify-between items-center cursor-pointer transition-colors ${
-                    activeCategoryIndex === index ? 'bg-accent' : 'hover:bg-accent/50'
-                  }`}
-                  onClick={() => setActiveCategoryIndex(index)}
-                >
-                  <div>
-                    <span className="font-medium">{category.name}</span>
-                    <span className="ml-2 text-xs text-muted-foreground">
-                      ({category.skills.length} skills)
-                    </span>
-                  </div>
-                  <button
-                    onClick={e => {
-                      e.stopPropagation();
-                      handleDeleteCategory(index);
-                    }}
-                    className="p-1 hover:text-red-500"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center p-4 border rounded-md">
-              <p className="text-muted-foreground">
-                No categories yet. Add your first skill category or fetch from your profile.
-              </p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Skills management for selected category */}
-      {activeCategoryIndex !== null &&
-        typeof activeCategoryIndex === 'number' &&
-        categories[activeCategoryIndex] && (
-          <Card>
-            <CardHeader>
-              <CardTitle>
-                Skills in {categories[activeCategoryIndex].name}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Add/edit skill form */}
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <label htmlFor="skillName" className="text-sm font-medium">
-                    Skill Name <span className="text-red-500">*</span>
-                  </label>
-                  <Input
-                    id="skillName"
-                    placeholder="E.g., React"
-                    value={newSkillName}
-                    onChange={e => setNewSkillName(e.target.value)}
-                    className={errors.skillName ? 'border-red-500' : ''}
-                  />
-                  {errors.skillName && (
-                    <p className="text-red-500 text-xs mt-1">{errors.skillName}</p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <label htmlFor="skillProficiency" className="text-sm font-medium">
-                    Proficiency Level: {newSkillProficiency}%
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs">0%</span>
-                    <input
-                      id="skillProficiency"
-                      type="range"
-                      min="0"
-                      max="100"
-                      value={newSkillProficiency}
-                      onChange={e => setNewSkillProficiency(parseInt(e.target.value))}
-                      className="flex-grow"
-                    />
-                    <span className="text-xs">100%</span>
-                  </div>
-                  <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden mt-2">
-                    <div
-                      className={`h-full ${getProficiencyColor(newSkillProficiency)}`}
-                      style={{ width: `${newSkillProficiency}%` }}
-                    ></div>
-                  </div>
-                </div>
-
-                <div className="flex gap-2 justify-end">
-                  {editingSkill && (
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setEditingSkill(null);
-                        setNewSkillName('');
-                        setNewSkillProficiency(75);
-                        setErrors({});
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                  )}
-                  <Button
-                    onClick={() => handleAddSkill(activeCategoryIndex)}
-                    disabled={!newSkillName.trim() || isLoading}
-                  >
-                    {editingSkill ? 'Update Skill' : 'Add Skill'}
-                  </Button>
-                </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>Skills in this category</Label>
               </div>
 
-              {/* Skills list */}
-              {categories[activeCategoryIndex].skills.length > 0 ? (
-                <div className="space-y-3">
-                  {categories[activeCategoryIndex].skills.map((skill, skillIndex) => (
-                    <div key={skillIndex} className="border rounded-md p-3">
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="font-medium">{skill.name}</span>
-                        <div className="flex gap-1">
-                          <button
-                            onClick={() => handleEditSkill(activeCategoryIndex, skillIndex)}
-                            className="p-1 hover:text-blue-500"
-                          >
-                            <Edit2 className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteSkill(activeCategoryIndex, skillIndex)}
-                            className="p-1 hover:text-red-500"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
+              <div className="grid grid-cols-1 md:grid-cols-[1fr_100px_80px] gap-2 items-end mb-4">
+                <div>
+                  <Label htmlFor="skill-name" className="text-xs mb-1 block">Skill Name</Label>
+                  <Input
+                    id="skill-name"
+                    placeholder="e.g., React, JavaScript"
+                    value={newSkillName}
+                    onChange={(e) => setNewSkillName(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="skill-proficiency" className="text-xs mb-1 block">Level (%)</Label>
+                  <Input
+                    id="skill-proficiency"
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={newSkillProficiency}
+                    onChange={(e) => setNewSkillProficiency(parseInt(e.target.value) || 0)}
+                  />
+                </div>
+                <Button onClick={handleAddSkill}>
+                  {editingSkill ? 'Update' : 'Add Skill'}
+                </Button>
+              </div>
+
+              <div className="w-full mt-2">
+                <Label className="text-sm font-medium">Preview:</Label>
+                {newSkillName && (
+                  <div className="mt-2 p-3 bg-muted rounded-md">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="font-medium">{newSkillName}</span>
+                      <span className="text-sm text-muted-foreground">{newSkillProficiency}%</span>
+                    </div>
+                    <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full ${getProficiencyColor(newSkillProficiency)}`}
+                        style={{ width: `${newSkillProficiency}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-4">
+                <Label className="text-sm font-medium mb-2 block">Skills in this category:</Label>
+                <DragDropContext onDragEnd={handleDialogDragEnd}>
+                  <Droppable droppableId="dialog-skills">
+                    {(provided) => (
+                      <div
+                        className="mt-2 space-y-2 max-h-40 overflow-y-auto border rounded-md p-2"
+                        {...provided.droppableProps}
+                        ref={provided.innerRef}
+                      >
+                        {newSkillCategory.skills.length > 0 ? (
+                          newSkillCategory.skills.map((skill, idx) => (
+                            <Draggable
+                              key={skill.id || `dialog-skill-${idx}`}
+                              draggableId={skill.id || `dialog-skill-${idx}`}
+                              index={idx}
+                            >
+                              {(provided) => (
+                                <div
+                                  ref={provided.innerRef}
+                                  {...provided.draggableProps}
+                                  className="flex items-center justify-between p-2 bg-muted rounded-md"
+                                >
+                                  <div
+                                    {...provided.dragHandleProps}
+                                    className="mr-2 cursor-move text-muted-foreground flex-shrink-0"
+                                  >
+                                    <GripVertical size={16} />
+                                  </div>
+                                  <div className="flex-1 pr-2">
+                                    <div className="flex justify-between items-center mb-1">
+                                      <span className="font-medium">{skill.name}</span>
+                                      <span className="text-xs text-muted-foreground">{skill.proficiency}%</span>
+                                    </div>
+                                    <div className="w-full bg-gray-200 rounded-full h-1.5">
+                                      <div
+                                        className={`h-full ${getProficiencyColor(skill.proficiency)}`}
+                                        style={{ width: `${skill.proficiency}%` }}
+                                      ></div>
+                                    </div>
+                                  </div>
+                                  <div className="flex space-x-1">
+                                    <Button size="sm" variant="ghost" onClick={() => handleEditSkill(idx)}>
+                                      <Edit2 className="h-4 w-4" />
+                                    </Button>
+                                    <Button size="sm" variant="ghost" className="text-red-500" onClick={() => handleDeleteSkill(idx)}>
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              )}
+                            </Draggable>
+                          ))
+                        ) : (
+                          <div className="text-center p-4 text-muted-foreground text-sm">
+                            No skills added yet. Add some skills above.
+                          </div>
+                        )}
+                        {provided.placeholder}
                       </div>
-                      <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <div
-                          className={`h-full ${getProficiencyColor(skill.proficiency)}`}
-                          style={{ width: `${skill.proficiency}%` }}
-                        ></div>
-                      </div>
-                      <div className="text-xs text-right mt-1 text-muted-foreground">
-                        {skill.proficiency}%
+                    )}
+                  </Droppable>
+                </DragDropContext>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => {
+              setIsSkillsDialogOpen(false);
+              setNewSkillCategory({ name: '', skills: [] });
+              setEditCategoryIndex(-1);
+              setEditingSkill(null);
+              setNewSkillName('');
+              setNewSkillProficiency(75);
+            }}>
+              Cancel
+            </Button>
+            <Button onClick={handleAddSkillCategory}>
+              {editCategoryIndex >= 0 ? 'Update Category' : 'Add Category'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Main content area */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>Skill Categories</CardTitle>
+            <CardDescription>
+              Group your skills by categories such as Frontend, Backend, Design, etc.
+            </CardDescription>
+          </div>
+          <DialogTrigger asChild>
+            <Button size="sm" onClick={() => {
+              setIsSkillsDialogOpen(true);
+              setNewSkillCategory({ name: '', skills: [] });
+              setEditCategoryIndex(-1);
+            }}>
+              <PlusCircle className="h-4 w-4 mr-2" />
+              Add Category
+            </Button>
+          </DialogTrigger>
+        </CardHeader>
+        <CardContent>
+          <DragDropContext onDragEnd={handleMainDragEnd}>
+            {categories.length > 0 ? (
+              <div className="space-y-6">
+                {categories.map((category, idx) => (
+                  <div key={idx} className="border rounded-lg p-4">
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-lg font-semibold">{category.name}</h3>
+                      <div className="flex space-x-2">
+                        <Button size="sm" variant="ghost" onClick={() => handleEditSkillCategory(idx)}>
+                          <Edit2 className="h-4 w-4 mr-1" />
+                          Edit
+                        </Button>
+                        <Button size="sm" variant="ghost" className="text-red-500" onClick={() => handleDeleteSkillCategory(idx)}>
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          Delete
+                        </Button>
                       </div>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center p-4 border rounded-md">
-                  <p className="text-muted-foreground">No skills in this category yet.</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
+
+                    <Droppable droppableId={`category-${idx}`}>
+                      {(provided) => (
+                        <div
+                          className="grid grid-cols-1 md:grid-cols-2 gap-4"
+                          ref={provided.innerRef}
+                          {...provided.droppableProps}
+                        >
+                          {category.skills.map((skill, skillIdx) => (
+                            <Draggable
+                              key={skill.id || `skill-${idx}-${skillIdx}`}
+                              draggableId={skill.id || `skill-${idx}-${skillIdx}`}
+                              index={skillIdx}
+                            >
+                              {(provided) => (
+                                <div
+                                  className="p-3 bg-muted rounded-md flex items-center"
+                                  ref={provided.innerRef}
+                                  {...provided.draggableProps}
+                                >
+                                  <div
+                                    {...provided.dragHandleProps}
+                                    className="mr-2 cursor-move text-muted-foreground"
+                                  >
+                                    <GripVertical size={16} />
+                                  </div>
+                                  <div className="flex-1">
+                                    <div className="flex justify-between items-center mb-1">
+                                      <span className="font-medium">{skill.name}</span>
+                                      <span className="text-sm text-muted-foreground">{skill.proficiency}%</span>
+                                    </div>
+                                    <div className="w-full bg-gray-200 rounded-full h-2">
+                                      <div
+                                        className={`h-full ${getProficiencyColor(skill.proficiency)}`}
+                                        style={{ width: `${skill.proficiency}%` }}
+                                      ></div>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </Draggable>
+                          ))}
+                          {provided.placeholder}
+                        </div>
+                      )}
+                    </Droppable>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12 border-2 border-dashed rounded-lg">
+                <h3 className="text-lg font-medium text-muted-foreground mb-2">No skills added yet</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Add your professional skills and rate your proficiency to showcase your expertise.
+                </p>
+                <Button onClick={() => setIsSkillsDialogOpen(true)}>
+                  <PlusCircle className="h-4 w-4 mr-2" />
+                  Add Skills
+                </Button>
+              </div>
+            )}
+          </DragDropContext>
+        </CardContent>
+      </Card>
     </div>
   );
 }
