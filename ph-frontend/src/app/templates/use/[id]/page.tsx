@@ -1,4 +1,5 @@
-// This is a server component that wraps the client component
+"user clients"
+
 import React, { Suspense } from 'react';
 import { notFound } from 'next/navigation';
 import TemplateEditorClient from './TemplateEditorClient';
