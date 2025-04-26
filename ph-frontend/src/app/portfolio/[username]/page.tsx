@@ -25,12 +25,12 @@ export default function PublishedPortfolioPage() {
       try {
         setLoading(true);
 
-        // Parse the username to extract the base username and portfolio order if present
-        // Example: "username-1" -> { baseUsername: "username", order: 1 }
+        // Extract the base username and potential order number if it exists
         let baseUsername = username;
         let portfolioOrder = undefined;
 
         // Check if the username has a number suffix like username-1, username-2, etc.
+        // This code path needs to be fixed - it's splitting incorrectly
         const usernameMatch = username.match(/^(.*?)(?:-(\d+))?$/);
         if (usernameMatch) {
           baseUsername = usernameMatch[1]; // The base part without the number
@@ -47,6 +47,7 @@ export default function PublishedPortfolioPage() {
         }
 
         const response = await apiClient.request(endpoint);
+        console.log(`Fetched portfolio for subdomain ${baseUsername}, order: ${portfolioOrder || 0}`);
 
         if (response.success && response.portfolio) {
           setPortfolio(response.portfolio);

@@ -110,9 +110,6 @@ export default function TemplateEditorClient({
   useEffect(() => {
     if (!isClient) return;
 
-    // Skip authentication check here since we handle it in the previous useEffect
-    // This allows the editor to load for server-side authenticated users even if client auth not established yet
-
     try {
       if (!template) {
         setError("Template data is missing");
@@ -134,9 +131,14 @@ export default function TemplateEditorClient({
             if (response && response.success && response.portfolio) {
               // Get current user subscription information
               const currentUser = apiClient.getUser?.();
+              // Improved premium plan detection
               const isPremiumUser =
                 currentUser?.subscriptionPlan?.type === "premium" ||
-                currentUser?.subscriptionPlan?.type === "professional";
+                currentUser?.subscriptionPlan?.type === "professional" ||
+                (currentUser?.subscriptionPlan &&
+                  ["premium", "professional"].includes(
+                    currentUser.subscriptionPlan.type
+                  ));
 
               // Update portfolio with current subscription status
               const updatedPortfolio = {
@@ -196,8 +198,8 @@ export default function TemplateEditorClient({
             user?.username ||
             user?.name?.toLowerCase().replace(/\s+/g, "") ||
             "";
-          const timestamp = new Date().getTime().toString().slice(-4);
-          return `${username}${timestamp}`;
+          // Use username directly without timestamp if it exists
+          return username || `user-${Date.now().toString().slice(-4)}`;
         };
 
         // Determine default section order from template
@@ -217,10 +219,10 @@ export default function TemplateEditorClient({
               template.category === "developer"
                 ? "Software Developer"
                 : template.category === "designer"
-                  ? "Creative Designer"
-                  : template.category === "photographer"
-                    ? "Professional Photographer"
-                    : "Professional Portfolio",
+                ? "Creative Designer"
+                : template.category === "photographer"
+                ? "Professional Photographer"
+                : "Professional Portfolio",
             profileImage: "",
             navigation: ["About", "Projects", "Experience", "Contact"],
           },
@@ -231,8 +233,8 @@ export default function TemplateEditorClient({
               template.category === "designer"
                 ? "with-image"
                 : template.category === "developer"
-                  ? "with-highlights"
-                  : "standard",
+                ? "with-highlights"
+                : "standard",
             highlights: [
               {
                 title: "My Expertise",
@@ -275,9 +277,14 @@ export default function TemplateEditorClient({
 
         // Get current user subscription information
         const currentUser = apiClient.getUser?.();
+        // Improved premium plan detection
         const isPremiumUser =
           currentUser?.subscriptionPlan?.type === "premium" ||
-          currentUser?.subscriptionPlan?.type === "professional";
+          currentUser?.subscriptionPlan?.type === "professional" ||
+          (currentUser?.subscriptionPlan &&
+            ["premium", "professional"].includes(
+              currentUser.subscriptionPlan.type
+            ));
 
         // Create initial portfolio data
         const initialPortfolioData = {
@@ -527,7 +534,9 @@ export default function TemplateEditorClient({
               subtitle: portfolio.subtitle || "",
               subdomain:
                 portfolio.subdomain ||
-                `user-${Date.now().toString().slice(-8)}`,
+                (currentUser?.username ||
+                  user?.username ||
+                  `user-${Date.now().toString().slice(-8)}`),
               isPublished: false,
               sectionOrder: sectionOrder,
               sectionVariants: selectedSectionVariants,
@@ -568,7 +577,10 @@ export default function TemplateEditorClient({
         title: portfolio.title || "My Portfolio",
         subtitle: portfolio.subtitle || "",
         subdomain:
-          portfolio.subdomain || `user-${Date.now().toString().slice(-8)}`,
+          portfolio.subdomain ||
+          (currentUser?.username ||
+            user?.username ||
+            `user-${Date.now().toString().slice(-8)}`),
         isPublished: false,
         sectionOrder: sectionOrder,
         sectionVariants: selectedSectionVariants,
@@ -676,18 +688,40 @@ export default function TemplateEditorClient({
         }
       }
 
+      // Improve premium plan detection logic to handle various data structures
       const isPremiumUser =
-        currentUser?.subscriptionPlan?.type === "premium" &&
-        currentUser?.subscriptionPlan?.isActive === true &&
-        currentUser?.subscriptionPlan?.features?.customDomain === true;
+        currentUser?.subscriptionPlan?.type === "premium" ||
+        currentUser?.subscriptionPlan?.type === "professional" ||
+        // Check the response structure directly from the API
+        (currentUser?.subscriptionPlan &&
+          ["premium", "professional"].includes(
+            currentUser.subscriptionPlan.type
+          ));
 
+      // Improve the subdomain selection logic
       let subdomain = portfolio.subdomain;
-      if (!isPremiumUser) {
-        subdomain =
-          currentUser?.username || `user-${Date.now().toString().slice(-8)}`;
-      } else if (!subdomain) {
-        subdomain =
-          currentUser?.username || `user-${Date.now().toString().slice(-8)}`;
+      // For premium users, allow custom subdomain (from portfolio.subdomain if set)
+      // For free users, force subdomain to username
+      if (isPremiumUser) {
+        // If subdomain is missing or an old fallback, try username, else fallback
+        if (
+          !subdomain ||
+          subdomain.includes("user-") ||
+          subdomain === "undefined" ||
+          subdomain === "null"
+        ) {
+          subdomain = currentUser?.username || user?.username;
+          if (!subdomain) {
+            subdomain = `user-${Date.now().toString().slice(-8)}`;
+          }
+        }
+        // Otherwise, keep whatever is in portfolio.subdomain (custom subdomain)
+      } else {
+        // Free user: always force subdomain to username (or fallback)
+        subdomain = currentUser?.username || user?.username;
+        if (!subdomain) {
+          subdomain = `user-${Date.now().toString().slice(-8)}`;
+        }
       }
 
       const portfolioToPublish = {
@@ -704,11 +738,19 @@ export default function TemplateEditorClient({
         sectionVariants: selectedSectionVariants,
         animationsEnabled: animationsEnabled,
         stylePreset: selectedStylePreset,
+        // Additional field to ensure premium status is properly passed
+        userType: isPremiumUser ? "premium" : "free",
       };
 
       if (process.env.NODE_ENV === "development") {
         await new Promise((resolve) => setTimeout(resolve, 1200));
       }
+
+      console.log("Publishing portfolio with data:", JSON.stringify({
+        subdomain: portfolioToPublish.subdomain,
+        isPremiumUser: isPremiumUser,
+        username: currentUser?.username
+      }));
 
       const response = await apiClient.portfolios.publish(portfolioToPublish);
 
@@ -968,10 +1010,14 @@ export default function TemplateEditorClient({
           profileData.fullName?.toLowerCase().replace(/\s+/g, "") ||
           "";
 
+        // Improved premium plan detection
         const isPremiumUser =
-          profileData.subscriptionPlan?.type === "premium" &&
-          profileData.subscriptionPlan?.isActive === true &&
-          profileData.subscriptionPlan?.features?.customDomain === true;
+          profileData.subscriptionPlan?.type === "premium" ||
+          profileData.subscriptionPlan?.type === "professional" ||
+          (profileData.subscriptionPlan &&
+            ["premium", "professional"].includes(
+              profileData.subscriptionPlan.type
+            ));
 
         updatedPortfolio.userType = isPremiumUser ? "premium" : "free";
 
@@ -997,7 +1043,9 @@ export default function TemplateEditorClient({
 
       if (updatedFields.length > 0) {
         toast.success(
-          `Profile data imported successfully! Updated: ${updatedFields.join(", ")}.`
+          `Profile data imported successfully! Updated: ${updatedFields.join(
+            ", "
+          )}.`
         );
       } else {
         toast.warning(
@@ -1209,14 +1257,28 @@ export default function TemplateEditorClient({
 
         {/* Content Preview */}
         <div
-          className={`flex-1 transition-all duration-300 ${showPreview ? "opacity-100" : "opacity-95"}`}
+          className={`flex-1 transition-all duration-300 ${
+            showPreview ? "opacity-100" : "opacity-95"
+          }`}
         >
           <div
-            className={`w-full h-full flex flex-col overflow-hidden bg-gray-100 dark:bg-gray-900 ${viewportMode === "tablet" ? "items-center pt-8" : viewportMode === "mobile" ? "items-center pt-8" : ""}`}
+            className={`w-full h-full flex flex-col overflow-hidden bg-gray-100 dark:bg-gray-900 ${
+              viewportMode === "tablet"
+                ? "items-center pt-8"
+                : viewportMode === "mobile"
+                ? "items-center pt-8"
+                : ""
+            }`}
           >
             {/* Viewport wrapper */}
             <div
-              className={`${viewportMode === "tablet" ? "w-[768px] h-[1024px] scale-75 origin-top shadow-xl rounded-xl overflow-hidden" : viewportMode === "mobile" ? "w-[390px] h-[844px] scale-75 origin-top shadow-xl rounded-xl overflow-hidden" : "w-full h-full"}`}
+              className={`${
+                viewportMode === "tablet"
+                  ? "w-[768px] h-[1024px] scale-75 origin-top shadow-xl rounded-xl overflow-hidden"
+                  : viewportMode === "mobile"
+                  ? "w-[390px] h-[844px] scale-75 origin-top shadow-xl rounded-xl overflow-hidden"
+                  : "w-full h-full"
+              }`}
             >
               <div className="w-full h-full bg-white dark:bg-black overflow-auto">
                 {portfolio && (

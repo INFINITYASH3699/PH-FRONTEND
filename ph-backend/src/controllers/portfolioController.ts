@@ -644,57 +644,85 @@ export const getPortfolioBySubdomain = async (
       ? parseInt(req.query.order as string)
       : undefined;
 
-    let portfolio = null;
+    console.log(`Getting portfolio by subdomain: ${subdomain}, order: ${portfolioOrder || 0}`);
+
+    let portfolio: any = null;
 
     // If customDomain is provided, try to find by custom domain first
     if (customDomain) {
       portfolio = await Portfolio.findOne({
         customDomain: customDomain.toLowerCase(),
         isPublished: true,
-      }).populate("templateId", "name category");
+      }).populate("templateId", "name category").lean();
+      if (portfolio) {
+        console.log(`Found portfolio by customDomain: ${customDomain}`);
+      }
     }
 
     // If not found by custom domain or no custom domain provided, look for published portfolio with subdomain
     if (!portfolio) {
-      // Extract the base subdomain and potential order number from the subdomain
+      // Parse the subdomain for a possible number suffix (e.g. username-2)
       let baseSubdomain = subdomain.toLowerCase();
       let orderFromSubdomain: number | undefined = undefined;
 
-      // Check if the subdomain has a number suffix like username-1, username-2, etc.
+      // Regex: match "something" or "something-2"
       const subdomainMatch = subdomain.match(/^(.*?)(?:-(\d+))?$/);
       if (subdomainMatch) {
-        baseSubdomain = subdomainMatch[1]; // The base part without the number
+        baseSubdomain = subdomainMatch[1].toLowerCase();
         if (subdomainMatch[2]) {
           orderFromSubdomain = parseInt(subdomainMatch[2]);
         }
       }
 
-      const targetOrder =
-        orderFromSubdomain !== undefined
-          ? orderFromSubdomain
-          : portfolioOrder !== undefined
-          ? portfolioOrder
-          : 0;
+      // Log the search parameters for debugging
+      console.log(`Searching for portfolio with baseSubdomain: ${baseSubdomain}, orderFromSubdomain: ${orderFromSubdomain}, portfolioOrder: ${portfolioOrder}`);
+
+      // Prefer order in URL, then ?order= param, then 0
+      let targetOrder = 0;
+      if (orderFromSubdomain !== undefined) {
+        targetOrder = orderFromSubdomain;
+      } else if (portfolioOrder !== undefined) {
+        targetOrder = portfolioOrder;
+      }
 
       // First try to find by exact order number
       portfolio = await Portfolio.findOne({
         subdomain: baseSubdomain,
         portfolioOrder: targetOrder,
         isPublished: true,
-      }).populate("templateId", "name category");
+      }).populate("templateId", "name category").lean();
 
-      // If not found and no specific order was requested, get the default (order 0)
-      if (!portfolio && targetOrder === 0) {
+      // Log the search results for debugging
+      console.log(`Search for ${baseSubdomain} with order ${targetOrder}: ${portfolio ? 'Found' : 'Not found'}`);
+
+      // If not found and no specific order was requested, get the default (order 0) or any published portfolio
+      if (!portfolio) {
+        // Try with exact order 0 first (main portfolio)
         portfolio = await Portfolio.findOne({
           subdomain: baseSubdomain,
+          portfolioOrder: 0,
           isPublished: true,
-        })
-          .sort({ portfolioOrder: 1 }) // Get the lowest order number (should be 0 for main portfolio)
-          .populate("templateId", "name category");
+        }).populate("templateId", "name category").lean();
+
+        console.log(`Search for ${baseSubdomain} with order 0: ${portfolio ? 'Found' : 'Not found'}`);
+
+        // If still not found, find any published portfolio with this subdomain
+        if (!portfolio) {
+          portfolio = await Portfolio.findOne({
+            subdomain: baseSubdomain,
+            isPublished: true,
+          })
+            .sort({ portfolioOrder: 1 }) // Get the lowest order number (should be 0 for main portfolio)
+            .populate("templateId", "name category")
+            .lean();
+
+          console.log(`Fallback search result for any portfolio with ${baseSubdomain}: ${portfolio ? 'Found' : 'Not found'}`);
+        }
       }
     }
 
     if (!portfolio) {
+      console.log(`No published portfolio found for subdomain: ${subdomain}`);
       return res.status(404).json({
         success: false,
         message: "Portfolio not found or not published",
@@ -703,7 +731,8 @@ export const getPortfolioBySubdomain = async (
 
     // Increment view count
     portfolio.viewCount = (portfolio.viewCount || 0) + 1;
-    await portfolio.save();
+    // Save updated view count
+    await Portfolio.updateOne({ _id: portfolio._id }, { $set: { viewCount: portfolio.viewCount } });
 
     return res.status(200).json({
       success: true,
