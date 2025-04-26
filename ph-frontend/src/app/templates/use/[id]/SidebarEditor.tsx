@@ -45,11 +45,8 @@ import {
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-// Add NavbarEditor to the imports
 import NavbarEditor from "./NavbarEditor";
-// Add FooterEditor to the imports
 import FooterEditor from "./FooterEditor";
-// Add additional editors for work, clients and testimonials
 import WorkEditor from "./WorkEditor";
 import ClientsEditor from "./ClientsEditor";
 import TestimonialsEditor from "./TestimonialsEditor";
@@ -137,11 +134,18 @@ export default function SidebarEditor({
   >("sections");
   const [searchTerm, setSearchTerm] = useState("");
   const [showManageSections, setShowManageSections] = useState(false);
-  const [portfolioState, setPortfolio] = useState<any>(portfolio);
+  const [portfolioState, setPortfolioState] = useState<any>(portfolio);
 
+  // Keep portfolioState in sync with incoming prop, but also allow local updates
   useEffect(() => {
-    setPortfolio(portfolio);
-  }, [portfolio]);
+    setPortfolioState(portfolio);
+    console.log("Portfolio updated in SidebarEditor:", {
+      hasPortfolio: !!portfolio,
+      hasContent: portfolio?.content ? Object.keys(portfolio.content).length > 0 : false,
+      contentFields: portfolio?.content ? Object.keys(portfolio.content) : [],
+      sections: sectionOrder,
+    });
+  }, [portfolio, sectionOrder]);
 
   useEffect(() => {
     setIsClient(true);
@@ -257,8 +261,34 @@ export default function SidebarEditor({
     return Array.from(sections);
   };
 
+  // Always get the latest content for a section from portfolioState
   const getContentForSection = (sectionId: string) => {
-    return portfolioState?.content?.[sectionId] || {};
+    // Debug log to see what we have
+    console.log(`Getting content for section ${sectionId}:`, {
+      hasPortfolio: !!portfolioState,
+      hasContent: portfolioState?.content ? true : false,
+      contentFields: portfolioState?.content ? Object.keys(portfolioState.content) : [],
+      hasThisSection: portfolioState?.content ? sectionId in portfolioState.content : false,
+    });
+
+    // Safely return content or empty object
+    return (portfolioState?.content && portfolioState.content[sectionId]) || {};
+  };
+
+  // When a section is updated, update local state and call parent handler
+  const handleUpdateSection = (sectionId: string, data: any) => {
+    setPortfolioState((prev: any) => {
+      const newContent = {
+        ...(prev?.content || {}),
+        [sectionId]: data,
+      };
+      const updated = {
+        ...prev,
+        content: newContent,
+      };
+      return updated;
+    });
+    onUpdateSection(sectionId, data);
   };
 
   const handleSectionClick = (sectionId: string) => {
@@ -640,7 +670,7 @@ export default function SidebarEditor({
             </div>
             <HeaderEditor
               data={getContentForSection("header")}
-              onChange={(data) => onUpdateSection("header", data)}
+              onChange={(data) => handleUpdateSection("header", data)}
             />
           </div>
         );
@@ -650,7 +680,7 @@ export default function SidebarEditor({
             {variantSelector}
             <AboutEditor
               data={getContentForSection("about")}
-              onChange={(data) => onUpdateSection("about", data)}
+              onChange={(data) => handleUpdateSection("about", data)}
             />
           </div>
         );
@@ -661,7 +691,7 @@ export default function SidebarEditor({
             {variantSelector}
             <ProjectsEditor
               data={getContentForSection(section)}
-              onChange={(data) => onUpdateSection(section, data)}
+              onChange={(data) => handleUpdateSection(section, data)}
             />
           </div>
         );
@@ -671,7 +701,7 @@ export default function SidebarEditor({
             {variantSelector}
             <SkillsEditor
               data={getContentForSection("skills")}
-              onChange={(data) => onUpdateSection("skills", data)}
+              onChange={(data) => handleUpdateSection("skills", data)}
             />
           </div>
         );
@@ -681,7 +711,7 @@ export default function SidebarEditor({
             {variantSelector}
             <ExperienceEditor
               data={getContentForSection("experience")}
-              onChange={(data) => onUpdateSection("experience", data)}
+              onChange={(data) => handleUpdateSection("experience", data)}
             />
           </div>
         );
@@ -691,7 +721,7 @@ export default function SidebarEditor({
             {variantSelector}
             <EducationEditor
               data={getContentForSection("education")}
-              onChange={(data) => onUpdateSection("education", data)}
+              onChange={(data) => handleUpdateSection("education", data)}
             />
           </div>
         );
@@ -702,7 +732,7 @@ export default function SidebarEditor({
             {variantSelector}
             <GalleryEditor
               data={getContentForSection(section)}
-              onChange={(data) => onUpdateSection(section, data)}
+              onChange={(data) => handleUpdateSection(section, data)}
             />
           </div>
         );
@@ -712,7 +742,7 @@ export default function SidebarEditor({
             {variantSelector}
             <WorkEditor
               data={getContentForSection("work")}
-              onChange={(data) => onUpdateSection("work", data)}
+              onChange={(data) => handleUpdateSection("work", data)}
             />
           </div>
         );
@@ -722,7 +752,7 @@ export default function SidebarEditor({
             {variantSelector}
             <ClientsEditor
               data={getContentForSection("clients")}
-              onChange={(data) => onUpdateSection("clients", data)}
+              onChange={(data) => handleUpdateSection("clients", data)}
             />
           </div>
         );
@@ -732,7 +762,7 @@ export default function SidebarEditor({
             {variantSelector}
             <TestimonialsEditor
               data={getContentForSection("testimonials")}
-              onChange={(data) => onUpdateSection("testimonials", data)}
+              onChange={(data) => handleUpdateSection("testimonials", data)}
             />
           </div>
         );
@@ -742,15 +772,15 @@ export default function SidebarEditor({
             {variantSelector}
             <ContactEditor
               data={getContentForSection("contact")}
-              onChange={(data) => onUpdateSection("contact", data)}
+              onChange={(data) => handleUpdateSection("contact", data)}
             />
           </div>
         );
       case "socialLinks":
         return (
           <SocialLinksEditor
-            data={portfolioState?.content?.socialLinks || {}}
-            onChange={(data) => onUpdateSection("socialLinks", data)}
+            data={getContentForSection("socialLinks")}
+            onChange={(data) => handleUpdateSection("socialLinks", data)}
           />
         );
       case "seo": {
@@ -763,11 +793,11 @@ export default function SidebarEditor({
         return (
           <SEOEditor
             data={getContentForSection("seo")}
-            onChange={(data) => onUpdateSection("seo", data)}
+            onChange={(data) => handleUpdateSection("seo", data)}
             subdomain={portfolioState?.subdomain || ""}
             onSubdomainChange={(newSubdomain: string) => {
               if (userType === "premium" || !isSubdomainLocked) {
-                setPortfolio((prev: any) => ({
+                setPortfolioState((prev: any) => ({
                   ...prev,
                   subdomain: newSubdomain,
                   customSubdomain: true,
@@ -845,7 +875,7 @@ export default function SidebarEditor({
                     false
                   }
                   onCheckedChange={(checked) => {
-                    onUpdateSection("accessibility", {
+                    handleUpdateSection("accessibility", {
                       ...portfolioState?.content?.accessibility,
                       highContrast: checked,
                     });
@@ -861,7 +891,7 @@ export default function SidebarEditor({
                     portfolioState?.content?.accessibility?.largerText || false
                   }
                   onCheckedChange={(checked) => {
-                    onUpdateSection("accessibility", {
+                    handleUpdateSection("accessibility", {
                       ...portfolioState?.content?.accessibility,
                       largerText: checked,
                     });
@@ -878,7 +908,7 @@ export default function SidebarEditor({
                     false
                   }
                   onCheckedChange={(checked) => {
-                    onUpdateSection("accessibility", {
+                    handleUpdateSection("accessibility", {
                       ...portfolioState?.content?.accessibility,
                       screenReader: checked,
                     });
@@ -905,7 +935,7 @@ export default function SidebarEditor({
                     portfolioState?.content?.performance?.lazyLoading || false
                   }
                   onCheckedChange={(checked) => {
-                    onUpdateSection("performance", {
+                    handleUpdateSection("performance", {
                       ...portfolioState?.content?.performance,
                       lazyLoading: checked,
                     });
@@ -922,7 +952,7 @@ export default function SidebarEditor({
                     false
                   }
                   onCheckedChange={(checked) => {
-                    onUpdateSection("performance", {
+                    handleUpdateSection("performance", {
                       ...portfolioState?.content?.performance,
                       imageOptimization: checked,
                     });
@@ -938,7 +968,7 @@ export default function SidebarEditor({
                     portfolioState?.content?.performance?.prefetch || false
                   }
                   onCheckedChange={(checked) => {
-                    onUpdateSection("performance", {
+                    handleUpdateSection("performance", {
                       ...portfolioState?.content?.performance,
                       prefetch: checked,
                     });
@@ -949,18 +979,17 @@ export default function SidebarEditor({
           </div>
         );
       case "navbar":
-        // Use NavbarEditor instead of textarea
         return (
           <NavbarEditor
             data={getContentForSection("navbar")}
-            onChange={(data) => onUpdateSection("navbar", data)}
+            onChange={(data) => handleUpdateSection("navbar", data)}
           />
         );
       case "footer":
         return (
           <FooterEditor
             data={getContentForSection("footer")}
-            onChange={(data) => onUpdateSection("footer", data)}
+            onChange={(data) => handleUpdateSection("footer", data)}
           />
         );
       default:
@@ -978,7 +1007,7 @@ export default function SidebarEditor({
                 onChange={(e) => {
                   try {
                     const data = JSON.parse(e.target.value);
-                    onUpdateSection(section, data);
+                    handleUpdateSection(section, data);
                   } catch (error) {
                     // Handle invalid JSON
                   }

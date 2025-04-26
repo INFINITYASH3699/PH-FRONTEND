@@ -360,13 +360,28 @@ export default function TemplateEditorClient({
   const handleSectionUpdate = (sectionId: string, data: any) => {
     if (!portfolio) return;
 
-    setPortfolio((prev: any) => ({
-      ...prev,
-      content: {
-        ...prev.content,
-        [sectionId]: data,
-      },
-    }));
+    console.log(`Updating section ${sectionId} with data:`, data);
+
+    setPortfolio((prev: any) => {
+      // Make sure we have a content object
+      const currentContent = prev.content || {};
+
+      // Create new portfolio state with updated section content
+      const updatedPortfolio = {
+        ...prev,
+        content: {
+          ...currentContent,
+          [sectionId]: data,
+        },
+      };
+
+      console.log(`Section ${sectionId} updated in portfolio state:`, {
+        updatedContent: updatedPortfolio.content[sectionId],
+        allContentKeys: Object.keys(updatedPortfolio.content),
+      });
+
+      return updatedPortfolio;
+    });
 
     setIsSaved(false);
   };

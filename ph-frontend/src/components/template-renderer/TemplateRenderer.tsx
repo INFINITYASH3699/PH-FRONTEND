@@ -262,67 +262,57 @@ const TemplateRenderer: React.FC<TemplateRendererProps> = ({
   // Create inline style with CSS variables
   const templateStyle = {
     ...getCssVariables(),
-    borderRadius: `var(--style-borderRadius, '0.5rem')`,
-    boxShadow: `var(--style-boxShadow, 'none')`,
+    borderRadius: `var(--style-borderRadius, 0.5rem)`,
+    boxShadow: `var(--style-boxShadow, none)`,
   };
 
   // Helper to get section content from portfolio data or template defaults
   const getSectionContent = (sectionType: string) => {
+    // Detailed debugging to identify issues
+    console.log(`Getting content for section ${sectionType}`);
+    console.log(`Portfolio content structure:`, {
+      hasContent: !!portfolio.content,
+      contentKeys: portfolio.content ? Object.keys(portfolio.content) : [],
+      portfolioId: portfolio._id || "unknown",
+    });
+
     // First try to get from portfolio content
-    let portfolioContent = null;
+    if (portfolio.content && typeof portfolio.content === "object") {
+      // Check if the section exists directly in the content object
+      if (sectionType in portfolio.content) {
+        const sectionContent = portfolio.content[sectionType];
 
-    if (portfolio.content) {
-      // If content is an object with properties
-      if (typeof portfolio.content === "object" && portfolio.content !== null) {
-        // First check if the section exists in the content
-        if (sectionType in portfolio.content) {
-          portfolioContent = portfolio.content[sectionType];
+        // Log what we found
+        console.log(`Found direct content for section ${sectionType}:`, {
+          hasContent: !!sectionContent,
+          contentType: typeof sectionContent,
+          isEmpty: sectionContent && typeof sectionContent === 'object'
+            ? Object.keys(sectionContent).length === 0
+            : sectionContent === "",
+        });
 
-          // Log content discovery
-          if (portfolioContent) {
-            console.log(
-              `Found content for section ${sectionType}:`,
-              portfolioContent
-            );
-
-            // CHANGE: Always accept any valid object as content, even if empty
-            // This allows sections with empty arrays (like projects, skills, etc.) to still display
-            if (typeof portfolioContent === "object") {
-              return portfolioContent;
-            }
-          } else {
-            console.log(
-              `Empty content for section ${sectionType}, will use defaults`
-            );
+        // Accept any valid content, even empty objects, but not null/undefined
+        if (sectionContent !== null && sectionContent !== undefined) {
+          if (typeof sectionContent === "object" || typeof sectionContent === "string") {
+            return sectionContent;
           }
         }
       }
     }
 
-    // If not found or empty, try to get from template section definitions
-    let templateDefault = null;
-
-    if (
-      template.sectionDefinitions &&
-      sectionType in template.sectionDefinitions
-    ) {
-      templateDefault = template.sectionDefinitions[sectionType].defaultData;
+    // If not found or invalid, try to get from template section definitions
+    if (template.sectionDefinitions && sectionType in template.sectionDefinitions) {
+      const templateDefault = template.sectionDefinitions[sectionType].defaultData;
 
       if (templateDefault) {
-        console.log(
-          `Using template default for section ${sectionType}:`,
-          templateDefault
-        );
+        console.log(`Using template default for section ${sectionType}:`, templateDefault);
         return templateDefault;
       }
     }
 
     // Fall back to a generic default based on section type
     const fallbackContent = getFallbackContent(sectionType);
-    console.log(
-      `Using fallback content for section ${sectionType}:`,
-      fallbackContent
-    );
+    console.log(`Using fallback content for section ${sectionType}:`, fallbackContent);
     return fallbackContent;
   };
 
@@ -383,11 +373,12 @@ const TemplateRenderer: React.FC<TemplateRendererProps> = ({
 
   // Get animation style for a section
   const getAnimationStyle = (sectionType: string) => {
-    // Force all sections to be visible initially on published portfolios
+    // Force all sections to be visible on published portfolios
     if (!editable) {
       return {
         opacity: 1,
         transform: "none",
+        transition: "opacity 0.5s ease, transform 0.5s ease",
       };
     }
 
@@ -404,9 +395,13 @@ const TemplateRenderer: React.FC<TemplateRendererProps> = ({
       };
     }
 
-    const defaultAnimation = template.animations.fadeIn;
+    const defaultAnimation = template.animations?.fadeIn || {
+      type: "fade",
+      duration: 500,
+      easing: "ease",
+    };
 
-    // Determine which animation to use (could be customized per section in the future)
+    // Determine which animation to use based on section type
     const animationType =
       sectionType === "header"
         ? "fadeIn"
@@ -538,6 +533,94 @@ const TemplateRenderer: React.FC<TemplateRendererProps> = ({
     );
   };
 
+  // Render a section with proper animation, variants, etc.
+  const renderSection = (sectionType: string) => {
+    try {
+      // Get base content for the section
+      const sectionContent = getSectionContent(sectionType);
+
+      console.log(
+        `Section ${sectionType} content details:`,
+        {
+          contentType: typeof sectionContent,
+          hasContent: !!sectionContent,
+          isEmpty: typeof sectionContent === 'object' ? Object.keys(sectionContent).length === 0 : false,
+          contentKeys: typeof sectionContent === 'object' ? Object.keys(sectionContent) : [],
+        }
+      );
+
+      // Apply any selected variant configuration
+      const variantContent = getSectionVariant(sectionType, sectionContent);
+
+      // Get animation style for the section
+      const animationStyle = getAnimationStyle(sectionType);
+
+      // Verify the section component actually exists
+      const SectionComponent = SECTION_COMPONENTS[sectionType];
+
+      if (!SectionComponent) {
+        console.warn(`No component found for section type: ${sectionType}`);
+        return (
+          <div
+            key={sectionType}
+            className="section-wrapper"
+            id={`section-${sectionType}`}
+            style={animationStyle}
+          >
+            <FallbackSection sectionType={sectionType} data={variantContent} />
+          </div>
+        );
+      }
+
+      return (
+        <div
+          key={sectionType}
+          className="section-wrapper"
+          id={`section-${sectionType}`}
+          style={animationStyle}
+        >
+          <SectionComponent
+            key={sectionType}
+            data={variantContent}
+            template={template}
+            editable={editable}
+            onUpdate={
+              editable
+                ? (data: any) => onSectionUpdate?.(sectionType, data)
+                : undefined
+            }
+            stylePreset={activeStylePreset}
+          />
+        </div>
+      );
+    } catch (error) {
+      console.error(`Error rendering section ${sectionType}:`, error);
+
+      return (
+        <div
+          key={sectionType}
+          className="section-wrapper"
+          id={`section-${sectionType}`}
+        >
+          <div className="py-8 px-4 bg-red-50 border border-red-200 rounded-md">
+            <h3 className="text-lg font-medium text-red-800">
+              Error rendering {sectionType} section
+            </h3>
+            <p className="text-sm text-red-600 mt-2">
+              There was a problem displaying this section. Please check
+              the console for more details.
+            </p>
+            {process.env.NODE_ENV === "development" && (
+              <pre className="mt-4 p-2 bg-white border text-xs overflow-auto">
+                {JSON.stringify(getSectionContent(sectionType), null, 2)}
+              </pre>
+            )}
+          </div>
+        </div>
+      );
+    }
+  };
+
   // Render the appropriate layout
   const renderLayout = () => {
     // Using the portfolio's stored layout information
@@ -593,84 +676,9 @@ const TemplateRenderer: React.FC<TemplateRendererProps> = ({
       (section) => section !== "navbar" && section !== "footer"
     );
 
-    // Render a section with proper animation, variants, etc.
-    const renderSection = (sectionType: string) => {
-      // Get base content for the section
-      const sectionContent = getSectionContent(sectionType);
-      console.log(
-        `Section ${sectionType} content type:`,
-        typeof sectionContent,
-        sectionContent ? Object.keys(sectionContent).length : 0
-      );
-
-      // Apply any selected variant configuration
-      const variantContent = getSectionVariant(sectionType, sectionContent);
-
-      // Get animation style for the section
-      const animationStyle = getAnimationStyle(sectionType);
-
-      // Verify the section component actually exists
-      const SectionComponent = SECTION_COMPONENTS[sectionType];
-      if (!SectionComponent) {
-        console.warn(`No component found for section type: ${sectionType}`);
-      }
-
-      return (
-        <div
-          key={sectionType}
-          className={`section-wrapper`}
-          id={`section-${sectionType}`}
-          style={animationStyle}
-        >
-          {(() => {
-            try {
-              // Ensure section component always exists
-              const SectionComponent =
-                SECTION_COMPONENTS[sectionType] ||
-                ((props: any) => (
-                  <FallbackSection
-                    sectionType={sectionType}
-                    data={props.data}
-                  />
-                ));
-
-              return (
-                <SectionComponent
-                  key={sectionType}
-                  data={variantContent}
-                  template={template}
-                  editable={editable}
-                  onUpdate={
-                    editable
-                      ? (data: any) => onSectionUpdate?.(sectionType, data)
-                      : undefined
-                  }
-                  stylePreset={activeStylePreset}
-                />
-              );
-            } catch (error) {
-              console.error(`Error rendering section ${sectionType}:`, error);
-              return (
-                <div className="py-8 px-4 bg-red-50 border border-red-200 rounded-md">
-                  <h3 className="text-lg font-medium text-red-800">
-                    Error rendering {sectionType} section
-                  </h3>
-                  <p className="text-sm text-red-600 mt-2">
-                    There was a problem displaying this section. Please check
-                    the console for more details.
-                  </p>
-                  {process.env.NODE_ENV === "development" && (
-                    <pre className="mt-4 p-2 bg-white border text-xs overflow-auto">
-                      {JSON.stringify(variantContent, null, 2)}
-                    </pre>
-                  )}
-                </div>
-              );
-            }
-          })()}
-        </div>
-      );
-    };
+    // Special handling for full-screen sections
+    const isFullScreen =
+      activeLayout?.structure?.gridSystem === "full-screen";
 
     return (
       <div className="flex flex-col min-h-screen" style={templateStyle}>
@@ -680,9 +688,6 @@ const TemplateRenderer: React.FC<TemplateRendererProps> = ({
         {/* Main content container */}
         <div className={`flex-grow ${gridClass}`}>
           {contentSections.map((sectionType: string, index: number) => {
-            // Special handling for full-screen sections
-            const isFullScreen =
-              activeLayout?.structure?.gridSystem === "full-screen";
             const fullScreenClass = isFullScreen
               ? "min-h-screen flex items-center justify-center"
               : "";
@@ -694,78 +699,7 @@ const TemplateRenderer: React.FC<TemplateRendererProps> = ({
                 id={`section-${sectionType}`}
                 style={getAnimationStyle(sectionType)}
               >
-                {(() => {
-                  try {
-                    // Ensure section component always exists
-                    const SectionComponent =
-                      SECTION_COMPONENTS[sectionType] ||
-                      ((props: any) => (
-                        <FallbackSection
-                          sectionType={sectionType}
-                          data={props.data}
-                        />
-                      ));
-
-                    // Log details about the section content
-                    const sectionContent = getSectionContent(sectionType);
-                    const variantContent = getSectionVariant(
-                      sectionType,
-                      sectionContent
-                    );
-                    console.log(`Rendering ${sectionType} section with data:`, {
-                      hasContent: !!variantContent,
-                      contentType: typeof variantContent,
-                      contentKeys: variantContent
-                        ? Object.keys(variantContent)
-                        : [],
-                      isArray: Array.isArray(variantContent),
-                    });
-
-                    return (
-                      <SectionComponent
-                        key={sectionType}
-                        data={variantContent}
-                        template={template}
-                        editable={editable}
-                        onUpdate={
-                          editable
-                            ? (data: any) =>
-                                onSectionUpdate?.(sectionType, data)
-                            : undefined
-                        }
-                        stylePreset={activeStylePreset}
-                      />
-                    );
-                  } catch (error) {
-                    console.error(
-                      `Error rendering section ${sectionType}:`,
-                      error
-                    );
-                    return (
-                      <div className="py-8 px-4 bg-red-50 border border-red-200 rounded-md">
-                        <h3 className="text-lg font-medium text-red-800">
-                          Error rendering {sectionType} section
-                        </h3>
-                        <p className="text-sm text-red-600 mt-2">
-                          There was a problem displaying this section. Please
-                          check the console for more details.
-                        </p>
-                        {process.env.NODE_ENV === "development" && (
-                          <pre className="mt-4 p-2 bg-white border text-xs overflow-auto">
-                            {JSON.stringify(
-                              getSectionVariant(
-                                sectionType,
-                                getSectionContent(sectionType)
-                              ),
-                              null,
-                              2
-                            )}
-                          </pre>
-                        )}
-                      </div>
-                    );
-                  }
-                })()}
+                {renderSection(sectionType)}
               </div>
             );
           })}
