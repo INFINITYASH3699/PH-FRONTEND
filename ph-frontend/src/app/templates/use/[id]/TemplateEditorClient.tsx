@@ -522,9 +522,18 @@ export default function TemplateEditorClient({
                 user?.username ||
                 `user-${Date.now().toString().slice(-8)}`,
               isPublished: false,
-              activeLayout: portfolio.activeLayout || template.layouts?.[0]?.id || "default",
-              activeColorScheme: portfolio.activeColorScheme || template.themeOptions?.colorSchemes?.[0]?.id || "default",
-              activeFontPairing: portfolio.activeFontPairing || template.themeOptions?.fontPairings?.[0]?.id || "default",
+              activeLayout:
+                portfolio.activeLayout ||
+                template.layouts?.[0]?.id ||
+                "default",
+              activeColorScheme:
+                portfolio.activeColorScheme ||
+                template.themeOptions?.colorSchemes?.[0]?.id ||
+                "default",
+              activeFontPairing:
+                portfolio.activeFontPairing ||
+                template.themeOptions?.fontPairings?.[0]?.id ||
+                "default",
               sectionOrder: sectionOrder,
               sectionVariants: selectedSectionVariants,
               animationsEnabled: animationsEnabled,
@@ -536,13 +545,18 @@ export default function TemplateEditorClient({
             }
 
             // Add better logging before saving
-            console.log(`Attempting to save draft portfolio with template ID: ${template._id}`, {
-              templateName: template.name,
-              portfolioId: portfolioToSave._id,
-              hasContent: !!portfolioToSave.content && Object.keys(portfolioToSave.content).length > 0,
-              hasTitle: !!portfolioToSave.title,
-              hasSubdomain: !!portfolioToSave.subdomain
-            });
+            console.log(
+              `Attempting to save draft portfolio with template ID: ${template._id}`,
+              {
+                templateName: template.name,
+                portfolioId: portfolioToSave._id,
+                hasContent:
+                  !!portfolioToSave.content &&
+                  Object.keys(portfolioToSave.content).length > 0,
+                hasTitle: !!portfolioToSave.title,
+                hasSubdomain: !!portfolioToSave.subdomain,
+              }
+            );
 
             const saveResponse =
               await apiClient.portfolios.saveDraft(portfolioToSave);
@@ -577,9 +591,16 @@ export default function TemplateEditorClient({
           user?.username ||
           `user-${Date.now().toString().slice(-8)}`,
         isPublished: false,
-        activeLayout: portfolio.activeLayout || template.layouts?.[0]?.id || "default",
-        activeColorScheme: portfolio.activeColorScheme || template.themeOptions?.colorSchemes?.[0]?.id || "default",
-        activeFontPairing: portfolio.activeFontPairing || template.themeOptions?.fontPairings?.[0]?.id || "default",
+        activeLayout:
+          portfolio.activeLayout || template.layouts?.[0]?.id || "default",
+        activeColorScheme:
+          portfolio.activeColorScheme ||
+          template.themeOptions?.colorSchemes?.[0]?.id ||
+          "default",
+        activeFontPairing:
+          portfolio.activeFontPairing ||
+          template.themeOptions?.fontPairings?.[0]?.id ||
+          "default",
         sectionOrder: sectionOrder,
         sectionVariants: selectedSectionVariants,
         animationsEnabled: animationsEnabled,
@@ -591,13 +612,75 @@ export default function TemplateEditorClient({
       }
 
       // Add better logging before saving
-      console.log(`Attempting to save draft portfolio with template ID: ${template._id}`, {
-        templateName: template.name,
-        portfolioId: portfolioToSave._id,
-        hasContent: !!portfolioToSave.content && Object.keys(portfolioToSave.content).length > 0,
-        hasTitle: !!portfolioToSave.title,
-        hasSubdomain: !!portfolioToSave.subdomain
-      });
+      console.log(
+        `Attempting to save draft portfolio with template ID: ${template._id}`,
+        {
+          templateName: template.name,
+          templateCategory: template.category || "unknown",
+          portfolioId: portfolioToSave._id,
+          hasContent:
+            !!portfolioToSave.content &&
+            Object.keys(portfolioToSave.content).length > 0,
+          contentSections: portfolioToSave.content
+            ? Object.keys(portfolioToSave.content)
+            : [],
+          hasTitle: !!portfolioToSave.title,
+          hasSubdomain: !!portfolioToSave.subdomain,
+          sectionOrder: portfolioToSave.sectionOrder,
+        }
+      );
+
+      // Add special handling for Creative Studio template
+      if (template.name === "Creative Studio") {
+        // Ensure the portfolio has all required fields for this template
+        portfolioToSave.content = {
+          ...portfolioToSave.content,
+          // Add stub content for required sections to prevent server errors
+          header: portfolioToSave.content?.header || {
+            title: portfolioToSave.title || "My Portfolio",
+            subtitle: portfolioToSave.subtitle || "Creative Professional",
+          },
+          about: portfolioToSave.content?.about || {
+            title: "About Me",
+            bio: "Creative professional with expertise in design and visual arts.",
+          },
+          // Make sure required sections for Creative Studio are included
+          work: portfolioToSave.content?.work || {
+            title: "My Work",
+            items: [],
+          },
+          clients: portfolioToSave.content?.clients || {
+            title: "Clients",
+            items: [],
+          },
+          testimonials: portfolioToSave.content?.testimonials || {
+            title: "Testimonials",
+            items: [],
+          },
+        };
+
+        // Make sure all necessary sections are in the section order
+        const requiredSections = [
+          "header",
+          "about",
+          "work",
+          "clients",
+          "testimonials",
+        ];
+        portfolioToSave.sectionOrder = Array.from(
+          new Set([
+            ...portfolioToSave.sectionOrder,
+            ...requiredSections.filter(
+              (section) => !portfolioToSave.sectionOrder.includes(section)
+            ),
+          ])
+        );
+
+        console.log(
+          "Applied special handling for Creative Studio template with sections:",
+          portfolioToSave.sectionOrder
+        );
+      }
 
       const response = await apiClient.portfolios.saveDraft(portfolioToSave);
 
@@ -613,36 +696,88 @@ export default function TemplateEditorClient({
         throw new Error("Failed to save portfolio");
       }
     } catch (err: any) {
-      // Enhanced error logging to capture more details
+      // Enhanced error logging with better debugging information
       console.error("Save draft error details:", {
-        error: err.message,
-        stack: err.stack,
-        responseData: err.response?.data,
-        templateId: template._id,
-        templateName: template.name,
+        error: err.message || "Unknown error",
+        stack: err.stack || "No stack trace",
+        responseData: err.response?.data || "No response data",
+        status: err.status || "No status code",
+        templateId: template?._id || "Unknown template ID",
+        templateName: template?.name || "Unknown template",
+        templateCategory: template?.category || "Unknown category",
         portfolioData: {
-          id: portfolio?._id,
-          title: portfolio?.title,
-          hasContent: portfolio?.content ? Object.keys(portfolio?.content).length > 0 : false,
-          hasSections: sectionOrder.length,
-          subdomain: portfolio?.subdomain
-        }
+          id: portfolio?._id || "No ID",
+          title: portfolio?.title || "No title",
+          hasContent: portfolio?.content
+            ? Object.keys(portfolio?.content).length > 0
+            : false,
+          hasSections: sectionOrder?.length || 0,
+          sectionTypes: sectionOrder?.join(", ") || "No sections",
+          subdomain: portfolio?.subdomain || "No subdomain",
+          activeLayout: portfolio?.activeLayout || "No layout",
+          activeColorScheme: portfolio?.activeColorScheme || "No color scheme",
+        },
       });
 
       // Display more helpful error message to the user based on error type
       let errorMessage = "Failed to save portfolio";
 
-      if (err.message?.includes("already have a portfolio with this template")) {
+      if (
+        err.message?.includes("already have a portfolio with this template")
+      ) {
         errorMessage = err.message;
       } else if (err.status === 400) {
         // Bad request - likely validation error
-        errorMessage = err.response?.data?.message || "Portfolio validation failed. Please check all required fields.";
+        errorMessage =
+          err.response?.data?.message ||
+          "Portfolio validation failed. Please check all required fields.";
+      } else if (err.status === 401 || err.status === 403) {
+        // Authentication issues
+        errorMessage = "Authentication error. Please sign in again.";
+        // Consider redirecting to login page
+        console.warn(
+          "Authentication error detected, user may need to re-login"
+        );
       } else if (err.status === 500) {
-        // Server error
-        errorMessage = "Server error during portfolio creation. Please try again or contact support.";
+        // Server error with special handling for Creative Studio template
+        if (template?.name === "Creative Studio") {
+          errorMessage =
+            "We're having trouble saving this Creative Studio template. Try adding some basic content to the 'Work', 'Clients' and 'Testimonials' sections before saving.";
+        } else {
+          errorMessage =
+            "Server error during portfolio creation. Please try with a different template or contact support.";
+        }
+
+        // Log detailed error information for debugging
+        console.error("Server error details:", {
+          url: err.response?.url || "Unknown URL",
+          status: err.status || "Unknown status",
+          message: err.message || "No message",
+          template: template?.name || "Unknown template",
+          templateId: template?._id || "Unknown ID",
+          sectionCount: sectionOrder?.length || 0,
+          sectionOrder: sectionOrder || [],
+        });
+      } else if (err.message?.includes("Failed to fetch") || !err.status) {
+        // Connection issues
+        errorMessage =
+          "Could not connect to the server. Please check your internet connection and try again.";
+      } else if (err.message?.includes("User ID is missing")) {
+        // User ID issues
+        errorMessage =
+          "Unable to determine your user account. Please sign out and sign in again.";
       }
 
-      toast.error(errorMessage);
+      // Provide more information about the template in case it's template-specific
+      if (errorMessage.includes("Server error")) {
+        toast.error(errorMessage, {
+          duration: 5000,
+          description: `Problem occurred with template: ${template?.name || "Unknown"}`,
+        });
+      } else {
+        toast.error(errorMessage);
+      }
+
       setIsSaving(false);
     }
   };
@@ -731,9 +866,16 @@ export default function TemplateEditorClient({
         subdomainLocked: !isPremiumUser,
         userType: isPremiumUser ? "premium" : "free",
         isPublished: true,
-        activeLayout: portfolio.activeLayout || template.layouts?.[0]?.id || "default",
-        activeColorScheme: portfolio.activeColorScheme || template.themeOptions?.colorSchemes?.[0]?.id || "default",
-        activeFontPairing: portfolio.activeFontPairing || template.themeOptions?.fontPairings?.[0]?.id || "default",
+        activeLayout:
+          portfolio.activeLayout || template.layouts?.[0]?.id || "default",
+        activeColorScheme:
+          portfolio.activeColorScheme ||
+          template.themeOptions?.colorSchemes?.[0]?.id ||
+          "default",
+        activeFontPairing:
+          portfolio.activeFontPairing ||
+          template.themeOptions?.fontPairings?.[0]?.id ||
+          "default",
         sectionOrder: sectionOrder,
         sectionVariants: selectedSectionVariants,
         animationsEnabled: animationsEnabled,
@@ -753,7 +895,7 @@ export default function TemplateEditorClient({
           activeLayout: portfolioToPublish.activeLayout,
           sections: portfolioToPublish.sectionOrder?.length,
           stylePreset: portfolioToPublish.stylePreset,
-          animationsEnabled: portfolioToPublish.animationsEnabled
+          animationsEnabled: portfolioToPublish.animationsEnabled,
         })
       );
 
@@ -766,13 +908,18 @@ export default function TemplateEditorClient({
           _id: response.portfolio._id,
           isPublished: true,
           activeLayout: response.portfolio.activeLayout || prev.activeLayout,
-          activeColorScheme: response.portfolio.activeColorScheme || prev.activeColorScheme,
-          activeFontPairing: response.portfolio.activeFontPairing || prev.activeFontPairing,
+          activeColorScheme:
+            response.portfolio.activeColorScheme || prev.activeColorScheme,
+          activeFontPairing:
+            response.portfolio.activeFontPairing || prev.activeFontPairing,
           sectionOrder: response.portfolio.sectionOrder || sectionOrder,
-          sectionVariants: response.portfolio.sectionVariants || selectedSectionVariants,
+          sectionVariants:
+            response.portfolio.sectionVariants || selectedSectionVariants,
           stylePreset: response.portfolio.stylePreset || selectedStylePreset,
-          animationsEnabled: response.portfolio.animationsEnabled !== undefined ?
-            response.portfolio.animationsEnabled : animationsEnabled,
+          animationsEnabled:
+            response.portfolio.animationsEnabled !== undefined
+              ? response.portfolio.animationsEnabled
+              : animationsEnabled,
         }));
 
         toast.success("Portfolio published successfully!");
@@ -793,9 +940,11 @@ export default function TemplateEditorClient({
         portfolioData: {
           id: portfolio?._id,
           title: portfolio?.title,
-          hasContent: portfolio?.content ? Object.keys(portfolio?.content).length > 0 : false,
-          hasSections: sectionOrder.length
-        }
+          hasContent: portfolio?.content
+            ? Object.keys(portfolio?.content).length > 0
+            : false,
+          hasSections: sectionOrder.length,
+        },
       });
 
       let errorMessage = "Failed to publish portfolio. Please try again.";

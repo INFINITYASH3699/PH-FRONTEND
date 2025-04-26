@@ -1,25 +1,30 @@
-import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd';
-import { SaveDraftButton } from '@/components/ui/save-draft-button';
-import { PreviewButton } from '@/components/ui/preview-button';
-import { PublishButton } from '@/components/ui/publish-button';
-import ThemeSelector from './ThemeSelector';
-import LayoutSelector from './LayoutSelector';
-import CustomCSSEditor from './CustomCSSEditor';
-import SEOEditor from './SEOEditor';
-import SocialLinksEditor from './SocialLinksEditor';
-import HeaderEditor from './HeaderEditor';
-import AboutEditor from './AboutEditor';
-import SkillsEditor from './SkillsEditor';
-import ProjectsEditor from './ProjectsEditor';
-import ExperienceEditor from './ExperienceEditor';
-import EducationEditor from './EducationEditor';
-import ContactEditor from './ContactEditor';
-import GalleryEditor from './GalleryEditor';
-import { FetchProfileButton } from '@/components/ui/fetch-profile-button';
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  DragDropContext,
+  Droppable,
+  Draggable,
+  DropResult,
+} from "react-beautiful-dnd";
+import { SaveDraftButton } from "@/components/ui/save-draft-button";
+import { PreviewButton } from "@/components/ui/preview-button";
+import { PublishButton } from "@/components/ui/publish-button";
+import ThemeSelector from "./ThemeSelector";
+import LayoutSelector from "./LayoutSelector";
+import CustomCSSEditor from "./CustomCSSEditor";
+import SEOEditor from "./SEOEditor";
+import SocialLinksEditor from "./SocialLinksEditor";
+import HeaderEditor from "./HeaderEditor";
+import AboutEditor from "./AboutEditor";
+import SkillsEditor from "./SkillsEditor";
+import ProjectsEditor from "./ProjectsEditor";
+import ExperienceEditor from "./ExperienceEditor";
+import EducationEditor from "./EducationEditor";
+import ContactEditor from "./ContactEditor";
+import GalleryEditor from "./GalleryEditor";
+import { FetchProfileButton } from "@/components/ui/fetch-profile-button";
 import {
   GripVertical,
   X,
@@ -36,14 +41,18 @@ import {
   Search,
   Paintbrush,
   Sparkles,
-  Layers
-} from 'lucide-react';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
+  Layers,
+} from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 // Add NavbarEditor to the imports
-import NavbarEditor from './NavbarEditor';
+import NavbarEditor from "./NavbarEditor";
 // Add FooterEditor to the imports
-import FooterEditor from './FooterEditor';
+import FooterEditor from "./FooterEditor";
+// Add additional editors for work, clients and testimonials
+import WorkEditor from "./WorkEditor";
+import ClientsEditor from "./ClientsEditor";
+import TestimonialsEditor from "./TestimonialsEditor";
 
 interface SidebarEditorProps {
   template: any;
@@ -112,15 +121,21 @@ export default function SidebarEditor({
 
   viewportMode,
   setViewportMode,
-  advancedMode = false
+  advancedMode = false,
 }: SidebarEditorProps) {
   const [isClient, setIsClient] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [configTab, setConfigTab] = useState<
-    'sections' | 'theme' | 'layout' | 'css' | 'variants' | 'animations' | 'style'
-  >('sections');
-  const [searchTerm, setSearchTerm] = useState('');
+    | "sections"
+    | "theme"
+    | "layout"
+    | "css"
+    | "variants"
+    | "animations"
+    | "style"
+  >("sections");
+  const [searchTerm, setSearchTerm] = useState("");
   const [showManageSections, setShowManageSections] = useState(false);
   const [portfolioState, setPortfolio] = useState<any>(portfolio);
 
@@ -137,61 +152,68 @@ export default function SidebarEditor({
     };
 
     checkIfMobile();
-    window.addEventListener('resize', checkIfMobile);
-    return () => window.removeEventListener('resize', checkIfMobile);
+    window.addEventListener("resize", checkIfMobile);
+    return () => window.removeEventListener("resize", checkIfMobile);
   }, []);
 
   const getSectionTitle = (sectionId: string) => {
-    if (sectionId === 'header') return 'Header & Profile';
-    if (sectionId === 'socialLinks') return 'Social Media';
-    if (sectionId === 'seo') return 'SEO & Metadata';
-    if (sectionId === 'navbar') return 'Navigation Bar';
-    if (sectionId === 'footer') return 'Footer';
-    if (advancedMode && sectionId === 'customCss') return 'Custom CSS';
-    if (advancedMode && sectionId === 'effects') return 'Animations & Effects';
-    if (advancedMode && sectionId === 'accessibility') return 'Accessibility';
-    if (advancedMode && sectionId === 'performance') return 'Performance';
+    if (sectionId === "header") return "Header & Profile";
+    if (sectionId === "socialLinks") return "Social Media";
+    if (sectionId === "seo") return "SEO & Metadata";
+    if (sectionId === "navbar") return "Navigation Bar";
+    if (sectionId === "footer") return "Footer";
+    if (advancedMode && sectionId === "customCss") return "Custom CSS";
+    if (advancedMode && sectionId === "effects") return "Animations & Effects";
+    if (advancedMode && sectionId === "accessibility") return "Accessibility";
+    if (advancedMode && sectionId === "performance") return "Performance";
 
     const defaultTitle = sectionId.charAt(0).toUpperCase() + sectionId.slice(1);
-    const templateTitle = template?.sectionDefinitions?.[sectionId]?.defaultData?.title;
+    const templateTitle =
+      template?.sectionDefinitions?.[sectionId]?.defaultData?.title;
 
     return templateTitle || defaultTitle;
   };
 
   const getSectionDescription = (sectionId: string) => {
     switch (sectionId) {
-      case 'header':
-        return 'Your name, profile photo, and title';
-      case 'about':
-        return 'Bio and personal information';
-      case 'projects':
-        return 'Showcase your work and projects';
-      case 'skills':
-        return 'Technical skills and expertise';
-      case 'experience':
-        return 'Work history and professional experience';
-      case 'education':
-        return 'Educational background and certifications';
-      case 'contact':
-        return 'Contact information and form';
-      case 'gallery':
-        return 'Visual showcase of your work';
-      case 'socialLinks':
-        return 'Links to your social media profiles';
-      case 'seo':
-        return 'SEO settings for your portfolio';
-      case 'navbar':
-        return 'Navigation bar at the top of your portfolio';
-      case 'footer':
-        return 'Footer section at the bottom of your portfolio';
-      case 'customCss':
-        return 'Add custom CSS to your portfolio';
-      case 'effects':
-        return 'Configure animations and visual effects';
-      case 'accessibility':
-        return 'Improve accessibility features';
-      case 'performance':
-        return 'Optimize loading and rendering';
+      case "header":
+        return "Your name, profile photo, and title";
+      case "about":
+        return "Bio and personal information";
+      case "projects":
+        return "Showcase your work and projects";
+      case "skills":
+        return "Technical skills and expertise";
+      case "experience":
+        return "Work history and professional experience";
+      case "education":
+        return "Educational background and certifications";
+      case "contact":
+        return "Contact information and form";
+      case "gallery":
+        return "Visual showcase of your work";
+      case "socialLinks":
+        return "Links to your social media profiles";
+      case "seo":
+        return "SEO settings for your portfolio";
+      case "navbar":
+        return "Navigation bar at the top of your portfolio";
+      case "footer":
+        return "Footer section at the bottom of your portfolio";
+      case "customCss":
+        return "Add custom CSS to your portfolio";
+      case "effects":
+        return "Configure animations and visual effects";
+      case "accessibility":
+        return "Improve accessibility features";
+      case "performance":
+        return "Optimize loading and rendering";
+      case "work":
+        return "Showcase your portfolio of work and projects";
+      case "clients":
+        return "Display logos and information about your clients";
+      case "testimonials":
+        return "Add customer reviews and testimonials";
       default:
         return `Configure your ${getSectionTitle(sectionId)} section`;
     }
@@ -201,27 +223,34 @@ export default function SidebarEditor({
     const sections = new Set<string>();
 
     if (template?.sectionDefinitions) {
-      Object.keys(template.sectionDefinitions).forEach(section => sections.add(section));
+      Object.keys(template.sectionDefinitions).forEach((section) =>
+        sections.add(section)
+      );
     }
 
     template?.layouts?.forEach((layout: any) => {
       if (layout.structure?.sections) {
-        layout.structure.sections.forEach((section: string) => sections.add(section));
+        layout.structure.sections.forEach((section: string) =>
+          sections.add(section)
+        );
       }
     });
 
     if (template?.defaultStructure?.layout?.sections) {
-      template.defaultStructure.layout.sections.forEach((section: string) => sections.add(section));
+      template.defaultStructure.layout.sections.forEach((section: string) =>
+        sections.add(section)
+      );
     }
 
-    const requiredSections = template?.defaultStructure?.config?.requiredSections || ['header', 'about'];
-    requiredSections.forEach(section => sections.add(section));
+    const requiredSections = template?.defaultStructure?.config
+      ?.requiredSections || ["header", "about"];
+    requiredSections.forEach((section) => sections.add(section));
 
-    ['navbar', 'footer'].forEach(section => sections.add(section));
+    ["navbar", "footer"].forEach((section) => sections.add(section));
 
     if (advancedMode) {
-      ['customCss', 'effects', 'accessibility', 'performance'].forEach(section =>
-        sections.add(section)
+      ["customCss", "effects", "accessibility", "performance"].forEach(
+        (section) => sections.add(section)
       );
     }
 
@@ -261,7 +290,7 @@ export default function SidebarEditor({
       );
     }
 
-    const selectedVariant = selectedSectionVariants[sectionType] || '';
+    const selectedVariant = selectedSectionVariants[sectionType] || "";
 
     return (
       <div className="space-y-3">
@@ -273,12 +302,14 @@ export default function SidebarEditor({
               onClick={() => onSectionVariantUpdate(sectionType, variant.id)}
               className={`p-3 rounded-md text-left transition-colors ${
                 selectedVariant === variant.id
-                  ? 'bg-primary/10 border border-primary text-primary'
-                  : 'bg-muted/30 hover:bg-muted/50 border'
+                  ? "bg-primary/10 border border-primary text-primary"
+                  : "bg-muted/30 hover:bg-muted/50 border"
               }`}
             >
               <div className="font-medium">{variant.name}</div>
-              <div className="text-xs text-muted-foreground">{variant.description}</div>
+              <div className="text-xs text-muted-foreground">
+                {variant.description}
+              </div>
             </button>
           ))}
         </div>
@@ -301,25 +332,29 @@ export default function SidebarEditor({
       <div className="space-y-3">
         <h4 className="text-sm font-medium">Select Style Preset</h4>
         <div className="grid grid-cols-1 gap-2">
-          {Object.entries(stylePresets).map(([presetId, preset]: [string, any]) => (
-            <button
-              key={presetId}
-              onClick={() => onStylePresetUpdate(presetId)}
-              className={`p-3 rounded-md text-left transition-colors ${
-                selectedStylePreset === presetId
-                  ? 'bg-primary/10 border border-primary text-primary'
-                  : 'bg-muted/30 hover:bg-muted/50 border'
-              }`}
-              style={{
-                borderRadius: preset.styles?.borderRadius || '0.5rem',
-                boxShadow: preset.styles?.boxShadow || 'none',
-                fontWeight: preset.styles?.fontWeight || 'normal'
-              }}
-            >
-              <div className="font-medium">{preset.name}</div>
-              <div className="text-xs text-muted-foreground">{preset.description}</div>
-            </button>
-          ))}
+          {Object.entries(stylePresets).map(
+            ([presetId, preset]: [string, any]) => (
+              <button
+                key={presetId}
+                onClick={() => onStylePresetUpdate(presetId)}
+                className={`p-3 rounded-md text-left transition-colors ${
+                  selectedStylePreset === presetId
+                    ? "bg-primary/10 border border-primary text-primary"
+                    : "bg-muted/30 hover:bg-muted/50 border"
+                }`}
+                style={{
+                  borderRadius: preset.styles?.borderRadius || "0.5rem",
+                  boxShadow: preset.styles?.boxShadow || "none",
+                  fontWeight: preset.styles?.fontWeight || "normal",
+                }}
+              >
+                <div className="font-medium">{preset.name}</div>
+                <div className="text-xs text-muted-foreground">
+                  {preset.description}
+                </div>
+              </button>
+            )
+          )}
         </div>
       </div>
     );
@@ -333,7 +368,9 @@ export default function SidebarEditor({
         <div className="flex items-center justify-between">
           <div>
             <h4 className="text-sm font-medium">Enable Animations</h4>
-            <p className="text-xs text-muted-foreground">Add smooth animations to sections</p>
+            <p className="text-xs text-muted-foreground">
+              Add smooth animations to sections
+            </p>
           </div>
           <Switch
             checked={animationsEnabled}
@@ -345,15 +382,19 @@ export default function SidebarEditor({
           <div className="space-y-3">
             <h4 className="text-sm font-medium">Available Animations</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              {Object.entries(animations).map(([animationId, animation]: [string, any]) => (
-                <div
-                  key={animationId}
-                  className="p-3 rounded-md bg-muted/30 border text-left"
-                >
-                  <div className="font-medium">{animation.name}</div>
-                  <div className="text-xs text-muted-foreground">{animation.type} animation ({animation.duration}ms)</div>
-                </div>
-              ))}
+              {Object.entries(animations).map(
+                ([animationId, animation]: [string, any]) => (
+                  <div
+                    key={animationId}
+                    className="p-3 rounded-md bg-muted/30 border text-left"
+                  >
+                    <div className="font-medium">{animation.name}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {animation.type} animation ({animation.duration}ms)
+                    </div>
+                  </div>
+                )
+              )}
             </div>
 
             <div className="p-3 bg-muted/30 rounded-md text-xs text-muted-foreground">
@@ -372,18 +413,23 @@ export default function SidebarEditor({
 
   const renderConfigPanel = () => {
     switch (configTab) {
-      case 'sections':
+      case "sections":
         return (
           <div className="p-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Manage Sections</h3>
-              <Button variant="outline" size="sm" onClick={() => setShowManageSections(false)}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowManageSections(false)}
+              >
                 Done
               </Button>
             </div>
 
             <p className="text-sm text-muted-foreground mb-4">
-              Drag to reorder sections, remove unwanted sections, or add new ones to customize your portfolio.
+              Drag to reorder sections, remove unwanted sections, or add new
+              ones to customize your portfolio.
             </p>
 
             <DragDropContext onDragEnd={handleDragEnd}>
@@ -395,7 +441,11 @@ export default function SidebarEditor({
                     className="space-y-2 mb-6"
                   >
                     {sectionOrder.map((sectionId, index) => (
-                      <Draggable key={sectionId} draggableId={sectionId} index={index}>
+                      <Draggable
+                        key={sectionId}
+                        draggableId={sectionId}
+                        index={index}
+                      >
                         {(provided) => (
                           <div
                             ref={provided.innerRef}
@@ -406,8 +456,12 @@ export default function SidebarEditor({
                             <div className="flex items-center">
                               <GripVertical className="h-4 w-4 mr-2 text-muted-foreground" />
                               <div>
-                                <span className="font-medium">{getSectionTitle(sectionId)}</span>
-                                <p className="text-xs text-muted-foreground">{getSectionDescription(sectionId)}</p>
+                                <span className="font-medium">
+                                  {getSectionTitle(sectionId)}
+                                </span>
+                                <p className="text-xs text-muted-foreground">
+                                  {getSectionDescription(sectionId)}
+                                </p>
                               </div>
                             </div>
                             <Button
@@ -429,7 +483,9 @@ export default function SidebarEditor({
             </DragDropContext>
 
             <div className="mt-6">
-              <h4 className="text-sm font-medium mb-2">Available sections to add</h4>
+              <h4 className="text-sm font-medium mb-2">
+                Available sections to add
+              </h4>
 
               <div className="relative mb-3">
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -444,9 +500,11 @@ export default function SidebarEditor({
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                 {getAllAvailableSections()
-                  .filter(section => !sectionOrder.includes(section))
-                  .filter(section => section.toLowerCase().includes(searchTerm.toLowerCase()))
-                  .map(section => (
+                  .filter((section) => !sectionOrder.includes(section))
+                  .filter((section) =>
+                    section.toLowerCase().includes(searchTerm.toLowerCase())
+                  )
+                  .map((section) => (
                     <Button
                       key={section}
                       variant="outline"
@@ -455,15 +513,16 @@ export default function SidebarEditor({
                       onClick={() => onAddSection(section)}
                     >
                       <Plus className="h-3 w-3 mr-1" />
-                      <span className="capitalize text-sm">{getSectionTitle(section)}</span>
+                      <span className="capitalize text-sm">
+                        {getSectionTitle(section)}
+                      </span>
                     </Button>
-                  ))
-                }
+                  ))}
               </div>
             </div>
           </div>
         );
-      case 'theme':
+      case "theme":
         return (
           <div className="p-4">
             <h3 className="text-lg font-semibold mb-4">Theme Settings</h3>
@@ -475,28 +534,30 @@ export default function SidebarEditor({
             />
           </div>
         );
-      case 'layout':
+      case "layout":
         return (
           <div className="p-4">
             <h3 className="text-lg font-semibold mb-4">Layout Settings</h3>
             <LayoutSelector
               layouts={template?.layouts || []}
-              activeLayoutId={portfolioState?.activeLayout || template?.layouts?.[0]?.id}
+              activeLayoutId={
+                portfolioState?.activeLayout || template?.layouts?.[0]?.id
+              }
               onChange={onUpdateLayout}
             />
           </div>
         );
-      case 'css':
+      case "css":
         return (
           <div className="p-4">
             <h3 className="text-lg font-semibold mb-4">Custom CSS</h3>
             <CustomCSSEditor
-              css={portfolioState?.content?.customCss || ''}
+              css={portfolioState?.content?.customCss || ""}
               onChange={(css) => onUpdateCustomCss(css)}
             />
           </div>
         );
-      case 'variants':
+      case "variants":
         if (activeSection) {
           return (
             <div className="p-4">
@@ -513,14 +574,14 @@ export default function SidebarEditor({
             </p>
           </div>
         );
-      case 'animations':
+      case "animations":
         return (
           <div className="p-4">
             <h3 className="text-lg font-semibold mb-4">Animation Settings</h3>
             {renderAnimationOptions()}
           </div>
         );
-      case 'style':
+      case "style":
         return (
           <div className="p-4">
             <h3 className="text-lg font-semibold mb-4">Style Presets</h3>
@@ -536,64 +597,65 @@ export default function SidebarEditor({
     if (!section) return null;
 
     const showVariantSelector =
-      section !== 'seo' &&
-      section !== 'socialLinks' &&
-      section !== 'customCss' &&
-      section !== 'effects' &&
-      section !== 'accessibility' &&
-      section !== 'performance' &&
+      section !== "seo" &&
+      section !== "socialLinks" &&
+      section !== "customCss" &&
+      section !== "effects" &&
+      section !== "accessibility" &&
+      section !== "performance" &&
       template?.sectionVariants?.[section]?.length > 0;
 
-    const variantSelector =
-      showVariantSelector ? (
-        <div className="mb-4 p-4 bg-muted/20 border rounded-lg">
-          <h4 className="text-sm font-medium mb-2">Section Style</h4>
-          <div className="grid grid-cols-1 gap-2">
-            {template.sectionVariants[section].map((variant: any) => (
-              <button
-                key={variant.id}
-                onClick={() => onSectionVariantUpdate(section, variant.id)}
-                className={`p-2 text-left rounded-md text-sm transition-colors ${
-                  selectedSectionVariants[section] === variant.id
-                    ? 'bg-primary/10 border border-primary text-primary'
-                    : 'bg-white dark:bg-gray-800 border hover:bg-muted/20'
-                }`}
-              >
-                <span className="font-medium">{variant.name}</span>
-              </button>
-            ))}
-          </div>
+    const variantSelector = showVariantSelector ? (
+      <div className="mb-4 p-4 bg-muted/20 border rounded-lg">
+        <h4 className="text-sm font-medium mb-2">Section Style</h4>
+        <div className="grid grid-cols-1 gap-2">
+          {template.sectionVariants[section].map((variant: any) => (
+            <button
+              key={variant.id}
+              onClick={() => onSectionVariantUpdate(section, variant.id)}
+              className={`p-2 text-left rounded-md text-sm transition-colors ${
+                selectedSectionVariants[section] === variant.id
+                  ? "bg-primary/10 border border-primary text-primary"
+                  : "bg-white dark:bg-gray-800 border hover:bg-muted/20"
+              }`}
+            >
+              <span className="font-medium">{variant.name}</span>
+            </button>
+          ))}
         </div>
-      ) : null;
+      </div>
+    ) : null;
 
     switch (section) {
-      case 'header':
+      case "header":
         return (
           <div className="mb-4">
             {variantSelector}
             <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md text-yellow-800">
               <p className="text-sm">
-                <strong>Note:</strong> Make sure to add a profile image for better visibility. Your header will be visible on the published portfolio.
+                <strong>Note:</strong> Make sure to add a profile image for
+                better visibility. Your header will be visible on the published
+                portfolio.
               </p>
             </div>
             <HeaderEditor
-              data={getContentForSection('header')}
-              onChange={(data) => onUpdateSection('header', data)}
+              data={getContentForSection("header")}
+              onChange={(data) => onUpdateSection("header", data)}
             />
           </div>
         );
-      case 'about':
+      case "about":
         return (
           <div>
             {variantSelector}
             <AboutEditor
-              data={getContentForSection('about')}
-              onChange={(data) => onUpdateSection('about', data)}
+              data={getContentForSection("about")}
+              onChange={(data) => onUpdateSection("about", data)}
             />
           </div>
         );
-      case 'projects':
-      case 'categories':
+      case "projects":
+      case "categories":
         return (
           <div>
             {variantSelector}
@@ -603,38 +665,38 @@ export default function SidebarEditor({
             />
           </div>
         );
-      case 'skills':
+      case "skills":
         return (
           <div>
             {variantSelector}
             <SkillsEditor
-              data={getContentForSection('skills')}
-              onChange={(data) => onUpdateSection('skills', data)}
+              data={getContentForSection("skills")}
+              onChange={(data) => onUpdateSection("skills", data)}
             />
           </div>
         );
-      case 'experience':
+      case "experience":
         return (
           <div>
             {variantSelector}
             <ExperienceEditor
-              data={getContentForSection('experience')}
-              onChange={(data) => onUpdateSection('experience', data)}
+              data={getContentForSection("experience")}
+              onChange={(data) => onUpdateSection("experience", data)}
             />
           </div>
         );
-      case 'education':
+      case "education":
         return (
           <div>
             {variantSelector}
             <EducationEditor
-              data={getContentForSection('education')}
-              onChange={(data) => onUpdateSection('education', data)}
+              data={getContentForSection("education")}
+              onChange={(data) => onUpdateSection("education", data)}
             />
           </div>
         );
-      case 'gallery':
-      case 'galleries':
+      case "gallery":
+      case "galleries":
         return (
           <div>
             {variantSelector}
@@ -644,39 +706,71 @@ export default function SidebarEditor({
             />
           </div>
         );
-      case 'contact':
+      case "work":
+        return (
+          <div>
+            {variantSelector}
+            <WorkEditor
+              data={getContentForSection("work")}
+              onChange={(data) => onUpdateSection("work", data)}
+            />
+          </div>
+        );
+      case "clients":
+        return (
+          <div>
+            {variantSelector}
+            <ClientsEditor
+              data={getContentForSection("clients")}
+              onChange={(data) => onUpdateSection("clients", data)}
+            />
+          </div>
+        );
+      case "testimonials":
+        return (
+          <div>
+            {variantSelector}
+            <TestimonialsEditor
+              data={getContentForSection("testimonials")}
+              onChange={(data) => onUpdateSection("testimonials", data)}
+            />
+          </div>
+        );
+      case "contact":
         return (
           <div>
             {variantSelector}
             <ContactEditor
-              data={getContentForSection('contact')}
-              onChange={(data) => onUpdateSection('contact', data)}
+              data={getContentForSection("contact")}
+              onChange={(data) => onUpdateSection("contact", data)}
             />
           </div>
         );
-      case 'socialLinks':
+      case "socialLinks":
         return (
           <SocialLinksEditor
             data={portfolioState?.content?.socialLinks || {}}
-            onChange={(data) => onUpdateSection('socialLinks', data)}
+            onChange={(data) => onUpdateSection("socialLinks", data)}
           />
         );
-      case 'seo': {
-        const userType = portfolioState?.userType || 'free';
+      case "seo": {
+        const userType = portfolioState?.userType || "free";
         const isSubdomainLocked =
-          userType === 'premium' ? false : portfolioState?.subdomainLocked === true;
+          userType === "premium"
+            ? false
+            : portfolioState?.subdomainLocked === true;
 
         return (
           <SEOEditor
-            data={getContentForSection('seo')}
-            onChange={(data) => onUpdateSection('seo', data)}
-            subdomain={portfolioState?.subdomain || ''}
+            data={getContentForSection("seo")}
+            onChange={(data) => onUpdateSection("seo", data)}
+            subdomain={portfolioState?.subdomain || ""}
             onSubdomainChange={(newSubdomain: string) => {
-              if (userType === 'premium' || !isSubdomainLocked) {
+              if (userType === "premium" || !isSubdomainLocked) {
                 setPortfolio((prev: any) => ({
                   ...prev,
                   subdomain: newSubdomain,
-                  customSubdomain: true
+                  customSubdomain: true,
                 }));
               }
             }}
@@ -685,14 +779,14 @@ export default function SidebarEditor({
           />
         );
       }
-      case 'customCss':
+      case "customCss":
         return (
           <CustomCSSEditor
-            css={portfolioState?.content?.customCss || ''}
+            css={portfolioState?.content?.customCss || ""}
             onChange={(css) => onUpdateCustomCss(css)}
           />
         );
-      case 'effects':
+      case "effects":
         return (
           <div className="space-y-4">
             <div className="flex items-center justify-between p-3 border rounded-md">
@@ -711,25 +805,29 @@ export default function SidebarEditor({
             <div className="p-3 border rounded-md">
               <h3 className="text-sm font-medium mb-2">Style Preset</h3>
               <div className="grid grid-cols-1 gap-2">
-                {Object.entries(template?.stylePresets || {}).map(([id, preset]: [string, any]) => (
-                  <button
-                    key={id}
-                    onClick={() => onStylePresetUpdate(id)}
-                    className={`p-3 rounded-md text-left transition-colors ${
-                      selectedStylePreset === id
-                        ? 'bg-primary/10 border border-primary text-primary'
-                        : 'bg-muted/30 hover:bg-muted/50 border'
-                    }`}
-                  >
-                    <div className="font-medium">{preset.name}</div>
-                    <div className="text-xs text-muted-foreground">{preset.description}</div>
-                  </button>
-                ))}
+                {Object.entries(template?.stylePresets || {}).map(
+                  ([id, preset]: [string, any]) => (
+                    <button
+                      key={id}
+                      onClick={() => onStylePresetUpdate(id)}
+                      className={`p-3 rounded-md text-left transition-colors ${
+                        selectedStylePreset === id
+                          ? "bg-primary/10 border border-primary text-primary"
+                          : "bg-muted/30 hover:bg-muted/50 border"
+                      }`}
+                    >
+                      <div className="font-medium">{preset.name}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {preset.description}
+                      </div>
+                    </button>
+                  )
+                )}
               </div>
             </div>
           </div>
         );
-      case 'accessibility':
+      case "accessibility":
         return (
           <div className="space-y-4 p-3 border rounded-md">
             <h3 className="text-sm font-medium">Accessibility Settings</h3>
@@ -742,11 +840,14 @@ export default function SidebarEditor({
                 <Label htmlFor="high-contrast">High Contrast Mode</Label>
                 <Switch
                   id="high-contrast"
-                  checked={portfolioState?.content?.accessibility?.highContrast || false}
+                  checked={
+                    portfolioState?.content?.accessibility?.highContrast ||
+                    false
+                  }
                   onCheckedChange={(checked) => {
-                    onUpdateSection('accessibility', {
+                    onUpdateSection("accessibility", {
                       ...portfolioState?.content?.accessibility,
-                      highContrast: checked
+                      highContrast: checked,
                     });
                   }}
                 />
@@ -756,11 +857,13 @@ export default function SidebarEditor({
                 <Label htmlFor="larger-text">Larger Text</Label>
                 <Switch
                   id="larger-text"
-                  checked={portfolioState?.content?.accessibility?.largerText || false}
+                  checked={
+                    portfolioState?.content?.accessibility?.largerText || false
+                  }
                   onCheckedChange={(checked) => {
-                    onUpdateSection('accessibility', {
+                    onUpdateSection("accessibility", {
                       ...portfolioState?.content?.accessibility,
-                      largerText: checked
+                      largerText: checked,
                     });
                   }}
                 />
@@ -770,11 +873,14 @@ export default function SidebarEditor({
                 <Label htmlFor="screen-reader">Screen Reader Support</Label>
                 <Switch
                   id="screen-reader"
-                  checked={portfolioState?.content?.accessibility?.screenReader || false}
+                  checked={
+                    portfolioState?.content?.accessibility?.screenReader ||
+                    false
+                  }
                   onCheckedChange={(checked) => {
-                    onUpdateSection('accessibility', {
+                    onUpdateSection("accessibility", {
                       ...portfolioState?.content?.accessibility,
-                      screenReader: checked
+                      screenReader: checked,
                     });
                   }}
                 />
@@ -782,7 +888,7 @@ export default function SidebarEditor({
             </div>
           </div>
         );
-      case 'performance':
+      case "performance":
         return (
           <div className="space-y-4 p-3 border rounded-md">
             <h3 className="text-sm font-medium">Performance Settings</h3>
@@ -795,11 +901,13 @@ export default function SidebarEditor({
                 <Label htmlFor="lazy-loading">Enable Lazy Loading</Label>
                 <Switch
                   id="lazy-loading"
-                  checked={portfolioState?.content?.performance?.lazyLoading || false}
+                  checked={
+                    portfolioState?.content?.performance?.lazyLoading || false
+                  }
                   onCheckedChange={(checked) => {
-                    onUpdateSection('performance', {
+                    onUpdateSection("performance", {
                       ...portfolioState?.content?.performance,
-                      lazyLoading: checked
+                      lazyLoading: checked,
                     });
                   }}
                 />
@@ -809,11 +917,14 @@ export default function SidebarEditor({
                 <Label htmlFor="image-optimization">Image Optimization</Label>
                 <Switch
                   id="image-optimization"
-                  checked={portfolioState?.content?.performance?.imageOptimization || false}
+                  checked={
+                    portfolioState?.content?.performance?.imageOptimization ||
+                    false
+                  }
                   onCheckedChange={(checked) => {
-                    onUpdateSection('performance', {
+                    onUpdateSection("performance", {
                       ...portfolioState?.content?.performance,
-                      imageOptimization: checked
+                      imageOptimization: checked,
                     });
                   }}
                 />
@@ -823,11 +934,13 @@ export default function SidebarEditor({
                 <Label htmlFor="prefetch">Prefetch Links</Label>
                 <Switch
                   id="prefetch"
-                  checked={portfolioState?.content?.performance?.prefetch || false}
+                  checked={
+                    portfolioState?.content?.performance?.prefetch || false
+                  }
                   onCheckedChange={(checked) => {
-                    onUpdateSection('performance', {
+                    onUpdateSection("performance", {
                       ...portfolioState?.content?.performance,
-                      prefetch: checked
+                      prefetch: checked,
                     });
                   }}
                 />
@@ -835,19 +948,19 @@ export default function SidebarEditor({
             </div>
           </div>
         );
-      case 'navbar':
+      case "navbar":
         // Use NavbarEditor instead of textarea
         return (
           <NavbarEditor
-            data={getContentForSection('navbar')}
-            onChange={(data) => onUpdateSection('navbar', data)}
+            data={getContentForSection("navbar")}
+            onChange={(data) => onUpdateSection("navbar", data)}
           />
         );
-      case 'footer':
+      case "footer":
         return (
           <FooterEditor
-            data={getContentForSection('footer')}
-            onChange={(data) => onUpdateSection('footer', data)}
+            data={getContentForSection("footer")}
+            onChange={(data) => onUpdateSection("footer", data)}
           />
         );
       default:
@@ -881,14 +994,18 @@ export default function SidebarEditor({
     setSidebarCollapsed(!sidebarCollapsed);
   };
 
-  const specialSections = ['socialLinks', 'seo'];
+  const specialSections = ["socialLinks", "seo"];
 
-  const filteredSections = sectionOrder.filter(
-    section => section.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredSections = sectionOrder.filter((section) =>
+    section.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   if (!isClient) {
-    return <div className="flex items-center justify-center h-screen">Loading editor...</div>;
+    return (
+      <div className="flex items-center justify-center h-screen">
+        Loading editor...
+      </div>
+    );
   }
 
   const SidebarToggle = () => (
@@ -898,20 +1015,28 @@ export default function SidebarEditor({
       className="fixed bottom-4 right-4 z-50 rounded-full h-12 w-12 shadow-lg md:hidden flex items-center justify-center"
       onClick={toggleSidebar}
     >
-      {sidebarCollapsed ? <PanelLeft className="h-5 w-5" /> : <PanelRight className="h-5 w-5" />}
+      {sidebarCollapsed ? (
+        <PanelLeft className="h-5 w-5" />
+      ) : (
+        <PanelRight className="h-5 w-5" />
+      )}
     </Button>
   );
 
   const Sidebar = () => (
     <div
       className={`h-full border-r bg-gray-50 dark:bg-gray-900 transition-all duration-300 ${
-        sidebarCollapsed ? 'w-0 -translate-x-full md:translate-x-0 md:w-0 opacity-0' : 'w-full md:w-60 lg:w-80 translate-x-0 opacity-100'
-      } ${isMobile && !sidebarCollapsed ? 'fixed inset-0 z-40' : ''}`}
-      style={{ maxWidth: sidebarCollapsed ? 0 : isMobile ? '100%' : '20rem' }}
+        sidebarCollapsed
+          ? "w-0 -translate-x-full md:translate-x-0 md:w-0 opacity-0"
+          : "w-full md:w-60 lg:w-80 translate-x-0 opacity-100"
+      } ${isMobile && !sidebarCollapsed ? "fixed inset-0 z-40" : ""}`}
+      style={{ maxWidth: sidebarCollapsed ? 0 : isMobile ? "100%" : "20rem" }}
     >
       <div className="flex flex-col h-full">
         <div className="p-4 border-b flex items-center justify-between">
-          <h2 className="text-base font-semibold truncate">Portfolio Sections</h2>
+          <h2 className="text-base font-semibold truncate">
+            Portfolio Sections
+          </h2>
           <div className="flex gap-2">
             <Button
               size="sm"
@@ -953,19 +1078,25 @@ export default function SidebarEditor({
                 onClick={() => handleSectionClick(section)}
                 className={`px-3 py-2 mx-2 my-1 rounded-md cursor-pointer flex items-center transition-colors ${
                   activeSection === section
-                    ? 'bg-primary text-primary-foreground'
-                    : 'hover:bg-gray-100 dark:hover:bg-gray-800'
+                    ? "bg-primary text-primary-foreground"
+                    : "hover:bg-gray-100 dark:hover:bg-gray-800"
                 }`}
               >
-                <span className="truncate flex-1">{getSectionTitle(section)}</span>
-                {activeSection === section && <ChevronRight className="h-4 w-4 ml-1" />}
+                <span className="truncate flex-1">
+                  {getSectionTitle(section)}
+                </span>
+                {activeSection === section && (
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                )}
               </li>
             ))}
 
-            {searchTerm === '' && (
+            {searchTerm === "" && (
               <>
                 <li className="mt-4 px-3">
-                  <span className="text-xs font-medium text-muted-foreground">SETTINGS</span>
+                  <span className="text-xs font-medium text-muted-foreground">
+                    SETTINGS
+                  </span>
                 </li>
                 {specialSections.map((section) => (
                   <li
@@ -973,50 +1104,71 @@ export default function SidebarEditor({
                     onClick={() => handleSectionClick(section)}
                     className={`px-3 py-2 mx-2 my-1 rounded-md cursor-pointer flex items-center transition-colors ${
                       activeSection === section
-                        ? 'bg-primary text-primary-foreground'
-                        : 'hover:bg-gray-100 dark:hover:bg-gray-800'
+                        ? "bg-primary text-primary-foreground"
+                        : "hover:bg-gray-100 dark:hover:bg-gray-800"
                     }`}
                   >
-                    <span className="truncate flex-1">{getSectionTitle(section)}</span>
-                    {activeSection === section && <ChevronRight className="h-4 w-4 ml-1" />}
+                    <span className="truncate flex-1">
+                      {getSectionTitle(section)}
+                    </span>
+                    {activeSection === section && (
+                      <ChevronRight className="h-4 w-4 ml-1" />
+                    )}
                   </li>
                 ))}
                 {advancedMode && (
                   <>
                     <li className="mt-4 px-3">
-                      <span className="text-xs font-medium text-muted-foreground">ADVANCED</span>
+                      <span className="text-xs font-medium text-muted-foreground">
+                        ADVANCED
+                      </span>
                     </li>
-                    {['customCss', 'effects', 'accessibility', 'performance'].map((section) => (
+                    {[
+                      "customCss",
+                      "effects",
+                      "accessibility",
+                      "performance",
+                    ].map((section) => (
                       <li
                         key={section}
                         onClick={() => handleSectionClick(section)}
                         className={`px-3 py-2 mx-2 my-1 rounded-md cursor-pointer flex items-center transition-colors ${
                           activeSection === section
-                            ? 'bg-primary text-primary-foreground'
-                            : 'hover:bg-gray-100 dark:hover:bg-gray-800'
+                            ? "bg-primary text-primary-foreground"
+                            : "hover:bg-gray-100 dark:hover:bg-gray-800"
                         }`}
                       >
-                        <span className="truncate flex-1">{getSectionTitle(section)}</span>
-                        {activeSection === section && <ChevronRight className="h-4 w-4 ml-1" />}
+                        <span className="truncate flex-1">
+                          {getSectionTitle(section)}
+                        </span>
+                        {activeSection === section && (
+                          <ChevronRight className="h-4 w-4 ml-1" />
+                        )}
                       </li>
                     ))}
                   </>
                 )}
                 <li className="mt-4 px-3">
-                  <span className="text-xs font-medium text-muted-foreground">SITE</span>
+                  <span className="text-xs font-medium text-muted-foreground">
+                    SITE
+                  </span>
                 </li>
-                {['navbar', 'footer'].map((section) => (
+                {["navbar", "footer"].map((section) => (
                   <li
                     key={section}
                     onClick={() => handleSectionClick(section)}
                     className={`px-3 py-2 mx-2 my-1 rounded-md cursor-pointer flex items-center transition-colors ${
                       activeSection === section
-                        ? 'bg-primary text-primary-foreground'
-                        : 'hover:bg-gray-100 dark:hover:bg-gray-800'
+                        ? "bg-primary text-primary-foreground"
+                        : "hover:bg-gray-100 dark:hover:bg-gray-800"
                     }`}
                   >
-                    <span className="truncate flex-1">{getSectionTitle(section)}</span>
-                    {activeSection === section && <ChevronRight className="h-4 w-4 ml-1" />}
+                    <span className="truncate flex-1">
+                      {getSectionTitle(section)}
+                    </span>
+                    {activeSection === section && (
+                      <ChevronRight className="h-4 w-4 ml-1" />
+                    )}
                   </li>
                 ))}
               </>
@@ -1027,55 +1179,55 @@ export default function SidebarEditor({
         <div className="p-3 border-t mt-auto bg-white dark:bg-gray-800">
           <div className="grid grid-cols-6 gap-1">
             <Button
-              variant={configTab === 'sections' ? 'default' : 'outline'}
+              variant={configTab === "sections" ? "default" : "outline"}
               size="sm"
               className="flex flex-col items-center justify-center h-16 space-y-1 p-1"
-              onClick={() => setConfigTab('sections')}
+              onClick={() => setConfigTab("sections")}
             >
               <Settings className="h-4 w-4" />
               <span className="text-[10px]">Sections</span>
             </Button>
             <Button
-              variant={configTab === 'theme' ? 'default' : 'outline'}
+              variant={configTab === "theme" ? "default" : "outline"}
               size="sm"
               className="flex flex-col items-center justify-center h-16 space-y-1 p-1"
-              onClick={() => setConfigTab('theme')}
+              onClick={() => setConfigTab("theme")}
             >
               <Palette className="h-4 w-4" />
               <span className="text-[10px]">Theme</span>
             </Button>
             <Button
-              variant={configTab === 'layout' ? 'default' : 'outline'}
+              variant={configTab === "layout" ? "default" : "outline"}
               size="sm"
               className="flex flex-col items-center justify-center h-16 space-y-1 p-1"
-              onClick={() => setConfigTab('layout')}
+              onClick={() => setConfigTab("layout")}
             >
               <Layout className="h-4 w-4" />
               <span className="text-[10px]">Layout</span>
             </Button>
             <Button
-              variant={configTab === 'variants' ? 'default' : 'outline'}
+              variant={configTab === "variants" ? "default" : "outline"}
               size="sm"
               className="flex flex-col items-center justify-center h-16 space-y-1 p-1"
-              onClick={() => setConfigTab('variants')}
+              onClick={() => setConfigTab("variants")}
             >
               <Layers className="h-4 w-4" />
               <span className="text-[10px]">Variants</span>
             </Button>
             <Button
-              variant={configTab === 'animations' ? 'default' : 'outline'}
+              variant={configTab === "animations" ? "default" : "outline"}
               size="sm"
               className="flex flex-col items-center justify-center h-16 space-y-1 p-1"
-              onClick={() => setConfigTab('animations')}
+              onClick={() => setConfigTab("animations")}
             >
               <Sparkles className="h-4 w-4" />
               <span className="text-[10px]">Effects</span>
             </Button>
             <Button
-              variant={configTab === 'style' ? 'default' : 'outline'}
+              variant={configTab === "style" ? "default" : "outline"}
               size="sm"
               className="flex flex-col items-center justify-center h-16 space-y-1 p-1"
-              onClick={() => setConfigTab('style')}
+              onClick={() => setConfigTab("style")}
             >
               <Paintbrush className="h-4 w-4" />
               <span className="text-[10px]">Style</span>
@@ -1102,25 +1254,34 @@ export default function SidebarEditor({
       <div className="flex-1 overflow-auto">
         <Tabs defaultValue={configTab}>
           <TabsList className="w-full justify-start px-4 pt-4 flex flex-wrap gap-2">
-            <TabsTrigger value="sections" onClick={() => setConfigTab('sections')}>
+            <TabsTrigger
+              value="sections"
+              onClick={() => setConfigTab("sections")}
+            >
               Sections
             </TabsTrigger>
-            <TabsTrigger value="theme" onClick={() => setConfigTab('theme')}>
+            <TabsTrigger value="theme" onClick={() => setConfigTab("theme")}>
               Theme
             </TabsTrigger>
-            <TabsTrigger value="layout" onClick={() => setConfigTab('layout')}>
+            <TabsTrigger value="layout" onClick={() => setConfigTab("layout")}>
               Layout
             </TabsTrigger>
-            <TabsTrigger value="css" onClick={() => setConfigTab('css')}>
+            <TabsTrigger value="css" onClick={() => setConfigTab("css")}>
               Custom CSS
             </TabsTrigger>
-            <TabsTrigger value="variants" onClick={() => setConfigTab('variants')}>
+            <TabsTrigger
+              value="variants"
+              onClick={() => setConfigTab("variants")}
+            >
               Variants
             </TabsTrigger>
-            <TabsTrigger value="animations" onClick={() => setConfigTab('animations')}>
+            <TabsTrigger
+              value="animations"
+              onClick={() => setConfigTab("animations")}
+            >
               Effects
             </TabsTrigger>
-            <TabsTrigger value="style" onClick={() => setConfigTab('style')}>
+            <TabsTrigger value="style" onClick={() => setConfigTab("style")}>
               Style
             </TabsTrigger>
           </TabsList>
@@ -1151,7 +1312,10 @@ export default function SidebarEditor({
 
       <div className="border-t p-4">
         <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={() => setShowManageSections(false)}>
+          <Button
+            variant="outline"
+            onClick={() => setShowManageSections(false)}
+          >
             Cancel
           </Button>
           <Button onClick={() => setShowManageSections(false)}>
@@ -1167,7 +1331,9 @@ export default function SidebarEditor({
       return (
         <div className="flex-1 flex items-center justify-center p-4 bg-gray-50 dark:bg-gray-900">
           <div className="text-center max-w-md">
-            <h3 className="text-xl font-semibold mb-2">Select a section to edit</h3>
+            <h3 className="text-xl font-semibold mb-2">
+              Select a section to edit
+            </h3>
             <p className="text-muted-foreground mb-4">
               Choose a section from the sidebar to start editing your portfolio.
             </p>
@@ -1196,8 +1362,12 @@ export default function SidebarEditor({
       <div className="flex-1 flex flex-col overflow-hidden bg-gray-50 dark:bg-gray-900">
         <div className="p-4 border-b bg-background flex items-center justify-between sticky top-0 z-10">
           <div>
-            <h2 className="text-xl font-semibold">{getSectionTitle(activeSection)}</h2>
-            <p className="text-sm text-muted-foreground">{getSectionDescription(activeSection)}</p>
+            <h2 className="text-xl font-semibold">
+              {getSectionTitle(activeSection)}
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              {getSectionDescription(activeSection)}
+            </p>
           </div>
           <div className="flex items-center gap-2">
             <Button
