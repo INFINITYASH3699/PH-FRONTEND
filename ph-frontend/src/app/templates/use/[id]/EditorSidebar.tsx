@@ -14,6 +14,15 @@ import ExperienceEditor from './ExperienceEditor';
 import EducationEditor from './EducationEditor';
 import ContactEditor from './ContactEditor';
 import GalleryEditor from './GalleryEditor';
+import WorkEditor from './WorkEditor';
+import ClientsEditor from './ClientsEditor';
+import TestimonialsEditor from './TestimonialsEditor';
+import ServicesEditor from './ServicesEditor';
+import PricingEditor from './PricingEditor';
+import NavbarEditor from './NavbarEditor';
+import FooterEditor from './FooterEditor';
+import AnimationsEditor from './AnimationsEditor';
+import ColorSchemeEditor from './ColorSchemeEditor';
 import SocialLinksEditor from './SocialLinksEditor';
 import CustomCSSEditor from './CustomCSSEditor';
 import SEOEditor from './SEOEditor';
@@ -318,24 +327,84 @@ export default function EditorSidebar({
           </div>
         );
       case 'services':
+        return (
+          <div className="overflow-y-auto max-h-[60vh]">
+            <ServicesEditor
+              data={getContentForSection('services')}
+              onChange={(data) => onUpdateSection('services', data)}
+            />
+          </div>
+        );
       case 'pricing':
         return (
-          <div className="overflow-y-auto max-h-[60vh] p-4 bg-muted/30 rounded-md">
-            <p className="text-sm text-muted-foreground mb-2">
-              {section === 'services' ? 'Services section' : 'Pricing section'} editor
-            </p>
-            <textarea
-              className="w-full p-2 border rounded-md min-h-[100px]"
-              placeholder={`Edit your ${getSectionTitle(section)} content here`}
-              value={JSON.stringify(getContentForSection(section), null, 2)}
-              onChange={(e) => {
-                try {
-                  const data = JSON.parse(e.target.value);
-                  onUpdateSection(section, data);
-                } catch (error) {
-                  // Handle invalid JSON
-                }
-              }}
+          <div className="overflow-y-auto max-h-[60vh]">
+            <PricingEditor
+              data={getContentForSection('pricing')}
+              onChange={(data) => onUpdateSection('pricing', data)}
+            />
+          </div>
+        );
+      case 'work':
+        return (
+          <div className="overflow-y-auto max-h-[60vh]">
+            <WorkEditor
+              data={getContentForSection('work')}
+              onChange={(data) => onUpdateSection('work', data)}
+            />
+          </div>
+        );
+      case 'clients':
+        return (
+          <div className="overflow-y-auto max-h-[60vh]">
+            <ClientsEditor
+              data={getContentForSection('clients')}
+              onChange={(data) => onUpdateSection('clients', data)}
+            />
+          </div>
+        );
+      case 'testimonials':
+        return (
+          <div className="overflow-y-auto max-h-[60vh]">
+            <TestimonialsEditor
+              data={getContentForSection('testimonials')}
+              onChange={(data) => onUpdateSection('testimonials', data)}
+            />
+          </div>
+        );
+      case 'navbar':
+        return (
+          <div className="overflow-y-auto max-h-[60vh]">
+            <NavbarEditor
+              data={getContentForSection('navbar')}
+              onChange={(data) => onUpdateSection('navbar', data)}
+            />
+          </div>
+        );
+      case 'footer':
+        return (
+          <div className="overflow-y-auto max-h-[60vh]">
+            <FooterEditor
+              data={getContentForSection('footer')}
+              onChange={(data) => onUpdateSection('footer', data)}
+            />
+          </div>
+        );
+      case 'animations':
+        return (
+          <div className="overflow-y-auto max-h-[60vh]">
+            <AnimationsEditor
+              data={getContentForSection('animations')}
+              onChange={(data) => onUpdateSection('animations', data)}
+            />
+          </div>
+        );
+      case 'colorScheme':
+        return (
+          <div className="overflow-y-auto max-h-[60vh]">
+            <ColorSchemeEditor
+              data={getContentForSection('colorScheme')}
+              presets={template?.themeOptions?.colorSchemes || []}
+              onChange={(data) => onUpdateSection('colorScheme', data)}
             />
           </div>
         );

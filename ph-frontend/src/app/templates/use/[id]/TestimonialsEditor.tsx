@@ -1,0 +1,309 @@
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { PlusCircle, Trash2, MoveUp, MoveDown, Image as ImageIcon, Star } from 'lucide-react';
+import { FileUpload } from '@/components/ui/file-upload';
+
+interface TestimonialItem {
+  id: string;
+  name: string;
+  role?: string;
+  company?: string;
+  testimonial: string;
+  avatar?: string;
+  rating?: number;
+  date?: string;
+}
+
+interface TestimonialsEditorProps {
+  data: {
+    title?: string;
+    description?: string;
+    items?: TestimonialItem[];
+  };
+  onChange: (data: any) => void;
+}
+
+export default function TestimonialsEditor({ data, onChange }: TestimonialsEditorProps) {
+  const [activeItem, setActiveItem] = useState<string | null>(null);
+
+  const handleSectionDataChange = (key: string, value: string) => {
+    onChange({ ...data, [key]: value });
+  };
+
+  const handleAddItem = () => {
+    const newItem = {
+      id: `testimonial-${Date.now()}`,
+      name: 'Client Name',
+      role: 'Position/Title',
+      company: 'Company Name',
+      testimonial: 'Add your testimonial text here...',
+      avatar: '',
+      rating: 5,
+      date: '',
+    };
+    onChange({
+      ...data,
+      items: [...(data.items || []), newItem]
+    });
+    setActiveItem(newItem.id);
+  };
+
+  const handleDeleteItem = (id: string) => {
+    onChange({
+      ...data,
+      items: (data.items || []).filter(item => item.id !== id)
+    });
+    if (activeItem === id) {
+      setActiveItem(null);
+    }
+  };
+
+  const handleItemChange = (id: string, key: string, value: any) => {
+    onChange({
+      ...data,
+      items: (data.items || []).map(item =>
+        item.id === id ? { ...item, [key]: value } : item
+      )
+    });
+  };
+
+  const handleMoveItem = (id: string, direction: 'up' | 'down') => {
+    const items = [...(data.items || [])];
+    const index = items.findIndex(item => item.id === id);
+    if (index < 0) return;
+
+    const newIndex = direction === 'up' ? Math.max(0, index - 1) : Math.min(items.length - 1, index + 1);
+    if (newIndex === index) return;
+
+    const item = items[index];
+    items.splice(index, 1);
+    items.splice(newIndex, 0, item);
+
+    onChange({ ...data, items });
+  };
+
+  const handleAvatarUpload = (id: string, url: string) => {
+    handleItemChange(id, 'avatar', url);
+  };
+
+  const handleRatingChange = (id: string, rating: number) => {
+    handleItemChange(id, 'rating', rating);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <label className="text-sm font-medium">Section Title</label>
+        <Input
+          value={data.title || ''}
+          onChange={(e) => handleSectionDataChange('title', e.target.value)}
+          placeholder="Testimonials"
+        />
+      </div>
+
+      <div className="space-y-2">
+        <label className="text-sm font-medium">Section Description</label>
+        <Textarea
+          value={data.description || ''}
+          onChange={(e) => handleSectionDataChange('description', e.target.value)}
+          placeholder="What clients say about my work"
+          rows={3}
+        />
+      </div>
+
+      <div className="pt-4 border-t">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-medium">Testimonials</h3>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleAddItem}
+            className="flex items-center gap-1"
+          >
+            <PlusCircle className="h-4 w-4" />
+            Add Testimonial
+          </Button>
+        </div>
+
+        <div className="space-y-2">
+          {(data.items || []).length === 0 ? (
+            <div className="p-8 text-center text-muted-foreground border border-dashed rounded-md">
+              No testimonials added yet. Click "Add Testimonial" to create your first testimonial.
+            </div>
+          ) : (
+            <>
+              <div className="grid gap-2">
+                {(data.items || []).map((item) => (
+                  <div
+                    key={item.id}
+                    className={`border rounded-md ${activeItem === item.id ? 'border-primary' : ''}`}
+                  >
+                    <div
+                      className="p-3 flex items-center justify-between cursor-pointer"
+                      onClick={() => setActiveItem(activeItem === item.id ? null : item.id)}
+                    >
+                      <div className="flex items-center">
+                        <div className="w-10 h-10 bg-muted mr-3 rounded-full flex items-center justify-center overflow-hidden">
+                          {item.avatar ? (
+                            <img
+                              src={item.avatar}
+                              alt={item.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <ImageIcon className="h-5 w-5 text-muted-foreground" />
+                          )}
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-medium">{item.name}</h4>
+                          <p className="text-xs text-muted-foreground truncate max-w-[200px]">
+                            {item.role} {item.company ? `at ${item.company}` : ''}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleMoveItem(item.id, 'up');
+                          }}
+                        >
+                          <MoveUp className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleMoveItem(item.id, 'down');
+                          }}
+                        >
+                          <MoveDown className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteItem(item.id);
+                          }}
+                          className="text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    {activeItem === item.id && (
+                      <div className="p-3 pt-0 border-t">
+                        <div className="grid gap-3">
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-2">
+                              <label className="text-xs font-medium">Name</label>
+                              <Input
+                                value={item.name}
+                                onChange={(e) => handleItemChange(item.id, 'name', e.target.value)}
+                                placeholder="Client name"
+                                className="h-8 text-sm"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-xs font-medium">Role/Position (Optional)</label>
+                              <Input
+                                value={item.role || ''}
+                                onChange={(e) => handleItemChange(item.id, 'role', e.target.value)}
+                                placeholder="e.g. CEO"
+                                className="h-8 text-sm"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-2">
+                              <label className="text-xs font-medium">Company (Optional)</label>
+                              <Input
+                                value={item.company || ''}
+                                onChange={(e) => handleItemChange(item.id, 'company', e.target.value)}
+                                placeholder="Company name"
+                                className="h-8 text-sm"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-xs font-medium">Date (Optional)</label>
+                              <Input
+                                value={item.date || ''}
+                                onChange={(e) => handleItemChange(item.id, 'date', e.target.value)}
+                                placeholder="e.g. May 2023"
+                                className="h-8 text-sm"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <label className="text-xs font-medium">Testimonial</label>
+                            <Textarea
+                              value={item.testimonial}
+                              onChange={(e) => handleItemChange(item.id, 'testimonial', e.target.value)}
+                              placeholder="What the client said about your work"
+                              className="text-sm"
+                              rows={4}
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <label className="text-xs font-medium">Rating (Optional)</label>
+                            <div className="flex items-center space-x-1 pt-1">
+                              {[1, 2, 3, 4, 5].map((rating) => (
+                                <Button
+                                  key={rating}
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleRatingChange(item.id, rating)}
+                                  className={`p-1 h-auto ${(item.rating || 0) >= rating ? 'text-amber-500' : 'text-muted-foreground'}`}
+                                >
+                                  <Star className="h-5 w-5 fill-current" />
+                                </Button>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <label className="text-xs font-medium">Avatar (Optional)</label>
+                            <div className="flex items-center space-x-3">
+                              <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center overflow-hidden">
+                                {item.avatar ? (
+                                  <img
+                                    src={item.avatar}
+                                    alt={item.name}
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                                )}
+                              </div>
+                              <FileUpload
+                                onUploadComplete={(url) => handleAvatarUpload(item.id, url)}
+                                acceptedFileTypes={{
+                                  'image/*': ['.jpg', '.jpeg', '.png']
+                                }}
+                                maxSizeInMB={2}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
