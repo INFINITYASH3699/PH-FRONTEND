@@ -170,7 +170,9 @@ export const createPortfolio = async (
 
     // Save the new portfolio
     const savedPortfolio = await newPortfolio.save();
-    console.log(`Portfolio created successfully with ID: ${savedPortfolio._id}`);
+    console.log(
+      `Portfolio created successfully with ID: ${savedPortfolio._id}`
+    );
 
     return res.status(201).json({
       success: true,
@@ -316,7 +318,10 @@ export const updatePortfolio = async (
     // If subdomain is being changed
     if (subdomain && subdomain.toLowerCase() !== portfolio.subdomain) {
       // Free plan users can only use their username as subdomain
-      if (isFreePlan && subdomain.toLowerCase() !== user.username.toLowerCase()) {
+      if (
+        isFreePlan &&
+        subdomain.toLowerCase() !== user.username.toLowerCase()
+      ) {
         return res.status(403).json({
           success: false,
           message:
@@ -644,7 +649,10 @@ export const getPortfolioBySubdomain = async (
       ? parseInt(req.query.order as string)
       : undefined;
 
-    console.log(`Getting portfolio by subdomain: ${subdomain}, order: ${portfolioOrder || 0}`);
+    console.log(
+      `Getting portfolio by subdomain: "${subdomain}", order: ${portfolioOrder || 0}`
+    );
+    console.log(`Request query params:`, req.query);
 
     let portfolio: any = null;
 
@@ -653,7 +661,9 @@ export const getPortfolioBySubdomain = async (
       portfolio = await Portfolio.findOne({
         customDomain: customDomain.toLowerCase(),
         isPublished: true,
-      }).populate("templateId", "name category").lean();
+      })
+        .populate("templateId", "name category")
+        .lean();
       if (portfolio) {
         console.log(`Found portfolio by customDomain: ${customDomain}`);
       }
@@ -675,7 +685,9 @@ export const getPortfolioBySubdomain = async (
       }
 
       // Log the search parameters for debugging
-      console.log(`Searching for portfolio with baseSubdomain: ${baseSubdomain}, orderFromSubdomain: ${orderFromSubdomain}, portfolioOrder: ${portfolioOrder}`);
+      console.log(
+        `Searching for portfolio with baseSubdomain: "${baseSubdomain}", orderFromSubdomain: ${orderFromSubdomain}, portfolioOrder: ${portfolioOrder}`
+      );
 
       // Prefer order in URL, then ?order= param, then 0
       let targetOrder = 0;
@@ -690,10 +702,14 @@ export const getPortfolioBySubdomain = async (
         subdomain: baseSubdomain,
         portfolioOrder: targetOrder,
         isPublished: true,
-      }).populate("templateId", "name category").lean();
+      })
+        .populate("templateId", "name category")
+        .lean();
 
       // Log the search results for debugging
-      console.log(`Search for ${baseSubdomain} with order ${targetOrder}: ${portfolio ? 'Found' : 'Not found'}`);
+      console.log(
+        `Search for "${baseSubdomain}" with order ${targetOrder}: ${portfolio ? "Found" : "Not found"}`
+      );
 
       // If not found and no specific order was requested, get the default (order 0) or any published portfolio
       if (!portfolio) {
@@ -702,38 +718,79 @@ export const getPortfolioBySubdomain = async (
           subdomain: baseSubdomain,
           portfolioOrder: 0,
           isPublished: true,
-        }).populate("templateId", "name category").lean();
+        })
+          .populate("templateId", "name category")
+          .lean();
 
-        console.log(`Search for ${baseSubdomain} with order 0: ${portfolio ? 'Found' : 'Not found'}`);
+        console.log(
+          `Search for "${baseSubdomain}" with order 0: ${portfolio ? "Found" : "Not found"}`
+        );
 
         // If still not found, find any published portfolio with this subdomain
         if (!portfolio) {
-          portfolio = await Portfolio.findOne({
+          // Look for any published portfolio with this subdomain
+          const allPortfolios = await Portfolio.find({
             subdomain: baseSubdomain,
             isPublished: true,
-          })
-            .sort({ portfolioOrder: 1 }) // Get the lowest order number (should be 0 for main portfolio)
-            .populate("templateId", "name category")
-            .lean();
+          }).sort({ portfolioOrder: 1 }); // Sort by order
 
-          console.log(`Fallback search result for any portfolio with ${baseSubdomain}: ${portfolio ? 'Found' : 'Not found'}`);
+          // Log the number of published portfolios found
+          console.log(
+            `Found ${allPortfolios.length} published portfolios with subdomain "${baseSubdomain}"`
+          );
+
+          if (allPortfolios.length > 0) {
+            // Get the first one in the list (lowest portfolioOrder)
+            portfolio = await Portfolio.findOne({
+              _id: allPortfolios[0]._id,
+            })
+              .populate("templateId", "name category")
+              .lean();
+
+            console.log(
+              `Selected portfolio with id: ${portfolio._id}, order: ${portfolio.portfolioOrder}`
+            );
+          } else {
+            console.log(
+              `No published portfolios found with subdomain: "${baseSubdomain}"`
+            );
+          }
         }
       }
     }
 
     if (!portfolio) {
-      console.log(`No published portfolio found for subdomain: ${subdomain}`);
+      console.log(`No published portfolio found for subdomain: "${subdomain}"`);
       return res.status(404).json({
         success: false,
         message: "Portfolio not found or not published",
       });
     }
 
+    // Ensure template data is properly populated
+    if (portfolio.templateId && typeof portfolio.templateId === "string") {
+      // If templateId is just a string (not populated), fetch the template data
+      const template = await Template.findById(
+        portfolio.templateId,
+        "name category"
+      );
+      if (template) {
+        portfolio.templateId = template;
+        console.log(`Template data populated manually: ${template._id}`);
+      } else {
+        console.warn(`Template with ID ${portfolio.templateId} not found`);
+      }
+    }
+
     // Increment view count
     portfolio.viewCount = (portfolio.viewCount || 0) + 1;
     // Save updated view count
-    await Portfolio.updateOne({ _id: portfolio._id }, { $set: { viewCount: portfolio.viewCount } });
+    await Portfolio.updateOne(
+      { _id: portfolio._id },
+      { $set: { viewCount: portfolio.viewCount } }
+    );
 
+    console.log(`Successfully returning portfolio with ID: ${portfolio._id}`);
     return res.status(200).json({
       success: true,
       portfolio,

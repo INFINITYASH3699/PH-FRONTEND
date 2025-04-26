@@ -1,22 +1,23 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from 'react';
-import { notFound, useParams, useSearchParams } from 'next/navigation';
-import apiClient from '@/lib/apiClient';
-import PortfolioTemplateRenderer from '@/components/template-renderer/PortfolioTemplateRenderer';
+import { useState, useEffect } from "react";
+import { notFound, useParams, useSearchParams } from "next/navigation";
+import apiClient from "@/lib/apiClient";
+import PortfolioTemplateRenderer from "@/components/template-renderer/PortfolioTemplateRenderer";
 
 export default function PublishedPortfolioPage() {
   const [portfolio, setPortfolio] = useState(null);
   const [template, setTemplate] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [debugInfo, setDebugInfo] = useState({});
 
   // Get username from route params using the useParams hook
   const params = useParams();
-  const username = typeof params.username === 'string' ? params.username : '';
+  const username = typeof params.username === "string" ? params.username : "";
 
   // Get search params to check for full view mode
   const searchParams = useSearchParams();
-  const isFullView = searchParams.get('view') === 'full';
+  const isFullView = searchParams.get("view") === "full";
 
   useEffect(() => {
     const fetchPortfolio = async () => {
@@ -29,8 +30,7 @@ export default function PublishedPortfolioPage() {
         let baseUsername = username;
         let portfolioOrder = undefined;
 
-        // Check if the username has a number suffix like username-1, username-2, etc.
-        // This code path needs to be fixed - it's splitting incorrectly
+        // Use a fixed regex to capture the base username and optional number suffix
         const usernameMatch = username.match(/^(.*?)(?:-(\d+))?$/);
         if (usernameMatch) {
           baseUsername = usernameMatch[1]; // The base part without the number
@@ -38,6 +38,17 @@ export default function PublishedPortfolioPage() {
             portfolioOrder = parseInt(usernameMatch[2]);
           }
         }
+
+        // Save debug info to help troubleshoot
+        setDebugInfo({
+          originalUsername: username,
+          parsedUsername: baseUsername,
+          portfolioOrder: portfolioOrder,
+        });
+
+        console.log(
+          `Fetching portfolio: username=${username}, baseUsername=${baseUsername}, portfolioOrder=${portfolioOrder || 0}`
+        );
 
         // Call the API to get portfolio by subdomain
         // If portfolioOrder is defined, pass it as a query parameter
@@ -47,13 +58,23 @@ export default function PublishedPortfolioPage() {
         }
 
         const response = await apiClient.request(endpoint);
-        console.log(`Fetched portfolio for subdomain ${baseUsername}, order: ${portfolioOrder || 0}`);
+        console.log(`API Response:`, response);
 
         if (response.success && response.portfolio) {
           setPortfolio(response.portfolio);
+          console.log(`Portfolio found:`, {
+            id: response.portfolio._id,
+            title: response.portfolio.title,
+            templateId: response.portfolio.templateId?._id,
+            isPublished: response.portfolio.isPublished,
+            order: response.portfolio.portfolioOrder,
+          });
 
           // After getting the portfolio, fetch the template data
-          if (response.portfolio.templateId && response.portfolio.templateId._id) {
+          if (
+            response.portfolio.templateId &&
+            response.portfolio.templateId._id
+          ) {
             try {
               const templateResponse = await apiClient.request(
                 `/templates/${response.portfolio.templateId._id}`
@@ -61,20 +82,32 @@ export default function PublishedPortfolioPage() {
 
               if (templateResponse.success && templateResponse.template) {
                 setTemplate(templateResponse.template);
+                console.log(`Template loaded:`, {
+                  id: templateResponse.template._id,
+                  name: templateResponse.template.name,
+                });
+              } else {
+                console.error("Template response error:", templateResponse);
               }
             } catch (templateError) {
-              console.error('Error fetching template data:', templateError);
+              console.error("Error fetching template data:", templateError);
             }
+          } else {
+            console.warn(
+              "Portfolio has no valid templateId:",
+              response.portfolio.templateId
+            );
           }
         } else {
+          console.error("Portfolio not found in API response:", response);
           // If no portfolio is found, show 404
           notFound();
         }
       } catch (error) {
-        console.error('Error fetching portfolio:', error);
+        console.error("Error fetching portfolio:", error);
         // For development fallback to sample data
-        if (process.env.NODE_ENV === 'development') {
-          console.log('Using fallback data for development');
+        if (process.env.NODE_ENV === "development") {
+          console.log("Using fallback data for development");
           notFound();
         } else {
           notFound();
@@ -103,21 +136,26 @@ export default function PublishedPortfolioPage() {
 
   // If portfolio not found, return 404 handled by Next.js
   if (!portfolio) {
+    console.error("Portfolio not found, returning 404 page", debugInfo);
     return notFound();
   }
 
   // If we have a portfolio but no template, render a fallback basic layout
   if (!template) {
+    console.warn(
+      "Portfolio found but template missing, using fallback renderer",
+      {
+        portfolioId: portfolio._id,
+        templateId: portfolio.templateId?._id || "missing",
+      }
+    );
     return renderFallbackPortfolio();
   }
 
   // If we have both portfolio and template, use the PortfolioTemplateRenderer component
   return (
     <div className="min-h-screen flex flex-col bg-white dark:bg-gray-950">
-      <PortfolioTemplateRenderer
-        template={template}
-        portfolio={portfolio}
-      />
+      <PortfolioTemplateRenderer template={template} portfolio={portfolio} />
     </div>
   );
 
@@ -127,7 +165,7 @@ export default function PublishedPortfolioPage() {
     const portfolioOrderSuffix =
       portfolio.portfolioOrder && portfolio.portfolioOrder > 0
         ? ` (${portfolio.portfolioOrder})`
-        : '';
+        : "";
 
     return (
       <div className="min-h-screen flex flex-col bg-white dark:bg-gray-950">
@@ -138,17 +176,17 @@ export default function PublishedPortfolioPage() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
                 <div className="space-y-6">
                   <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tighter">
-                    {(portfolio.content?.about?.title) ||
-                      (portfolio.content?.header?.title) ||
+                    {portfolio.content?.about?.title ||
+                      portfolio.content?.header?.title ||
                       portfolio.title ||
                       username}
                     {portfolioOrderSuffix}
                   </h1>
                   <p className="text-xl text-muted-foreground max-w-[600px]">
-                    {(portfolio.content?.about?.bio) ||
-                      (portfolio.content?.header?.subtitle) ||
+                    {portfolio.content?.about?.bio ||
+                      portfolio.content?.header?.subtitle ||
                       portfolio.subtitle ||
-                      'Portfolio'}
+                      "Portfolio"}
                   </p>
                 </div>
               </div>
@@ -159,8 +197,8 @@ export default function PublishedPortfolioPage() {
           <section className="py-12 text-center">
             <div className="container px-4 md:px-6">
               <p className="text-muted-foreground">
-                This portfolio uses a template that could not be loaded.
-                Please contact the site administrator for assistance.
+                This portfolio uses a template that could not be loaded. Please
+                contact the site administrator for assistance.
               </p>
             </div>
           </section>

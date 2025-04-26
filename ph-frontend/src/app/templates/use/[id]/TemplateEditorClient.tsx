@@ -193,12 +193,15 @@ export default function TemplateEditorClient({
         }
 
         // If we don't have a portfolioId or failed to fetch it, create a new one
+        const currentUser = apiClient.getUser?.();
         const generateSubdomain = () => {
+          // Always default to the username for both free and premium users
           const username =
             user?.username ||
+            currentUser?.username ||
             user?.name?.toLowerCase().replace(/\s+/g, "") ||
             "";
-          // Use username directly without timestamp if it exists
+          // Use username if available, fallback to timestamp-based ID only if necessary
           return username || `user-${Date.now().toString().slice(-4)}`;
         };
 
@@ -219,10 +222,10 @@ export default function TemplateEditorClient({
               template.category === "developer"
                 ? "Software Developer"
                 : template.category === "designer"
-                ? "Creative Designer"
-                : template.category === "photographer"
-                ? "Professional Photographer"
-                : "Professional Portfolio",
+                  ? "Creative Designer"
+                  : template.category === "photographer"
+                    ? "Professional Photographer"
+                    : "Professional Portfolio",
             profileImage: "",
             navigation: ["About", "Projects", "Experience", "Contact"],
           },
@@ -233,8 +236,8 @@ export default function TemplateEditorClient({
               template.category === "designer"
                 ? "with-image"
                 : template.category === "developer"
-                ? "with-highlights"
-                : "standard",
+                  ? "with-highlights"
+                  : "standard",
             highlights: [
               {
                 title: "My Expertise",
@@ -276,8 +279,7 @@ export default function TemplateEditorClient({
         }
 
         // Get current user subscription information
-        const currentUser = apiClient.getUser?.();
-        // Improved premium plan detection
+        // (currentUser already defined above)
         const isPremiumUser =
           currentUser?.subscriptionPlan?.type === "premium" ||
           currentUser?.subscriptionPlan?.type === "professional" ||
@@ -534,9 +536,9 @@ export default function TemplateEditorClient({
               subtitle: portfolio.subtitle || "",
               subdomain:
                 portfolio.subdomain ||
-                (currentUser?.username ||
-                  user?.username ||
-                  `user-${Date.now().toString().slice(-8)}`),
+                currentUser?.username ||
+                user?.username ||
+                `user-${Date.now().toString().slice(-8)}`,
               isPublished: false,
               sectionOrder: sectionOrder,
               sectionVariants: selectedSectionVariants,
@@ -578,9 +580,9 @@ export default function TemplateEditorClient({
         subtitle: portfolio.subtitle || "",
         subdomain:
           portfolio.subdomain ||
-          (currentUser?.username ||
-            user?.username ||
-            `user-${Date.now().toString().slice(-8)}`),
+          currentUser?.username ||
+          user?.username ||
+          `user-${Date.now().toString().slice(-8)}`,
         isPublished: false,
         sectionOrder: sectionOrder,
         sectionVariants: selectedSectionVariants,
@@ -698,30 +700,37 @@ export default function TemplateEditorClient({
             currentUser.subscriptionPlan.type
           ));
 
-      // Improve the subdomain selection logic
-      let subdomain = portfolio.subdomain;
-      // For premium users, allow custom subdomain (from portfolio.subdomain if set)
-      // For free users, force subdomain to username
-      if (isPremiumUser) {
-        // If subdomain is missing or an old fallback, try username, else fallback
+      // Get the username for subdomain assignment
+      const username = currentUser?.username || user?.username || "";
+
+      // Subdomain handling logic:
+      // 1. For free users: Always use username as subdomain (forced)
+      // 2. For premium users: Allow custom subdomain if provided, otherwise use username
+      let subdomain = "";
+
+      if (!isPremiumUser) {
+        // Free user: force subdomain to username
+        subdomain = username;
+        if (!subdomain) {
+          subdomain = `user-${Date.now().toString().slice(-8)}`;
+        }
+      } else {
+        // Premium user: Use custom subdomain if provided, otherwise use username
+        subdomain = portfolio.subdomain;
+
+        // If subdomain is missing or falls back to default pattern, use username
         if (
           !subdomain ||
           subdomain.includes("user-") ||
           subdomain === "undefined" ||
           subdomain === "null"
         ) {
-          subdomain = currentUser?.username || user?.username;
+          subdomain = username;
           if (!subdomain) {
             subdomain = `user-${Date.now().toString().slice(-8)}`;
           }
         }
-        // Otherwise, keep whatever is in portfolio.subdomain (custom subdomain)
-      } else {
-        // Free user: always force subdomain to username (or fallback)
-        subdomain = currentUser?.username || user?.username;
-        if (!subdomain) {
-          subdomain = `user-${Date.now().toString().slice(-8)}`;
-        }
+        // Otherwise keep the custom subdomain (portfolio.subdomain)
       }
 
       const portfolioToPublish = {
@@ -731,26 +740,27 @@ export default function TemplateEditorClient({
         title: portfolio.title || "My Portfolio",
         subtitle: portfolio.subtitle || "",
         subdomain: subdomain,
-        subdomainLocked: !isPremiumUser,
+        subdomainLocked: !isPremiumUser, // Lock subdomain for free users
         userType: isPremiumUser ? "premium" : "free",
         isPublished: true,
         sectionOrder: sectionOrder,
         sectionVariants: selectedSectionVariants,
         animationsEnabled: animationsEnabled,
         stylePreset: selectedStylePreset,
-        // Additional field to ensure premium status is properly passed
-        userType: isPremiumUser ? "premium" : "free",
       };
 
       if (process.env.NODE_ENV === "development") {
         await new Promise((resolve) => setTimeout(resolve, 1200));
       }
 
-      console.log("Publishing portfolio with data:", JSON.stringify({
-        subdomain: portfolioToPublish.subdomain,
-        isPremiumUser: isPremiumUser,
-        username: currentUser?.username
-      }));
+      console.log(
+        "Publishing portfolio with data:",
+        JSON.stringify({
+          subdomain: portfolioToPublish.subdomain,
+          isPremiumUser: isPremiumUser,
+          username: currentUser?.username,
+        })
+      );
 
       const response = await apiClient.portfolios.publish(portfolioToPublish);
 
@@ -1266,8 +1276,8 @@ export default function TemplateEditorClient({
               viewportMode === "tablet"
                 ? "items-center pt-8"
                 : viewportMode === "mobile"
-                ? "items-center pt-8"
-                : ""
+                  ? "items-center pt-8"
+                  : ""
             }`}
           >
             {/* Viewport wrapper */}
@@ -1276,8 +1286,8 @@ export default function TemplateEditorClient({
                 viewportMode === "tablet"
                   ? "w-[768px] h-[1024px] scale-75 origin-top shadow-xl rounded-xl overflow-hidden"
                   : viewportMode === "mobile"
-                  ? "w-[390px] h-[844px] scale-75 origin-top shadow-xl rounded-xl overflow-hidden"
-                  : "w-full h-full"
+                    ? "w-[390px] h-[844px] scale-75 origin-top shadow-xl rounded-xl overflow-hidden"
+                    : "w-full h-full"
               }`}
             >
               <div className="w-full h-full bg-white dark:bg-black overflow-auto">
@@ -1302,3 +1312,4 @@ export default function TemplateEditorClient({
     </div>
   );
 }
+  
