@@ -119,11 +119,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       const currentUser = await apiClient.getCurrentUser();
-      setUser(currentUser);
+
+      // Normalize user data - handle case where API returns 'id' instead of '_id'
+      let normalizedUser = { ...currentUser };
+      if (!normalizedUser._id && normalizedUser.id) {
+        normalizedUser._id = normalizedUser.id;
+        // Optionally delete the id property if not needed
+        // delete normalizedUser.id;
+        console.log("AuthContext: Normalized user data - added _id from id property");
+      }
+
+      setUser(normalizedUser);
 
       // Store user data in localStorage as a backup
       if (typeof window !== 'undefined') {
-        localStorage.setItem('ph_user_data', JSON.stringify(currentUser));
+        localStorage.setItem('ph_user_data', JSON.stringify(normalizedUser));
       }
 
       setIsLoading(false);
@@ -160,17 +170,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       if (response && response.user) {
-        // Explicitly set the user state
-        setUser(response.user);
-        console.log("AuthContext: User set after login:", response.user);
-        return response;
+        // Normalize user data - handle case where API returns 'id' instead of '_id'
+        const normalizedUser = { ...response.user };
+        if (!normalizedUser._id && normalizedUser.id) {
+          normalizedUser._id = normalizedUser.id;
+          console.log("AuthContext: Normalized user data - added _id from id property");
+        }
+
+        console.log("AuthContext: User set after login:", normalizedUser);
+        setUser(normalizedUser);
+
+        // Store user data in localStorage as a backup
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('ph_user_data', JSON.stringify(normalizedUser));
+        }
       } else {
-        throw new Error('Login succeeded but user data is missing');
+        console.error("Login response is missing user data:", response);
       }
+      // Navigation is handled in the SignInForm component
     } catch (error) {
       console.error("Login error:", error);
-      // Ensure user is null on login failure
-      setUser(null);
       throw error;
     }
   };
@@ -191,10 +210,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       if (response && response.user) {
-        setUser(response.user);
+        // Normalize user data - handle case where API returns 'id' instead of '_id'
+        const normalizedUser = { ...response.user };
+        if (!normalizedUser._id && normalizedUser.id) {
+          normalizedUser._id = normalizedUser.id;
+          console.log("AuthContext: Normalized user data - added _id from id property");
+        }
+        setUser(normalizedUser);
         // Store user data in localStorage as a backup
         if (typeof window !== 'undefined') {
-          localStorage.setItem('ph_user_data', JSON.stringify(response.user));
+          localStorage.setItem('ph_user_data', JSON.stringify(normalizedUser));
         }
         console.log("Registration successful, user set in context");
       }
@@ -258,6 +283,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             socialLinks: profileData.socialLinks || user?.profile?.socialLinks,
           }
         };
+      }
+
+      // Normalize user data - handle case where API returns 'id' instead of '_id'
+      if (updatedUser && !updatedUser._id && updatedUser.id) {
+        updatedUser._id = updatedUser.id;
+        console.log("AuthContext: Normalized user data - added _id from id property (updateProfile)");
       }
 
       setUser(updatedUser);

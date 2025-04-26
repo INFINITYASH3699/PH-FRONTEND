@@ -396,15 +396,24 @@ export const setAuthData = (token: string, user: any): void => {
     return;
   }
 
+  // Make sure user has _id property (handle case where API returns 'id' instead)
+  const normalizedUser = { ...user };
+
+  // If the API returns 'id' instead of '_id', create _id property
+  if (!normalizedUser._id && normalizedUser.id) {
+    normalizedUser._id = normalizedUser.id;
+    console.log("Normalized user data: added _id from id property");
+  }
+
   // Validate the user object
-  if (!user || !user._id) {
-    console.error("Attempted to set invalid user data (missing _id)");
+  if (!normalizedUser || !normalizedUser._id) {
+    console.error("Attempted to set invalid user data (missing _id)", normalizedUser);
     return;
   }
 
   // Set in localStorage
   localStorage.setItem(TOKEN_KEY, token);
-  localStorage.setItem(USER_KEY, JSON.stringify(user));
+  localStorage.setItem(USER_KEY, JSON.stringify(normalizedUser));
 
   // Also set in cookies for middleware detection
   // Set cookie to expire in 30 days
@@ -413,7 +422,7 @@ export const setAuthData = (token: string, user: any): void => {
   document.cookie = `${TOKEN_KEY}=${token}; path=/; expires=${expiryDate.toUTCString()}; SameSite=Lax`;
 
   console.log(
-    `Auth: Token set in localStorage and cookie for user ${user._id}`
+    `Auth: Token set in localStorage and cookie for user ${normalizedUser._id}`
   );
 };
 

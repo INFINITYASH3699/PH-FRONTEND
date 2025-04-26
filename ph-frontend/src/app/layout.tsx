@@ -1,8 +1,7 @@
 import './globals.css';
 import type { Metadata } from 'next';
 import { Inter as FontSans } from 'next/font/google';
-// REMOVE this line: import { SessionProvider } from 'next-auth/react';
-import AuthProvider from '@/components/providers/AuthProvider';
+import { AuthProvider } from '@/components/providers/AuthProvider';
 import ToastProvider from '@/components/providers/ToastProvider';
 import ClientBody from './ClientBody';
 import { NavBar } from '@/components/layout/NavBar';

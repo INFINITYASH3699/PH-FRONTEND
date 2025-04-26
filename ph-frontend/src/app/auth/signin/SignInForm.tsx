@@ -19,7 +19,6 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { CardContent, CardFooter } from "@/components/ui/card";
 import apiClient from "@/lib/apiClient";
-import { useAuth } from "@/components/providers/AuthContext";
 
 // Define form schema with zod
 const formSchema = z.object({
@@ -32,7 +31,6 @@ const formSchema = z.object({
 
 export default function SignInForm() {
   const router = useRouter();
-  const { login, checkAuth } = useAuth();
   const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
 
@@ -76,23 +74,50 @@ export default function SignInForm() {
       // Call the login API
       console.log("Attempting to login with:", values.email);
 
-      // Use the AuthContext login function
-      await login(values.email, values.password);
+      let loginSuccess = false;
+      let response;
 
-      // Re-check authentication state to ensure user is logged in
-      await checkAuth();
+      // Try apiClient.auth.login first
+      if (
+        apiClient &&
+        apiClient.auth &&
+        typeof apiClient.auth.login === "function"
+      ) {
+        try {
+          response = await apiClient.auth.login(
+            values.email,
+            values.password
+          );
+          if (response && response.user) {
+            loginSuccess = true;
+          }
+        } catch (authLoginError) {
+          console.error("Auth login error:", authLoginError);
+        }
+      }
 
-      toast.success("Logged in successfully");
+      // If auth.login failed, try apiClient.login as fallback
+      if (!loginSuccess && typeof apiClient.login === "function") {
+        response = await apiClient.login(values.email, values.password);
+        if (response && response.user) {
+          loginSuccess = true;
+        }
+      }
 
-      // Redirect to the specified path or dashboard
-      console.log(`Redirecting to: ${redirectTo}`);
+      if (loginSuccess && response) {
+        // Display success message
+        toast.success("Logged in successfully");
 
-      if (redirectTo && redirectTo.startsWith("/templates/use/")) {
-        // For template editor paths, reload the page to ensure fresh template data
-        window.location.href = redirectTo;
+        // Log what's happening
+        console.log(`Redirecting to: ${redirectTo}`);
+
+        // Use a short timeout to ensure state is updated before redirect
+        setTimeout(() => {
+          // Always use window.location for a full page reload
+          window.location.href = redirectTo;
+        }, 300);
       } else {
-        // For other paths, use the router with replace to avoid back navigation issues
-        router.push(redirectTo);
+        toast.error("Invalid login credentials");
       }
     } catch (error) {
       console.error("Login error:", error);
@@ -227,24 +252,24 @@ export default function SignInForm() {
             </Button>
           </form>
         </Form>
-
-        <div className="relative">
+      </CardContent>
+      <CardFooter className="flex flex-col gap-4 p-6 pt-0">
+        <div className="relative w-full">
           <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t" />
+            <span className="w-full border-t"></span>
           </div>
           <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-background px-2 text-muted-foreground">
+            <span className="bg-card px-2 text-muted-foreground">
               Or continue with
             </span>
           </div>
         </div>
-
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-3">
           <Button
             variant="outline"
             type="button"
+            className="flex items-center"
             onClick={() => handleSocialLogin("Google")}
-            className="h-10"
           >
             <svg
               className="mr-2 h-4 w-4"
@@ -253,55 +278,50 @@ export default function SignInForm() {
               xmlns="http://www.w3.org/2000/svg"
             >
               <path
-                d="M23.766 12.2764C23.766 11.4607 23.6999 10.6406 23.5588 9.83807H12.24V14.4591H18.7217C18.4528 15.9494 17.5885 17.2678 16.323 18.1056V21.1039H20.19C22.4608 19.0139 23.766 15.9274 23.766 12.2764Z"
+                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
                 fill="#4285F4"
               />
               <path
-                d="M12.2401 24.0008C15.4766 24.0008 18.2059 22.9382 20.1945 21.1039L16.3276 18.1055C15.2517 18.8375 13.8627 19.252 12.2445 19.252C9.11388 19.252 6.45946 17.1399 5.50705 14.3003H1.5166V17.3912C3.55371 21.4434 7.7029 24.0008 12.2401 24.0008Z"
+                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
                 fill="#34A853"
               />
               <path
-                d="M5.50253 14.3003C4.99987 12.8099 4.99987 11.1961 5.50253 9.70575V6.61481H1.51649C-0.18551 10.0056 -0.18551 14.0004 1.51649 17.3912L5.50253 14.3003Z"
-                fill="#FBBC04"
+                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                fill="#FBBC05"
               />
               <path
-                d="M12.2401 4.74966C13.9509 4.7232 15.6044 5.36697 16.8434 6.54867L20.2695 3.12262C18.1001 1.0855 15.2208 -0.034466 12.2401 0.000808666C7.7029 0.000808666 3.55371 2.55822 1.5166 6.61481L5.50264 9.70575C6.45064 6.86173 9.10947 4.74966 12.2401 4.74966Z"
+                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                 fill="#EA4335"
               />
             </svg>
             Google
           </Button>
-
           <Button
             variant="outline"
             type="button"
+            className="flex items-center"
             onClick={() => handleSocialLogin("GitHub")}
-            className="h-10"
           >
             <svg
               className="mr-2 h-4 w-4"
-              viewBox="0 0 24 24"
               fill="currentColor"
+              viewBox="0 0 24 24"
               xmlns="http://www.w3.org/2000/svg"
             >
-              <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385c.6.105.825-.255.825-.57c0-.285-.015-1.23-.015-2.235c-3.015.555-3.795-.735-4.035-1.41c-.135-.345-.72-1.41-1.23-1.695c-.42-.225-1.02-.78-.015-.795c.945-.015 1.62.87 1.845 1.23c1.08 1.815 2.805 1.305 3.495.99c.105-.78.42-1.305.765-1.605c-2.67-.3-5.46-1.335-5.46-5.925c0-1.305.465-2.385 1.23-3.225c-.12-.3-.54-1.53.12-3.18c0 0 1.005-.315 3.3 1.23c.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23c.66 1.65.24 2.88.12 3.18c.765.84 1.23 1.905 1.23 3.225c0 4.605-2.805 5.625-5.475 5.925c.435.375.81 1.095.81 2.22c0 1.605-.015 2.895-.015 3.3c0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z" />
+              <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
             </svg>
             GitHub
           </Button>
         </div>
-      </CardContent>
-
-      <CardFooter className="p-6 pt-0 flex justify-center">
-        <p className="text-sm text-muted-foreground">
-          Don't have an account?{" "}
+        <div className="text-center mt-2 text-sm">
+          Don&apos;t have an account?{" "}
           <Link
-            href={`/auth/signup${redirectTo !== "/dashboard" ? `?redirectTo=${encodeURIComponent(redirectTo)}` : ""}`}
-            className="text-primary font-medium hover:underline"
+            href="/auth/signup"
+            className="text-primary hover:underline font-medium"
           >
-            Create an account
+            Sign up
           </Link>
-        </p>
+        </div>
       </CardFooter>
     </>
   );
-}
