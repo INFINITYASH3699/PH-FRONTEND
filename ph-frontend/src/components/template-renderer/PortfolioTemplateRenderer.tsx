@@ -124,7 +124,13 @@ const PortfolioTemplateRenderer: React.FC<PortfolioTemplateRendererProps> = ({
   const getColorScheme = () => {
     // Use portfolio's selected color scheme if available
     if (portfolio.activeColorScheme) {
-      return portfolio.activeColorScheme;
+      // Find the matching color scheme in the template
+      const selectedScheme = template.themeOptions?.colorSchemes?.find(
+        (c: any) => c.id === portfolio.activeColorScheme
+      );
+      if (selectedScheme?.colors) {
+        return selectedScheme.colors;
+      }
     }
 
     // Otherwise use the default color scheme from the template
@@ -160,8 +166,10 @@ const PortfolioTemplateRenderer: React.FC<PortfolioTemplateRendererProps> = ({
       return portfolio.sectionOrder;
     }
 
-    // Otherwise use the layout's section order
-    const layout = getLayout();
+    // Otherwise use the layout's section order based on portfolio's activeLayout value
+    const activeLayoutId = portfolio.activeLayout || 'default';
+    const layout = template.layouts?.find((l: any) => l.id === activeLayoutId);
+
     if (layout?.structure?.sections) {
       console.log("Using layout's section order:", layout.structure.sections);
       return layout.structure.sections;

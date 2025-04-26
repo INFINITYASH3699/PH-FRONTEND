@@ -105,14 +105,101 @@ export default async function TemplateEditorPage({
     user ? "Authenticated" : "Not authenticated"
   );
 
-  // Enhanced data for template rendering
+  // Enhanced data for template rendering with more robust defaults
   const enhancedTemplate = {
     ...template,
     _id: template._id || params.id,
-    // Default values if missing
+    name: template.name || "Untitled Template",
+    category: template.category || "developer",
+    // Ensure all required structures exist
+    defaultStructure: template.defaultStructure || {
+      layout: {
+        sections: ["header", "about", "projects", "skills", "experience", "education", "contact"],
+        defaultColors: ["#6366f1", "#8b5cf6", "#ffffff", "#111827"],
+        defaultFonts: ["Inter", "Roboto", "Montserrat"]
+      },
+      config: {
+        requiredSections: ["header", "about"],
+        optionalSections: ["projects", "skills", "experience", "education", "contact"]
+      }
+    },
+    // Ensure layouts exist
+    layouts: template.layouts?.length ? template.layouts : [
+      {
+        id: "default",
+        name: "Standard Layout",
+        structure: {
+          sections: ["header", "about", "projects", "skills", "experience", "education", "contact"],
+          gridSystem: "12-column",
+          spacing: { base: 8, multiplier: 1.5 }
+        }
+      }
+    ],
+    // Ensure theme options exist
+    themeOptions: template.themeOptions || {
+      colorSchemes: [
+        {
+          id: "default",
+          name: "Default",
+          colors: {
+            primary: "#6366f1",
+            secondary: "#8b5cf6",
+            background: "#ffffff",
+            text: "#111827"
+          }
+        }
+      ],
+      fontPairings: [
+        {
+          id: "default",
+          name: "Default",
+          fonts: {
+            heading: "Inter",
+            body: "Roboto"
+          }
+        }
+      ],
+      spacing: {
+        standard: {
+          base: 8,
+          multiplier: 1.5
+        }
+      }
+    },
+    // Default empty objects if missing
+    sectionDefinitions: template.sectionDefinitions || {},
     sectionVariants: template.sectionVariants || {},
-    stylePresets: template.stylePresets || {},
-    animations: template.animations || {},
+    stylePresets: template.stylePresets || {
+      modern: {
+        name: "Modern",
+        description: "Clean, modern style with rounded corners and subtle shadows",
+        styles: {
+          borderRadius: "0.5rem",
+          boxShadow: "0 4px 6px rgba(0, 0, 0, 0.05)",
+          fontWeight: "normal"
+        }
+      }
+    },
+    animations: template.animations || {
+      fadeIn: {
+        id: "fadeIn",
+        name: "Fade In",
+        type: "fade",
+        duration: 800,
+        easing: "ease-in-out"
+      }
+    },
+    componentMapping: template.componentMapping || {
+      react: {
+        header: "@/components/template-sections/HeaderSection",
+        about: "@/components/template-sections/AboutSection",
+        projects: "@/components/template-sections/ProjectsSection",
+        skills: "@/components/template-sections/SkillsSection",
+        experience: "@/components/template-sections/ExperienceSection",
+        education: "@/components/template-sections/EducationSection",
+        contact: "@/components/template-sections/ContactSection"
+      }
+    }
   };
 
   // Here we'd also fetch any existing portfolio that uses this template

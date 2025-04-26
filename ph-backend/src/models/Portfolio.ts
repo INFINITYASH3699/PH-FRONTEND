@@ -21,6 +21,14 @@ export interface IPortfolio extends Document {
   customDomain?: string;
   // Add portfolioOrder field for sequential numbering of multiple published portfolios
   portfolioOrder?: number;
+  // Add fields for customization options
+  activeLayout?: string;
+  activeColorScheme?: string;
+  activeFontPairing?: string;
+  sectionVariants?: Record<string, string>;
+  animationsEnabled?: boolean;
+  stylePreset?: string;
+  sectionOrder?: string[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -98,6 +106,35 @@ const PortfolioSchema = new Schema<IPortfolio>(
     portfolioOrder: {
       type: Number,
       default: 0, // 0 is the default for the main portfolio, 1+ for additional portfolios
+    },
+    // Add explicit fields for customization options
+    activeLayout: {
+      type: String,
+      default: 'default',
+    },
+    activeColorScheme: {
+      type: String,
+      default: 'default',
+    },
+    activeFontPairing: {
+      type: String,
+      default: 'default',
+    },
+    sectionVariants: {
+      type: Schema.Types.Mixed,
+      default: {},
+    },
+    animationsEnabled: {
+      type: Boolean,
+      default: true,
+    },
+    stylePreset: {
+      type: String,
+      default: 'modern',
+    },
+    sectionOrder: {
+      type: [String],
+      default: [],
     },
   },
   {

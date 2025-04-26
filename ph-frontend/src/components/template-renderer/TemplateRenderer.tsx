@@ -313,7 +313,13 @@ const TemplateRenderer: React.FC<TemplateRendererProps> = ({
       };
     }
 
-    if (!animation || !template.animations) return {};
+    // Check if animations are explicitly disabled in the portfolio
+    if ((typeof portfolio.animationsEnabled === 'boolean' && !portfolio.animationsEnabled) || !animation || !template.animations) {
+      return {
+        opacity: 1,
+        transform: 'none'
+      };
+    }
 
     const defaultAnimation = template.animations.fadeIn;
 
@@ -418,6 +424,12 @@ const TemplateRenderer: React.FC<TemplateRendererProps> = ({
   // Render the appropriate layout
   const renderLayout = () => {
     // Using the portfolio's stored layout information
+    const activeLayoutId = portfolio?.activeLayout || (template?.layouts?.[0]?.id || 'default');
+    const activeLayout = template?.layouts?.find((l: any) => l.id === activeLayoutId) || template?.layouts?.[0];
+
+    console.log("Using activeLayoutId:", activeLayoutId);
+    console.log("Selected layout:", activeLayout?.name || "Default Layout");
+
     const gridClass = activeLayout?.structure?.gridSystem === 'sidebar-main'
       ? 'grid grid-cols-1 md:grid-cols-[300px_1fr] gap-8'
       : activeLayout?.structure?.gridSystem === 'sidebar-right'

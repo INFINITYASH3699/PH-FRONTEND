@@ -1,8 +1,24 @@
 import { v2 as cloudinary } from 'cloudinary';
 import dotenv from 'dotenv';
+import fs from 'fs';
 
 // Load environment variables
 dotenv.config();
+
+// Validate Cloudinary configuration
+const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+const apiKey = process.env.CLOUDINARY_API_KEY;
+const apiSecret = process.env.CLOUDINARY_API_SECRET;
+
+if (!cloudName || !apiKey || !apiSecret) {
+  console.error('⚠️ Cloudinary configuration is incomplete. Image uploads will fail.');
+  console.error('Please ensure the following environment variables are set:');
+  console.error('- CLOUDINARY_CLOUD_NAME');
+  console.error('- CLOUDINARY_API_KEY');
+  console.error('- CLOUDINARY_API_SECRET');
+} else {
+  console.log(`✅ Cloudinary configured with cloud name: ${cloudName}`);
+}
 
 // Success response interface for Cloudinary upload
 interface CloudinaryUploadSuccess {
@@ -39,9 +55,9 @@ export type CloudinaryDeleteResult = CloudinaryDeleteSuccess | CloudinaryDeleteE
 
 // Configure Cloudinary
 cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
+  cloud_name: cloudName,
+  api_key: apiKey,
+  api_secret: apiSecret,
   secure: true,
 });
 
@@ -58,6 +74,22 @@ export const uploadToCloudinary = async (
   publicId?: string
 ): Promise<CloudinaryUploadResult> => {
   try {
+    // Check if Cloudinary is properly configured
+    if (!cloudName || !apiKey || !apiSecret) {
+      return {
+        success: false,
+        error: 'Cloudinary is not properly configured. Please set the required environment variables.'
+      };
+    }
+
+    // Check if file exists
+    if (!fs.existsSync(filePath)) {
+      return {
+        success: false,
+        error: `File not found at path: ${filePath}`
+      };
+    }
+
     // Upload to Cloudinary
     const result = await cloudinary.uploader.upload(filePath, {
       folder,
@@ -80,6 +112,16 @@ export const uploadToCloudinary = async (
       success: false,
       error: error instanceof Error ? error.message : 'Upload failed',
     };
+  } finally {
+    // Clean up - try to remove the temp file if it exists
+    try {
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+        console.log(`Temporary file removed: ${filePath}`);
+      }
+    } catch (e) {
+      console.error('Error removing temporary file:', e);
+    }
   }
 };
 
@@ -92,6 +134,13 @@ export const deleteFromCloudinary = async (
   publicId: string
 ): Promise<CloudinaryDeleteResult> => {
   try {
+    if (!cloudName || !apiKey || !apiSecret) {
+      return {
+        success: false,
+        error: 'Cloudinary is not properly configured. Please set the required environment variables.'
+      };
+    }
+
     const result = await cloudinary.uploader.destroy(publicId);
 
     if (result === 'ok') {

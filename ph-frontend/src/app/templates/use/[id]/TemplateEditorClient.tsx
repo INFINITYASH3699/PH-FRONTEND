@@ -540,6 +540,10 @@ export default function TemplateEditorClient({
                 user?.username ||
                 `user-${Date.now().toString().slice(-8)}`,
               isPublished: false,
+              // Make sure to include all customization options
+              activeLayout: portfolio.activeLayout || template.layouts?.[0]?.id || "default",
+              activeColorScheme: portfolio.activeColorScheme || template.themeOptions?.colorSchemes?.[0]?.id || "default",
+              activeFontPairing: portfolio.activeFontPairing || template.themeOptions?.fontPairings?.[0]?.id || "default",
               sectionOrder: sectionOrder,
               sectionVariants: selectedSectionVariants,
               animationsEnabled: animationsEnabled,
@@ -584,6 +588,10 @@ export default function TemplateEditorClient({
           user?.username ||
           `user-${Date.now().toString().slice(-8)}`,
         isPublished: false,
+        // Make sure to include all customization options
+        activeLayout: portfolio.activeLayout || template.layouts?.[0]?.id || "default",
+        activeColorScheme: portfolio.activeColorScheme || template.themeOptions?.colorSchemes?.[0]?.id || "default",
+        activeFontPairing: portfolio.activeFontPairing || template.themeOptions?.fontPairings?.[0]?.id || "default",
         sectionOrder: sectionOrder,
         sectionVariants: selectedSectionVariants,
         animationsEnabled: animationsEnabled,
@@ -608,6 +616,21 @@ export default function TemplateEditorClient({
         throw new Error("Failed to save portfolio");
       }
     } catch (err: any) {
+      // Enhanced error logging to capture more details
+      console.error("Save draft error details:", {
+        error: err.message,
+        stack: err.stack,
+        responseData: err.response?.data,
+        templateId: template._id,
+        templateName: template.name,
+        portfolioData: {
+          id: portfolio?._id,
+          title: portfolio?.title,
+          hasContent: portfolio?.content ? Object.keys(portfolio?.content).length > 0 : false,
+          hasSections: sectionOrder.length
+        }
+      });
+
       let errorMessage = "Failed to save portfolio. Please try again.";
 
       if (
@@ -638,6 +661,9 @@ export default function TemplateEditorClient({
               encodeURIComponent(`/templates/use/${id}`)
           );
         }, 3000);
+      } else if (err.message) {
+        // Add actual error message to the toast for easier debugging
+        errorMessage = `Failed to save portfolio: ${err.message}`;
       }
 
       toast.error(errorMessage);
@@ -743,6 +769,10 @@ export default function TemplateEditorClient({
         subdomainLocked: !isPremiumUser, // Lock subdomain for free users
         userType: isPremiumUser ? "premium" : "free",
         isPublished: true,
+        // Make sure to include all customization options
+        activeLayout: portfolio.activeLayout || template.layouts?.[0]?.id || "default",
+        activeColorScheme: portfolio.activeColorScheme || template.themeOptions?.colorSchemes?.[0]?.id || "default",
+        activeFontPairing: portfolio.activeFontPairing || template.themeOptions?.fontPairings?.[0]?.id || "default",
         sectionOrder: sectionOrder,
         sectionVariants: selectedSectionVariants,
         animationsEnabled: animationsEnabled,
@@ -759,6 +789,11 @@ export default function TemplateEditorClient({
           subdomain: portfolioToPublish.subdomain,
           isPremiumUser: isPremiumUser,
           username: currentUser?.username,
+          // Log customization options to verify they're being sent
+          activeLayout: portfolioToPublish.activeLayout,
+          sections: portfolioToPublish.sectionOrder?.length,
+          stylePreset: portfolioToPublish.stylePreset,
+          animationsEnabled: portfolioToPublish.animationsEnabled
         })
       );
 
@@ -770,6 +805,15 @@ export default function TemplateEditorClient({
           ...prev,
           _id: response.portfolio._id,
           isPublished: true,
+          // Copy back the saved customization values to ensure consistency
+          activeLayout: response.portfolio.activeLayout || prev.activeLayout,
+          activeColorScheme: response.portfolio.activeColorScheme || prev.activeColorScheme,
+          activeFontPairing: response.portfolio.activeFontPairing || prev.activeFontPairing,
+          sectionOrder: response.portfolio.sectionOrder || sectionOrder,
+          sectionVariants: response.portfolio.sectionVariants || selectedSectionVariants,
+          stylePreset: response.portfolio.stylePreset || selectedStylePreset,
+          animationsEnabled: response.portfolio.animationsEnabled !== undefined ?
+            response.portfolio.animationsEnabled : animationsEnabled,
         }));
 
         toast.success("Portfolio published successfully!");
@@ -781,6 +825,21 @@ export default function TemplateEditorClient({
         throw new Error("Failed to publish portfolio");
       }
     } catch (err: any) {
+      // Enhanced error logging to capture more details
+      console.error("Publish error details:", {
+        error: err.message,
+        stack: err.stack,
+        responseData: err.response?.data,
+        templateId: template._id,
+        templateName: template.name,
+        portfolioData: {
+          id: portfolio?._id,
+          title: portfolio?.title,
+          hasContent: portfolio?.content ? Object.keys(portfolio?.content).length > 0 : false,
+          hasSections: sectionOrder.length
+        }
+      });
+
       let errorMessage = "Failed to publish portfolio. Please try again.";
 
       if (
@@ -800,6 +859,9 @@ export default function TemplateEditorClient({
               encodeURIComponent(`/templates/use/${id}`)
           );
         }, 3000);
+      } else if (err.message) {
+        // Add actual error message to the toast for easier debugging
+        errorMessage = `Failed to publish portfolio: ${err.message}`;
       }
 
       toast.error(errorMessage);

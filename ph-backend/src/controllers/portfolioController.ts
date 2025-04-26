@@ -18,7 +18,21 @@ export const createPortfolio = async (
   res: Response
 ): Promise<Response> => {
   try {
-    const { title, subtitle, subdomain, templateId, content } = req.body;
+    const {
+      title,
+      subtitle,
+      subdomain,
+      templateId,
+      content,
+      activeLayout,
+      activeColorScheme,
+      activeFontPairing,
+      sectionVariants,
+      animationsEnabled,
+      stylePreset,
+      sectionOrder
+    } = req.body;
+
     console.log(
       `Creating portfolio: title=${title}, subdomain=${subdomain}, templateId=${templateId}, userId=${req.user.id}`
     );
@@ -166,6 +180,13 @@ export const createPortfolio = async (
       content: content || {},
       isPublished: req.body.isPublished || false,
       portfolioOrder: portfolioOrder,
+      activeLayout: activeLayout || 'default',
+      activeColorScheme: activeColorScheme || 'default',
+      activeFontPairing: activeFontPairing || 'default',
+      sectionVariants: sectionVariants || {},
+      animationsEnabled: animationsEnabled !== undefined ? animationsEnabled : true,
+      stylePreset: stylePreset || 'modern',
+      sectionOrder: sectionOrder || []
     });
 
     // Save the new portfolio
@@ -277,6 +298,13 @@ export const updatePortfolio = async (
       customDomain,
       headerImage,
       galleryImages,
+      activeLayout,
+      activeColorScheme,
+      activeFontPairing,
+      sectionVariants,
+      animationsEnabled,
+      stylePreset,
+      sectionOrder,
     } = req.body;
 
     // Find portfolio
@@ -468,6 +496,15 @@ export const updatePortfolio = async (
       };
     }
 
+    // Add handling for customization fields
+    if (activeLayout !== undefined) portfolio.activeLayout = activeLayout;
+    if (activeColorScheme !== undefined) portfolio.activeColorScheme = activeColorScheme;
+    if (activeFontPairing !== undefined) portfolio.activeFontPairing = activeFontPairing;
+    if (sectionVariants !== undefined) portfolio.sectionVariants = sectionVariants;
+    if (animationsEnabled !== undefined) portfolio.animationsEnabled = animationsEnabled;
+    if (stylePreset !== undefined) portfolio.stylePreset = stylePreset;
+    if (sectionOrder !== undefined) portfolio.sectionOrder = sectionOrder;
+
     // Update custom domain if provided, or reset it if empty string
     if (customDomain !== undefined) {
       // Check if attempting to set a custom domain
@@ -560,6 +597,7 @@ export const updatePortfolio = async (
 
     // Use markModified to ensure MongoDB detects changes in the mixed Schema.Types.Mixed
     portfolio.markModified("content");
+    portfolio.markModified("sectionVariants");
 
     // Save updated portfolio
     const updatedPortfolio = await portfolio.save();
@@ -662,7 +700,7 @@ export const getPortfolioBySubdomain = async (
         customDomain: customDomain.toLowerCase(),
         isPublished: true,
       })
-        .populate("templateId", "name category")
+        .populate("templateId", "name category defaultStructure layouts themeOptions animations sectionVariants stylePresets")
         .lean();
       if (portfolio) {
         console.log(`Found portfolio by customDomain: ${customDomain}`);
@@ -703,7 +741,7 @@ export const getPortfolioBySubdomain = async (
         portfolioOrder: targetOrder,
         isPublished: true,
       })
-        .populate("templateId", "name category")
+        .populate("templateId", "name category defaultStructure layouts themeOptions animations sectionVariants stylePresets")
         .lean();
 
       // Log the search results for debugging
@@ -719,7 +757,7 @@ export const getPortfolioBySubdomain = async (
           portfolioOrder: 0,
           isPublished: true,
         })
-          .populate("templateId", "name category")
+          .populate("templateId", "name category defaultStructure layouts themeOptions animations sectionVariants stylePresets")
           .lean();
 
         console.log(
@@ -744,7 +782,7 @@ export const getPortfolioBySubdomain = async (
             portfolio = await Portfolio.findOne({
               _id: allPortfolios[0]._id,
             })
-              .populate("templateId", "name category")
+              .populate("templateId", "name category defaultStructure layouts themeOptions animations sectionVariants stylePresets")
               .lean();
 
             console.log(
@@ -772,7 +810,7 @@ export const getPortfolioBySubdomain = async (
       // If templateId is just a string (not populated), fetch the template data
       const template = await Template.findById(
         portfolio.templateId,
-        "name category"
+        "name category defaultStructure layouts themeOptions animations sectionVariants stylePresets"
       );
       if (template) {
         portfolio.templateId = template;
@@ -789,6 +827,17 @@ export const getPortfolioBySubdomain = async (
       { _id: portfolio._id },
       { $set: { viewCount: portfolio.viewCount } }
     );
+
+    // Log the customization options for debugging
+    console.log(`Portfolio customization options:`, {
+      activeLayout: portfolio.activeLayout || 'default',
+      activeColorScheme: portfolio.activeColorScheme || 'default',
+      activeFontPairing: portfolio.activeFontPairing || 'default',
+      stylePreset: portfolio.stylePreset || 'modern',
+      animationsEnabled: portfolio.animationsEnabled,
+      hasSectionVariants: portfolio.sectionVariants ? Object.keys(portfolio.sectionVariants).length > 0 : false,
+      hasSectionOrder: portfolio.sectionOrder ? portfolio.sectionOrder.length > 0 : false,
+    });
 
     console.log(`Successfully returning portfolio with ID: ${portfolio._id}`);
     return res.status(200).json({
@@ -815,26 +864,74 @@ export const uploadPortfolioImage = async (
   try {
     // Check if file exists
     if (!req.file) {
+      console.error('No file found in request');
       return res.status(400).json({
         success: false,
         message: "No image file provided",
       });
     }
 
+    // Log file details
+    console.log('Image upload request:', {
+      fileDetails: {
+        originalname: req.file.originalname,
+        mimetype: req.file.mimetype,
+        size: req.file.size,
+        path: req.file.path
+      },
+      portfolioId: req.params.id,
+      imageType: req.body.imageType
+    });
+
     // Get portfolio ID and image type from params
     const { id } = req.params;
-    const { imageType } = req.body; // 'header' or 'gallery'
+    const { imageType } = req.body; // 'header' or 'gallery' or 'project'
 
-    if (!imageType || !["header", "gallery"].includes(imageType)) {
+    if (!imageType || !["header", "gallery", "project"].includes(imageType)) {
+      console.error(`Invalid image type: ${imageType}`);
       return res.status(400).json({
         success: false,
-        message: 'Invalid image type. Must be "header" or "gallery"',
+        message: 'Invalid image type. Must be "header", "gallery", or "project"',
       });
     }
 
     // Find portfolio
     const portfolio = await Portfolio.findById(id);
     if (!portfolio) {
+      console.error(`Portfolio not found with ID: ${id}`);
+      // For project images, we'll create a temporary portfolio
+      if (imageType === "project") {
+        // Just upload the image without portfolio association
+        console.log('Creating temporary upload for project image');
+        const folder = `portfolio-hub/temp-uploads/projects`;
+
+        // Upload to Cloudinary
+        const cloudinaryResult: CloudinaryUploadResult = await uploadToCloudinary(
+          req.file.path,
+          folder
+        );
+
+        // Delete local file after upload (handled in uploadToCloudinary)
+
+        if (!cloudinaryResult.success) {
+          console.error('Cloudinary upload failed:', cloudinaryResult.error);
+          return res.status(500).json({
+            success: false,
+            message: "Failed to upload image to cloud storage",
+            error: cloudinaryResult.error,
+          });
+        }
+
+        return res.status(200).json({
+          success: true,
+          message: "Project image uploaded successfully",
+          image: {
+            url: cloudinaryResult.url,
+            publicId: cloudinaryResult.publicId,
+          },
+        });
+      }
+
       return res.status(404).json({
         success: false,
         message: "Portfolio not found",
@@ -843,6 +940,7 @@ export const uploadPortfolioImage = async (
 
     // Check if user owns the portfolio
     if (portfolio.userId.toString() !== req.user.id) {
+      console.error(`User ${req.user.id} not authorized to update portfolio ${id}`);
       return res.status(403).json({
         success: false,
         message: "Not authorized to update this portfolio",
@@ -869,9 +967,15 @@ export const uploadPortfolioImage = async (
     );
 
     // Delete local file after upload
-    fs.unlinkSync(filePath);
+    try {
+      fs.unlinkSync(filePath);
+      console.log('Local file deleted after upload:', filePath);
+    } catch (unlinkErr) {
+      console.warn('Failed to delete local file:', filePath, unlinkErr);
+    }
 
     if (!cloudinaryResult.success) {
+      console.error('Cloudinary upload failed:', cloudinaryResult.error);
       return res.status(500).json({
         success: false,
         message: "Failed to upload image to cloud storage",
@@ -894,6 +998,7 @@ export const uploadPortfolioImage = async (
         url: cloudinaryResult.url,
         publicId: cloudinaryResult.publicId,
       };
+      console.log(`Header image updated for portfolio ${id}: ${cloudinaryResult.publicId}`);
     } else if (imageType === "gallery" && cloudinaryResult.success) {
       // Initialize gallery array if it doesn't exist
       if (!portfolio.galleryImages) {
@@ -905,6 +1010,7 @@ export const uploadPortfolioImage = async (
         url: cloudinaryResult.url,
         publicId: cloudinaryResult.publicId,
       });
+      console.log(`Gallery image added for portfolio ${id}: ${cloudinaryResult.publicId}`);
     }
 
     await portfolio.save();
@@ -912,7 +1018,7 @@ export const uploadPortfolioImage = async (
     return res.status(200).json({
       success: true,
       message: `${
-        imageType === "header" ? "Header" : "Gallery"
+        imageType === "header" ? "Header" : imageType === "gallery" ? "Gallery" : "Project"
       } image uploaded successfully`,
       image: {
         url: cloudinaryResult.success ? cloudinaryResult.url : "",

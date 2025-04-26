@@ -194,6 +194,22 @@ export default function ProjectsEditor({ data, onChange, isLoading = false }: Pr
 
     try {
       setUploadLoading(true);
+
+      // Add file size validation
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('File size is too large. Maximum size is 5MB.');
+        return;
+      }
+
+      // Check if file is an image
+      if (!file.type.startsWith('image/')) {
+        toast.error('Only image files are allowed!');
+        return;
+      }
+
+      // Log upload details
+      console.log(`Uploading image: ${file.name}, size: ${(file.size / 1024).toFixed(2)}KB, type: ${file.type}`);
+
       const result = await apiClient.uploadImage(file, 'project');
 
       if (result.success && result.image?.url) {
@@ -203,13 +219,25 @@ export default function ProjectsEditor({ data, onChange, isLoading = false }: Pr
         });
         toast.success('Project image uploaded successfully');
       } else {
-        toast.error('Failed to upload image');
+        console.error('Upload failed:', result);
+        toast.error(result.message || 'Failed to upload image');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error uploading image:', error);
-      toast.error('An unexpected error occurred during upload');
+      // Provide more specific error message if available
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.message ||
+        'An unexpected error occurred during upload';
+      toast.error(errorMessage);
     } finally {
       setUploadLoading(false);
+
+      // Reset the file input to allow selecting the same file again
+      const fileInput = document.getElementById('imageUpload') as HTMLInputElement;
+      if (fileInput) {
+        fileInput.value = '';
+      }
     }
   };
 
