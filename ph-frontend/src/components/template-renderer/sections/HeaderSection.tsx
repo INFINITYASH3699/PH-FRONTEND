@@ -2,6 +2,7 @@ import React from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { EditableText } from '../editable/EditableText';
+import { fixImageUrl } from '@/lib/utils';
 
 interface HeaderSectionProps {
   data: {
@@ -24,7 +25,8 @@ interface HeaderSectionProps {
 
 // Helper for creating a placeholder image URL
 const createPlaceholderImage = (text: string, size = 200, bgColor = '6366f1') => {
-  return `https://placehold.co/${size}x${size}/${bgColor}/ffffff?text=${encodeURIComponent(text)}`;
+  // Use ui-avatars.com which is more reliable than placehold.co
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(text)}&size=${size}&background=${bgColor.replace('#', '')}&color=ffffff`;
 };
 
 const HeaderSection: React.FC<HeaderSectionProps> = ({
@@ -38,11 +40,16 @@ const HeaderSection: React.FC<HeaderSectionProps> = ({
     (template.category === 'photographer' ? 'hero' :
      template.category === 'designer' ? 'split' : 'centered');
 
-  // Get profile image with fallback
-  const profileImage = data.profileImage || createPlaceholderImage(
-    data.title?.charAt(0) || 'P',
-    200
+  // Get profile image with fallback and fix URL
+  const profileImage = fixImageUrl(
+    data.profileImage || createPlaceholderImage(
+      data.title?.charAt(0) || 'P',
+      200
+    )
   );
+
+  // Get background image URL fixed
+  const backgroundImage = fixImageUrl(data.backgroundImage || '');
 
   // Handle text updates
   const handleTextUpdate = (field: string, value: string) => {
@@ -73,9 +80,9 @@ const HeaderSection: React.FC<HeaderSectionProps> = ({
           <div className="relative min-h-[70vh] flex items-center justify-center text-white">
             {/* Background Image with Overlay */}
             <div className="absolute inset-0 overflow-hidden">
-              {data.backgroundImage ? (
+              {backgroundImage ? (
                 <Image
-                  src={data.backgroundImage}
+                  src={backgroundImage}
                   alt="Header background"
                   fill
                   priority
@@ -102,7 +109,10 @@ const HeaderSection: React.FC<HeaderSectionProps> = ({
                 className="text-xl md:text-2xl mb-8 text-white/90"
               />
               {data.ctaText && (
-                <Button className="bg-white text-indigo-600 hover:bg-white/90">
+                <Button
+                  className="bg-white text-indigo-600 hover:bg-white/90"
+                  onClick={() => window.location.href = data.ctaLink || '#'}
+                >
                   {data.ctaText}
                 </Button>
               )}
@@ -252,7 +262,7 @@ const HeaderSection: React.FC<HeaderSectionProps> = ({
 
       {/* Edit Controls - Only shown in edit mode */}
       {editable && (
-        <div className="absolute top-2 right-2 bg-white/80 backdrop-blur-sm p-2 rounded-md shadow-sm border">
+        <div className="absolute top-2 right-2 bg-white/80 backdrop-blur-sm p-2 rounded-md shadow-sm border z-20">
           <div className="text-xs font-medium mb-1">Header Style</div>
           <select
             value={variant}

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import TemplateRenderer from './TemplateRenderer';
 
 interface PortfolioTemplateRendererProps {
@@ -11,9 +11,49 @@ interface PortfolioTemplateRendererProps {
  * based on the template's category and characteristics.
  */
 const PortfolioTemplateRenderer: React.FC<PortfolioTemplateRendererProps> = ({ portfolio, template }) => {
+  const [debug, setDebug] = useState<any>({});
+
+  useEffect(() => {
+    if (template && portfolio) {
+      // Debug the structure to help troubleshoot
+      const debugInfo = {
+        templateId: template._id,
+        templateName: template.name,
+        portfolioId: portfolio._id,
+        portfolioTitle: portfolio.title,
+        contentKeys: portfolio.content ? Object.keys(portfolio.content) : [],
+        sectionOrder: getSectionOrder(),
+        defaultSections: template.defaultStructure?.layout?.sections || [],
+        sectionDefinitions: template.sectionDefinitions ? Object.keys(template.sectionDefinitions) : []
+      };
+
+      console.log("Portfolio renderer debug:", debugInfo);
+      setDebug(debugInfo);
+    }
+  }, [template, portfolio]);
+
   if (!template || !portfolio) {
     return <div className="min-h-screen bg-background">Loading...</div>;
   }
+
+  // Ensure portfolio content is initialized
+  if (!portfolio.content) {
+    portfolio.content = {};
+  }
+
+  // Make sure required sections have at least empty content
+  const ensureRequiredSections = () => {
+    const sections = getSectionOrder();
+
+    // Initialize sections that don't have content
+    sections.forEach(section => {
+      if (!portfolio.content[section]) {
+        portfolio.content[section] = {};
+      }
+    });
+
+    return portfolio;
+  };
 
   // Determine the appropriate style preset based on template category
   const getStylePreset = () => {
@@ -36,14 +76,19 @@ const PortfolioTemplateRenderer: React.FC<PortfolioTemplateRendererProps> = ({ p
     }
 
     // Otherwise use the default color scheme from the template
+    if (template.themeOptions?.colorSchemes?.length > 0) {
+      return template.themeOptions.colorSchemes[0].colors;
+    }
+
     return template.defaultStructure?.layout?.defaultColors || null;
   };
 
   // Get the appropriate layout
   const getLayout = () => {
     // Use portfolio's layout if set
-    if (portfolio.activeLayout) {
-      return template.layouts?.find(l => l.id === portfolio.activeLayout);
+    if (portfolio.activeLayout && template.layouts) {
+      const layout = template.layouts.find(l => l.id === portfolio.activeLayout);
+      if (layout) return layout;
     }
 
     // Otherwise use the first layout
@@ -58,7 +103,15 @@ const PortfolioTemplateRenderer: React.FC<PortfolioTemplateRendererProps> = ({ p
       return layout.structure.sections;
     }
 
-    return template.defaultStructure?.layout?.sections || [];
+    // If no layout found, use the default sections from template
+    const defaultSections = template.defaultStructure?.layout?.sections;
+
+    // Fallback to a set of common sections if nothing is defined
+    if (!defaultSections || defaultSections.length === 0) {
+      return ['header', 'about', 'projects', 'skills', 'experience', 'education', 'contact'];
+    }
+
+    return defaultSections;
   };
 
   // Get the appropriate section variants based on template category
@@ -80,9 +133,10 @@ const PortfolioTemplateRenderer: React.FC<PortfolioTemplateRendererProps> = ({ p
         break;
 
       case 'developer':
+      default:
         variants.about = 'with-highlights';
-        variants.projects = 'cards';
-        variants.skills = 'grouped';
+        variants.projects = 'grid';
+        variants.skills = 'categories';
         variants.header = 'centered';
         break;
     }
@@ -101,10 +155,13 @@ const PortfolioTemplateRenderer: React.FC<PortfolioTemplateRendererProps> = ({ p
     return portfolio.animations !== false;
   };
 
+  // Process the portfolio to ensure all required sections have content
+  const processedPortfolio = ensureRequiredSections();
+
   return (
     <TemplateRenderer
       template={template}
-      portfolio={portfolio}
+      portfolio={processedPortfolio}
       sectionOrder={getSectionOrder()}
       customColors={getColorScheme()}
       animation={getAnimation()}

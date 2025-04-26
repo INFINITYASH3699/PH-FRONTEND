@@ -2,6 +2,7 @@ import React from 'react';
 import Image from 'next/image';
 import { EditableText } from '../editable/EditableText';
 import { Button } from '@/components/ui/button';
+import { fixImageUrl } from '@/lib/utils';
 
 interface AboutSectionProps {
   data: {
@@ -25,7 +26,7 @@ interface AboutSectionProps {
 
 // Helper for creating a placeholder image URL
 const createPlaceholderImage = (text: string, size = 300, bgColor = '6366f1') => {
-  return `https://placehold.co/${size}x${size}/${bgColor}/ffffff?text=${encodeURIComponent(text)}`;
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(text)}&size=${size}&background=${bgColor.replace('#', '')}&color=ffffff`;
 };
 
 const AboutSection: React.FC<AboutSectionProps> = ({
@@ -37,15 +38,14 @@ const AboutSection: React.FC<AboutSectionProps> = ({
   // Determine variant based on template category or specified variant
   const variant = data.variant ||
     (template.category === 'designer' ? 'with-image' :
-     template.category === 'developer' ? 'with-highlights' : 'standard');
+      template.category === 'developer' ? 'with-highlights' : 'standard');
 
   // Determine alignment
   const alignment = data.alignment || 'left';
 
-  // Get image with fallback
-  const aboutImage = data.image || createPlaceholderImage(
-    'About',
-    300
+  // Get image with fallback, and fix url for next/image
+  const aboutImage = fixImageUrl(
+    data.image || createPlaceholderImage('About', 300)
   );
 
   // Handle text updates

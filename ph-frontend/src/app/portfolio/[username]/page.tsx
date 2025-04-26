@@ -61,30 +61,72 @@ export default function PublishedPortfolioPage() {
         console.log(`API Response:`, response);
 
         if (response.success && response.portfolio) {
-          setPortfolio(response.portfolio);
+          // Make sure portfolio has some basic structure
+          const processedPortfolio = {
+            ...response.portfolio,
+            content: response.portfolio.content || {}
+          };
+
+          setPortfolio(processedPortfolio);
           console.log(`Portfolio found:`, {
-            id: response.portfolio._id,
-            title: response.portfolio.title,
-            templateId: response.portfolio.templateId?._id,
-            isPublished: response.portfolio.isPublished,
-            order: response.portfolio.portfolioOrder,
+            id: processedPortfolio._id,
+            title: processedPortfolio.title,
+            templateId: processedPortfolio.templateId?._id,
+            isPublished: processedPortfolio.isPublished,
+            order: processedPortfolio.portfolioOrder,
+            content: processedPortfolio.content ? Object.keys(processedPortfolio.content) : 'No content'
           });
 
-          // After getting the portfolio, fetch the template data
-          if (
-            response.portfolio.templateId &&
-            response.portfolio.templateId._id
-          ) {
+          // Extract the template ID
+          let templateId = null;
+
+          // Handle different ways the templateId might be structured
+          if (processedPortfolio.templateId) {
+            if (
+              typeof processedPortfolio.templateId === "object" &&
+              processedPortfolio.templateId._id
+            ) {
+              // If templateId is an object with _id property
+              templateId = processedPortfolio.templateId._id;
+            } else if (typeof processedPortfolio.templateId === "string") {
+              // If templateId is a string
+              templateId = processedPortfolio.templateId;
+            }
+          }
+
+          console.log("Extracted templateId:", templateId);
+
+          if (templateId) {
             try {
               const templateResponse = await apiClient.request(
-                `/templates/${response.portfolio.templateId._id}`
+                `/templates/${templateId}`
               );
 
               if (templateResponse.success && templateResponse.template) {
-                setTemplate(templateResponse.template);
+                // Ensure the template has the necessary properties
+                const processedTemplate = {
+                  ...templateResponse.template,
+                  defaultStructure: templateResponse.template.defaultStructure || {
+                    layout: {
+                      sections: ['header', 'about', 'projects', 'skills', 'experience', 'education', 'contact'],
+                      defaultColors: ['#6366f1', '#8b5cf6', '#ffffff', '#111827']
+                    }
+                  },
+                  layouts: templateResponse.template.layouts || [{
+                    id: 'default',
+                    name: 'Standard Layout',
+                    structure: {
+                      sections: ['header', 'about', 'projects', 'skills', 'experience', 'education', 'contact']
+                    }
+                  }]
+                };
+
+                setTemplate(processedTemplate);
                 console.log(`Template loaded:`, {
-                  id: templateResponse.template._id,
-                  name: templateResponse.template.name,
+                  id: processedTemplate._id,
+                  name: processedTemplate.name,
+                  sections: processedTemplate.defaultStructure?.layout?.sections || [],
+                  layouts: processedTemplate.layouts?.length || 0
                 });
               } else {
                 console.error("Template response error:", templateResponse);
@@ -95,7 +137,7 @@ export default function PublishedPortfolioPage() {
           } else {
             console.warn(
               "Portfolio has no valid templateId:",
-              response.portfolio.templateId
+              processedPortfolio.templateId
             );
           }
         } else {
