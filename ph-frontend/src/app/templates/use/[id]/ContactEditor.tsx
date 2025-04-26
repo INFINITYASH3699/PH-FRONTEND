@@ -1,12 +1,12 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
-import SocialLinksEditor, { SocialLink } from './SocialLinksEditor';
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import SocialLinksEditor, { SocialLink } from "./SocialLinksEditor";
 
 // Define contact information interface
 interface ContactInfo {
@@ -20,35 +20,46 @@ interface ContactInfo {
 }
 
 interface ContactEditorProps {
-  content: ContactInfo;
-  onSave: (content: ContactInfo) => void;
+  data: ContactInfo;
+  onChange: (content: ContactInfo) => void;
   isLoading?: boolean;
 }
 
-export default function ContactEditor({ content, onSave, isLoading = false }: ContactEditorProps) {
-  const [contactInfo, setContactInfo] = useState<ContactInfo>(content || {
-    email: '',
-    phone: '',
-    address: '',
-    showContactForm: true,
-    socialLinks: { links: [] }
-  });
+export default function ContactEditor({
+  data,
+  onChange,
+  isLoading = false,
+}: ContactEditorProps) {
+  const [contactInfo, setContactInfo] = useState<ContactInfo>(
+    data || {
+      email: "",
+      phone: "",
+      address: "",
+      showContactForm: true,
+      socialLinks: { links: [] },
+    }
+  );
 
   // Handle basic input changes
-  const handleInputChange = (field: keyof ContactInfo, value: string | boolean) => {
+  const handleInputChange = (
+    field: keyof ContactInfo,
+    value: string | boolean
+  ) => {
     const updatedContactInfo = { ...contactInfo, [field]: value };
     setContactInfo(updatedContactInfo);
-    onSave(updatedContactInfo);
+    onChange(updatedContactInfo);
   };
 
   // Handle social links updates
-  const handleSocialLinksUpdate = (socialLinksContent: { links: SocialLink[] }) => {
+  const handleSocialLinksUpdate = (socialLinksContent: {
+    links: SocialLink[];
+  }) => {
     const updatedContactInfo = {
       ...contactInfo,
-      socialLinks: socialLinksContent
+      socialLinks: socialLinksContent,
     };
     setContactInfo(updatedContactInfo);
-    onSave(updatedContactInfo);
+    onChange(updatedContactInfo);
   };
 
   return (
@@ -56,7 +67,8 @@ export default function ContactEditor({ content, onSave, isLoading = false }: Co
       <div className="flex flex-col space-y-2">
         <h3 className="text-lg font-medium">Contact Information</h3>
         <p className="text-muted-foreground">
-          Add your contact details and preferences for how visitors can reach you.
+          Add your contact details and preferences for how visitors can reach
+          you.
         </p>
       </div>
 
@@ -71,33 +83,39 @@ export default function ContactEditor({ content, onSave, isLoading = false }: Co
             <Input
               type="email"
               placeholder="your@email.com"
-              value={contactInfo.email || ''}
-              onChange={(e) => handleInputChange('email', e.target.value)}
+              value={contactInfo.email || ""}
+              onChange={(e) => handleInputChange("email", e.target.value)}
             />
             <p className="text-xs text-muted-foreground">
-              This email will be displayed on your portfolio and used for the contact form.
+              This email will be displayed on your portfolio and used for the
+              contact form.
             </p>
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium">Phone Number (Optional)</label>
+            <label className="text-sm font-medium">
+              Phone Number (Optional)
+            </label>
             <Input
               type="tel"
               placeholder="+1 (555) 123-4567"
-              value={contactInfo.phone || ''}
-              onChange={(e) => handleInputChange('phone', e.target.value)}
+              value={contactInfo.phone || ""}
+              onChange={(e) => handleInputChange("phone", e.target.value)}
             />
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium">Location/Address (Optional)</label>
+            <label className="text-sm font-medium">
+              Location/Address (Optional)
+            </label>
             <Input
               placeholder="City, Country"
-              value={contactInfo.address || ''}
-              onChange={(e) => handleInputChange('address', e.target.value)}
+              value={contactInfo.address || ""}
+              onChange={(e) => handleInputChange("address", e.target.value)}
             />
             <p className="text-xs text-muted-foreground">
-              For privacy reasons, we recommend only including your city and country.
+              For privacy reasons, we recommend only including your city and
+              country.
             </p>
           </div>
 
@@ -105,22 +123,25 @@ export default function ContactEditor({ content, onSave, isLoading = false }: Co
             <Switch
               id="contact-form"
               checked={contactInfo.showContactForm || false}
-              onCheckedChange={(checked) => handleInputChange('showContactForm', checked)}
+              onCheckedChange={(checked) =>
+                handleInputChange("showContactForm", checked)
+              }
             />
             <Label htmlFor="contact-form" className="font-medium">
               Include contact form on portfolio
             </Label>
           </div>
           <p className="text-xs text-muted-foreground">
-            When enabled, visitors can contact you through a form without seeing your email address.
+            When enabled, visitors can contact you through a form without seeing
+            your email address.
           </p>
         </CardContent>
       </Card>
 
       {/* Social Links Section */}
       <SocialLinksEditor
-        content={contactInfo.socialLinks || { links: [] }}
-        onSave={handleSocialLinksUpdate}
+        data={contactInfo.socialLinks || { links: [] }}
+        onChange={handleSocialLinksUpdate}
         isLoading={isLoading}
       />
     </div>

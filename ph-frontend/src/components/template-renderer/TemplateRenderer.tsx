@@ -228,20 +228,20 @@ const TemplateRenderer: React.FC<TemplateRendererProps> = ({
         if (sectionType in portfolio.content) {
           portfolioContent = portfolio.content[sectionType];
 
-          // Only log if there is actual content
-          if (Object.keys(portfolioContent || {}).length > 0) {
+          // Log content discovery
+          if (portfolioContent) {
             console.log(`Found content for section ${sectionType}:`, portfolioContent);
+
+            // CHANGE: Always accept any valid object as content, even if empty
+            // This allows sections with empty arrays (like projects, skills, etc.) to still display
+            if (typeof portfolioContent === 'object') {
+              return portfolioContent;
+            }
           } else {
             console.log(`Empty content for section ${sectionType}, will use defaults`);
-            portfolioContent = null; // Treat empty objects as no content
           }
         }
       }
-    }
-
-    // If the portfolio content is valid, use it
-    if (portfolioContent && typeof portfolioContent === 'object' && Object.keys(portfolioContent).length > 0) {
-      return portfolioContent;
     }
 
     // If not found or empty, try to get from template section definitions
@@ -305,6 +305,14 @@ const TemplateRenderer: React.FC<TemplateRendererProps> = ({
 
   // Get animation style for a section
   const getAnimationStyle = (sectionType: string) => {
+    // Force all sections to be visible initially on published portfolios
+    if (!editable) {
+      return {
+        opacity: 1,
+        transform: 'none'
+      };
+    }
+
     if (!animation || !template.animations) return {};
 
     const defaultAnimation = template.animations.fadeIn;
@@ -317,8 +325,8 @@ const TemplateRenderer: React.FC<TemplateRendererProps> = ({
 
     const animationConfig = template.animations[animationType] || defaultAnimation;
 
-    // Only apply animation if section is in the animated sections list
-    const isAnimated = animatedSections.includes(sectionType);
+    // Force all sections to be in the animated list when not editing
+    const isAnimated = !editable || animatedSections.includes(sectionType);
 
     if (!isAnimated) {
       return {
@@ -473,8 +481,17 @@ const TemplateRenderer: React.FC<TemplateRendererProps> = ({
             >
               {(() => {
                 try {
+                  // Ensure section component always exists
                   const SectionComponent = SECTION_COMPONENTS[sectionType] ||
                     ((props: any) => <FallbackSection sectionType={sectionType} data={props.data} />);
+
+                  // Log details about the section content
+                  console.log(`Rendering ${sectionType} section with data:`, {
+                    hasContent: !!variantContent,
+                    contentType: typeof variantContent,
+                    contentKeys: variantContent ? Object.keys(variantContent) : [],
+                    isArray: Array.isArray(variantContent),
+                  });
 
                   return (
                     <SectionComponent

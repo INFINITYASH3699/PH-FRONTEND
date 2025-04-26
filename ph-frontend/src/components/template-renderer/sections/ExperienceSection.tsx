@@ -37,8 +37,14 @@ const ExperienceSection: React.FC<ExperienceSectionProps> = ({
   const variant = data.variant ||
     (template.category === 'designer' ? 'cards' : 'timeline');
 
-  // Ensure we have experiences array
-  const experiences = data.experiences || [];
+  // Ensure we have experiences array - handle both experiences and items formats
+  let experiences = data.experiences || [];
+
+  // If no experiences but we have items, use those instead (common alternative format)
+  if ((!experiences || experiences.length === 0) && data.items && data.items.length > 0) {
+    console.log("Using items as experiences in ExperienceSection:", data.items);
+    experiences = data.items;
+  }
 
   // Handle text updates
   const handleTextUpdate = (field: string, value: string) => {

@@ -37,8 +37,14 @@ const EducationSection: React.FC<EducationSectionProps> = ({
   const variant = data.variant ||
     (template.category === 'designer' ? 'cards' : 'timeline');
 
-  // Ensure we have education array
-  const education = data.education || [];
+  // Ensure we have education array - handle both education and items formats
+  let education = data.education || [];
+
+  // If no education but we have items, use those instead (common alternative format)
+  if ((!education || education.length === 0) && data.items && data.items.length > 0) {
+    console.log("Using items as education entries in EducationSection:", data.items);
+    education = data.items;
+  }
 
   // Handle text updates
   const handleTextUpdate = (field: string, value: string) => {

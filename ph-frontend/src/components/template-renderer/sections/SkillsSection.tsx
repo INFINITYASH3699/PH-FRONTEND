@@ -46,8 +46,30 @@ const SkillsSection: React.FC<SkillsSectionProps> = ({
   // Show proficiency by default for bars, but can be overridden
   const showProficiency = data.showProficiency !== false && display === 'bars';
 
-  // Ensure we have categories
-  const categories = data.categories || [];
+  // Ensure we have categories - handle both formats: categories[] and items[]
+  let categories = data.categories || [];
+
+  // If we have items but no categories (alternate data format), convert them to categories
+  if ((!categories || categories.length === 0) && data.items && data.items.length > 0) {
+    console.log("Converting items format to categories format for skills section:", data.items);
+
+    // Group skills by category if they have one
+    const categoriesMap = {};
+    data.items.forEach(skill => {
+      const categoryName = skill.category || 'Other';
+      if (!categoriesMap[categoryName]) {
+        categoriesMap[categoryName] = { name: categoryName, skills: [] };
+      }
+      categoriesMap[categoryName].skills.push({
+        name: skill.name,
+        proficiency: skill.level || 80
+      });
+    });
+
+    // Convert to array
+    categories = Object.values(categoriesMap);
+    console.log("Converted skills categories:", categories);
+  }
 
   // Handle text updates
   const handleTextUpdate = (field: string, value: string) => {

@@ -44,11 +44,32 @@ const PortfolioTemplateRenderer: React.FC<PortfolioTemplateRendererProps> = ({ p
   // Make sure required sections have at least empty content
   const ensureRequiredSections = () => {
     const sections = getSectionOrder();
+    console.log("Ensuring all required sections have content:", sections);
+
+    // Create initial empty section content structures based on section type
+    const sectionDefaults = {
+      header: { title: portfolio.title || 'My Portfolio', subtitle: portfolio.subtitle || 'Welcome to my portfolio' },
+      about: { title: 'About Me', bio: 'This section contains information about me.' },
+      projects: { title: 'My Projects', items: [] },
+      skills: { title: 'My Skills', categories: [] },
+      experience: { title: 'My Experience', items: [] },
+      education: { title: 'My Education', items: [] },
+      contact: { title: 'Contact Me', email: '' },
+      gallery: { title: 'My Gallery', images: [] }
+    };
 
     // Initialize sections that don't have content
     sections.forEach(section => {
       if (!portfolio.content[section]) {
-        portfolio.content[section] = {};
+        // Create completely new section with default structure
+        portfolio.content[section] = sectionDefaults[section] || { title: section };
+        console.log(`Created default structure for section: ${section}`);
+      } else if (Object.keys(portfolio.content[section]).length === 0) {
+        // If the section exists but is an empty object, provide default structure
+        portfolio.content[section] = sectionDefaults[section] || { title: section };
+        console.log(`Applied default structure to empty section: ${section}`);
+      } else {
+        console.log(`Section ${section} already has content:`, portfolio.content[section]);
       }
     });
 
