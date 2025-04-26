@@ -183,14 +183,19 @@ const handleResponse = async (response: Response) => {
     data = text ? JSON.parse(text) : null;
   } catch (e) {
     // Not JSON or empty, ignore
+    console.warn("Failed to parse response as JSON:", text);
     data = text;
   }
 
   if (!response.ok) {
     // Try to get a meaningful error message
     let message = "Unknown error";
-    if (data && typeof data === "object" && data.message) {
-      message = data.message;
+    if (data && typeof data === "object") {
+      if (data.message) {
+        message = data.message;
+      } else if (data.error) {
+        message = data.error;
+      }
     } else if (typeof data === "string" && data.length > 0) {
       message = data;
     } else if (response.statusText) {
@@ -201,7 +206,10 @@ const handleResponse = async (response: Response) => {
     console.error("API error response:", {
       status: response.status,
       statusText: response.statusText,
+      url: response.url,
+      method: response.type,
       data,
+      text,
     });
 
     // Handle the case where the error is about an already used template
@@ -216,13 +224,16 @@ const handleResponse = async (response: Response) => {
         "You already have a portfolio with this template. Please use the Edit button to modify your existing portfolio.";
     }
 
-    throw new Error(
+    // Create an error object with additional properties to help with debugging
+    const error: any = new Error(
       message ||
-        `API Error: ${response.status} - ${response.statusText || "Unknown error"}`
+      `Request failed with status ${response.status}`
     );
+    error.status = response.status;
+    error.response = { data, text };
+    throw error;
   }
 
-  // Return parsed JSON or raw text if not JSON
   return data;
 };
 
@@ -1104,10 +1115,12 @@ const api = {
   // Image upload functionality
   uploadImage: async (file: File, type: string = "portfolio") => {
     try {
-      console.log(`Uploading image of type: ${type}`);
+      console.log(`Uploading image of type: ${type}, filename: ${file.name}, size: ${(file.size / 1024).toFixed(2)}KB`);
 
       const formData = new FormData();
       formData.append("image", file);
+      // Add imageType to the formData instead of query parameter
+      formData.append("imageType", type);
 
       // Use a default portfolio ID if none provided
       // Try to get a defaultPortfolioId from user data, fallback to 'temp'
@@ -1121,8 +1134,45 @@ const api = {
         headers["Authorization"] = `Bearer ${token}`;
       }
 
+      // For special image types that don't need a portfolio (like project thumbnails)
+      // Use a different endpoint that doesn't require a valid portfolio ID
+      if (["project", "work", "thumbnail"].includes(type)) {
+        try {
+          const response = await fetch(
+            `${API_BASE_URL}/portfolios/temp/upload-image`,
+            {
+              method: "POST",
+              headers,
+              body: formData,
+              credentials: "include",
+            }
+          );
+
+          return handleResponse(response);
+        } catch (uploadError) {
+          console.error("Upload error:", uploadError);
+
+          // Development fallback for image upload
+          if (isDev) {
+            console.warn("Using development fallback for image upload");
+            const mockImageUrl = `https://picsum.photos/seed/${Date.now()}/800/600`;
+            const mockImageId = `mock-${Date.now()}`;
+            return {
+              success: true,
+              message: "Image uploaded successfully (development mock)",
+              image: {
+                url: mockImageUrl,
+                publicId: mockImageId,
+              }
+            };
+          }
+          throw uploadError;
+        }
+      }
+
+      // Standard portfolio image upload
       const response = await fetch(
-        `${API_BASE_URL}/portfolios/${portfolioId}/upload-image?type=${type}`,
+        `${API_BASE_URL}/portfolios/${portfolioId}/upload-image`,
         {
           method: "POST",
           headers,
@@ -1138,10 +1188,33 @@ const api = {
       if (isConnectionError(error) && isDev) {
         // Return a mock image URL for development
         const mockImageId = `mock-image-${Date.now()}`;
+        const mockType = type || "image";
+        // Use category-specific placeholder images
+        let mockUrl = "";
+
+        switch(mockType) {
+          case "profile":
+          case "header":
+            mockUrl = `https://picsum.photos/seed/${mockImageId}/300/300`;
+            break;
+          case "gallery":
+            mockUrl = `https://picsum.photos/seed/${mockImageId}/800/600`;
+            break;
+          case "project":
+          case "work":
+            mockUrl = `https://picsum.photos/seed/${mockImageId}/600/400`;
+            break;
+          default:
+            mockUrl = `https://picsum.photos/seed/${mockImageId}/400/400`;
+        }
+
+        console.log(`Using mock image URL for ${mockType}: ${mockUrl}`);
+
         return {
           success: true,
+          message: "Image uploaded successfully (development mode)",
           image: {
-            url: `https://via.placeholder.com/800x600?text=${type}+Image`,
+            url: mockUrl,
             publicId: mockImageId,
           },
         };

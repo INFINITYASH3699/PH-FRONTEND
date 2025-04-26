@@ -85,8 +85,9 @@ export const createPortfolio = async (
     }
 
     // Check if template exists if templateId is provided
+    let template: any = null;
     if (templateId) {
-      const template = await Template.findById(templateId);
+      template = await Template.findById(templateId);
       if (!template) {
         return res.status(404).json({
           success: false,
@@ -108,6 +109,33 @@ export const createPortfolio = async (
           success: false,
           message: "You already have a portfolio with this template",
         });
+      }
+
+      // Make sure to validate any nested structures in the content object
+      // This is important for handling sectionVariants across different templates
+      if (content) {
+        // If template exists but structure is missing needed elements, initialize them
+        if (!template.sectionDefinitions) {
+          console.warn(`Template ${template.name} (${template._id}) has no sectionDefinitions, initializing empty object`);
+          template.sectionDefinitions = {};
+        }
+
+        if (!template.layouts || !Array.isArray(template.layouts) || template.layouts.length === 0) {
+          console.warn(`Template ${template.name} (${template._id}) has no layouts, initializing default layout`);
+
+          // Create a default layout for templates that are missing it
+          template.layouts = [{
+            id: 'default',
+            name: 'Standard Layout',
+            structure: {
+              sections: ['header', 'about', 'projects', 'skills', 'experience', 'education', 'contact'],
+              gridSystem: '12-column',
+              spacing: { base: 8, multiplier: 1.5 }
+            }
+          }];
+        }
+
+        // Now we can continue with portfolio creation
       }
     }
 
@@ -887,8 +915,18 @@ export const uploadPortfolioImage = async (
     const { id } = req.params;
     const { imageType } = req.body; // 'header' or 'gallery' or 'project'
 
-    if (!imageType || !["header", "gallery", "project"].includes(imageType)) {
-      console.error(`Invalid image type: ${imageType}`);
+    // Map frontend image types to backend types for validation
+    let validImageType = imageType;
+    if (imageType === 'profile') {
+      validImageType = 'header';
+    } else if (imageType === 'work' || imageType === 'about') {
+      validImageType = 'project';
+    }
+
+    console.log(`Original imageType: ${imageType}, mapped to: ${validImageType}`);
+
+    if (!validImageType || !["header", "gallery", "project"].includes(validImageType)) {
+      console.error(`Invalid image type: ${imageType} (mapped to ${validImageType})`);
       return res.status(400).json({
         success: false,
         message: 'Invalid image type. Must be "header", "gallery", or "project"',
@@ -897,13 +935,19 @@ export const uploadPortfolioImage = async (
 
     // Find portfolio
     const portfolio = await Portfolio.findById(id);
+
+    // Special handling for 'temp' ID or project images
+    const isTempUpload = id === 'temp' || imageType === 'project' || imageType === 'work';
+
+    // For project images, we don't need a valid portfolio as these are standalone images
     if (!portfolio) {
-      console.error(`Portfolio not found with ID: ${id}`);
-      // For project images, we'll create a temporary portfolio
-      if (imageType === "project") {
+      console.log(`Portfolio not found with ID: ${id}, isTempUpload: ${isTempUpload}, imageType: ${imageType}`);
+
+      // If it's a temporary upload or project image, proceed without portfolio
+      if (isTempUpload) {
         // Just upload the image without portfolio association
-        console.log('Creating temporary upload for project image');
-        const folder = `portfolio-hub/temp-uploads/projects`;
+        console.log('Creating temporary upload for image type:', imageType);
+        const folder = `portfolio-hub/temp-uploads/${validImageType}`;
 
         // Upload to Cloudinary
         const cloudinaryResult: CloudinaryUploadResult = await uploadToCloudinary(
@@ -924,7 +968,7 @@ export const uploadPortfolioImage = async (
 
         return res.status(200).json({
           success: true,
-          message: "Project image uploaded successfully",
+          message: `${imageType || 'Image'} uploaded successfully`,
           image: {
             url: cloudinaryResult.url,
             publicId: cloudinaryResult.publicId,
@@ -938,26 +982,33 @@ export const uploadPortfolioImage = async (
       });
     }
 
-    // Check if user owns the portfolio
-    if (portfolio.userId.toString() !== req.user.id) {
-      console.error(`User ${req.user.id} not authorized to update portfolio ${id}`);
-      return res.status(403).json({
-        success: false,
-        message: "Not authorized to update this portfolio",
-      });
+    // Skip auth check for temp uploads
+    if (!isTempUpload) {
+      // Check if user owns the portfolio
+      if (portfolio.userId.toString() !== req.user.id) {
+        console.error(`User ${req.user.id} not authorized to update portfolio ${id}`);
+        return res.status(403).json({
+          success: false,
+          message: "Not authorized to update this portfolio",
+        });
+      }
     }
 
     // Get file path
     const filePath = req.file.path;
 
-    // Define folder based on image type
-    const folder = `portfolio-hub/portfolios/${id}/${imageType}`;
+    // Define folder based on image type and whether this is a temp upload
+    const folder = isTempUpload
+      ? `portfolio-hub/temp-uploads/${validImageType}`
+      : `portfolio-hub/portfolios/${id}/${validImageType}`;
 
     // For header image, if we already have one, we'll replace it
     let existingPublicId = undefined;
-    if (imageType === "header" && portfolio.headerImage) {
+    if (validImageType === "header" && portfolio?.headerImage) {
       existingPublicId = portfolio.headerImage.publicId;
     }
+
+    console.log(`Uploading image to Cloudinary folder: ${folder}, imageType: ${imageType}, validImageType: ${validImageType}`);
 
     // Upload to Cloudinary
     const cloudinaryResult: CloudinaryUploadResult = await uploadToCloudinary(
@@ -984,7 +1035,7 @@ export const uploadPortfolioImage = async (
     }
 
     // Update portfolio with new image
-    if (imageType === "header" && cloudinaryResult.success) {
+    if (validImageType === "header" && cloudinaryResult.success) {
       // If we're not overwriting and there's an existing image with a different ID
       if (
         portfolio.headerImage?.publicId &&
@@ -999,7 +1050,7 @@ export const uploadPortfolioImage = async (
         publicId: cloudinaryResult.publicId,
       };
       console.log(`Header image updated for portfolio ${id}: ${cloudinaryResult.publicId}`);
-    } else if (imageType === "gallery" && cloudinaryResult.success) {
+    } else if (validImageType === "gallery" && cloudinaryResult.success) {
       // Initialize gallery array if it doesn't exist
       if (!portfolio.galleryImages) {
         portfolio.galleryImages = [];
@@ -1012,13 +1063,22 @@ export const uploadPortfolioImage = async (
       });
       console.log(`Gallery image added for portfolio ${id}: ${cloudinaryResult.publicId}`);
     }
+    // For "project" type, do NOT attach to portfolio. Just return the upload result.
+    // This is handled above for missing portfolio, and here we do nothing for valid portfolios.
 
-    await portfolio.save();
+    // Only save portfolio if we actually changed something and it's not a temp upload
+    if ((validImageType === "header" || validImageType === "gallery") && !isTempUpload) {
+      await portfolio.save();
+    }
 
     return res.status(200).json({
       success: true,
       message: `${
-        imageType === "header" ? "Header" : imageType === "gallery" ? "Gallery" : "Project"
+        validImageType === "header"
+          ? "Header"
+          : validImageType === "gallery"
+          ? "Gallery"
+          : "Project"
       } image uploaded successfully`,
       image: {
         url: cloudinaryResult.success ? cloudinaryResult.url : "",
@@ -1027,6 +1087,16 @@ export const uploadPortfolioImage = async (
     });
   } catch (error: any) {
     console.error("Portfolio image upload error:", error);
+    // Make sure to delete any temporary file if upload failed
+    try {
+      if (req.file && req.file.path) {
+        fs.unlinkSync(req.file.path);
+        console.log(`Cleaned up temporary file: ${req.file.path}`);
+      }
+    } catch (unlinkError) {
+      console.warn(`Failed to delete temporary file: ${req.file?.path || 'unknown'}`, unlinkError);
+    }
+
     return res.status(500).json({
       success: false,
       message: "Server error during image upload",

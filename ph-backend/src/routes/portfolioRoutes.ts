@@ -237,6 +237,21 @@ router.get('/subdomain/:subdomain', getPortfolioBySubdomain as express.RequestHa
 // Add the preview route - no authentication required for easy access
 router.get('/preview/:id', previewPortfolio);
 
+// Add a special route for temporary image uploads (for project images, etc.)
+// This doesn't require a specific portfolio ID and can be used by any authenticated user
+router.post(
+  '/temp/upload-image',
+  auth as express.RequestHandler,
+  upload.single('image'),
+  handleMulterError,
+  (req: express.Request, res: express.Response) => {
+    // Override the params to use a temporary ID
+    req.params.id = 'temp';
+    // Call the same controller but with modified params
+    return uploadPortfolioImage(req, res);
+  }
+);
+
 // Protected portfolio routes
 router.use(auth as express.RequestHandler); // All routes below this line require authentication
 router.post('/', createPortfolio as express.RequestHandler);
