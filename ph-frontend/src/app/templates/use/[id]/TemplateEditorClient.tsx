@@ -996,12 +996,44 @@ export default function TemplateEditorClient({
           updatedFields.push("projects");
         }
 
-        if (profileData.profile?.socialLinks) {
+        // Fix for contact information and social links
+        // Create or update the contact section properly
+        if (profileData.email || profileData.profile?.socialLinks) {
+          // Start by getting existing contact section or creating a new one
+          const existingContact = updatedPortfolio.content?.contact || {
+            title: "Contact Me",
+            subtitle: "Get in touch",
+            message:
+              "I'd love to hear from you! Feel free to reach out using the contact information below.",
+            showContactForm: true,
+            variant: "simple",
+          };
+
+          // Update email if available
+          if (profileData.email) {
+            existingContact.email = profileData.email;
+            updatedFields.push("email");
+          }
+
+          // Update location if available in profile
+          if (profileData.profile?.location) {
+            existingContact.location = profileData.profile.location;
+            existingContact.address = profileData.profile.location; // Support both fields
+            updatedFields.push("location");
+          }
+
+          // Update social links if available
+          if (profileData.profile?.socialLinks) {
+            // Ensure social links are in the right format
+            existingContact.socialLinks = profileData.profile.socialLinks;
+            updatedFields.push("socialLinks");
+          }
+
+          // Save the updated contact section
           updatedPortfolio.content = {
             ...updatedPortfolio.content,
-            socialLinks: profileData.profile.socialLinks,
+            contact: existingContact,
           };
-          updatedFields.push("socialLinks");
         }
 
         if (profileData.profile?.title) {
@@ -1312,4 +1344,3 @@ export default function TemplateEditorClient({
     </div>
   );
 }
-  

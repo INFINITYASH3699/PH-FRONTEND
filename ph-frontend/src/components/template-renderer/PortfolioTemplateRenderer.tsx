@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import TemplateRenderer from './TemplateRenderer';
+import React, { useEffect, useState } from "react";
+import TemplateRenderer from "./TemplateRenderer";
 
 interface PortfolioTemplateRendererProps {
   portfolio: any;
@@ -10,7 +10,10 @@ interface PortfolioTemplateRendererProps {
  * Specialized component for rendering portfolios with the appropriate template configurations
  * based on the template's category and characteristics.
  */
-const PortfolioTemplateRenderer: React.FC<PortfolioTemplateRendererProps> = ({ portfolio, template }) => {
+const PortfolioTemplateRenderer: React.FC<PortfolioTemplateRendererProps> = ({
+  portfolio,
+  template,
+}) => {
   const [debug, setDebug] = useState<any>({});
 
   useEffect(() => {
@@ -23,8 +26,17 @@ const PortfolioTemplateRenderer: React.FC<PortfolioTemplateRendererProps> = ({ p
         portfolioTitle: portfolio.title,
         contentKeys: portfolio.content ? Object.keys(portfolio.content) : [],
         sectionOrder: getSectionOrder(),
+        activeLayout: portfolio.activeLayout || "default",
         defaultSections: template.defaultStructure?.layout?.sections || [],
-        sectionDefinitions: template.sectionDefinitions ? Object.keys(template.sectionDefinitions) : []
+        sectionDefinitions: template.sectionDefinitions
+          ? Object.keys(template.sectionDefinitions)
+          : [],
+        sectionVariants: portfolio.sectionVariants || {},
+        animationsEnabled:
+          typeof portfolio.animationsEnabled === "boolean"
+            ? portfolio.animationsEnabled
+            : true,
+        stylePreset: portfolio.stylePreset || "modern",
       };
 
       console.log("Portfolio renderer debug:", debugInfo);
@@ -48,44 +60,63 @@ const PortfolioTemplateRenderer: React.FC<PortfolioTemplateRendererProps> = ({ p
 
     // Create initial empty section content structures based on section type
     const sectionDefaults = {
-      header: { title: portfolio.title || 'My Portfolio', subtitle: portfolio.subtitle || 'Welcome to my portfolio' },
-      about: { title: 'About Me', bio: 'This section contains information about me.' },
-      projects: { title: 'My Projects', items: [] },
-      skills: { title: 'My Skills', categories: [] },
-      experience: { title: 'My Experience', items: [] },
-      education: { title: 'My Education', items: [] },
-      contact: { title: 'Contact Me', email: '' },
-      gallery: { title: 'My Gallery', images: [] }
+      header: {
+        title: portfolio.title || "My Portfolio",
+        subtitle: portfolio.subtitle || "Welcome to my portfolio",
+      },
+      about: {
+        title: "About Me",
+        bio: "This section contains information about me.",
+      },
+      projects: { title: "My Projects", items: [] },
+      skills: { title: "My Skills", categories: [] },
+      experience: { title: "My Experience", items: [] },
+      education: { title: "My Education", items: [] },
+      contact: { title: "Contact Me", email: "" },
+      gallery: { title: "My Gallery", images: [] },
     };
 
     // Initialize sections that don't have content
-    sections.forEach(section => {
+    sections.forEach((section) => {
       if (!portfolio.content[section]) {
         // Create completely new section with default structure
-        portfolio.content[section] = sectionDefaults[section] || { title: section };
+        portfolio.content[section] = sectionDefaults[section] || {
+          title: section,
+        };
         console.log(`Created default structure for section: ${section}`);
       } else if (Object.keys(portfolio.content[section]).length === 0) {
         // If the section exists but is an empty object, provide default structure
-        portfolio.content[section] = sectionDefaults[section] || { title: section };
+        portfolio.content[section] = sectionDefaults[section] || {
+          title: section,
+        };
         console.log(`Applied default structure to empty section: ${section}`);
       } else {
-        console.log(`Section ${section} already has content:`, portfolio.content[section]);
+        console.log(
+          `Section ${section} already has content:`,
+          portfolio.content[section]
+        );
       }
     });
 
     return portfolio;
   };
 
-  // Determine the appropriate style preset based on template category
+  // Determine the appropriate style preset based on template category and portfolio settings
   const getStylePreset = () => {
+    // First check if portfolio has a specific style preset set
+    if (portfolio.stylePreset) {
+      return portfolio.stylePreset;
+    }
+
+    // Fall back to category-based presets
     switch (template.category) {
-      case 'designer':
-        return 'creative';
-      case 'photographer':
-        return 'elegant';
-      case 'developer':
+      case "designer":
+        return "creative";
+      case "photographer":
+        return "elegant";
+      case "developer":
       default:
-        return 'modern';
+        return "modern";
     }
   };
 
@@ -104,11 +135,13 @@ const PortfolioTemplateRenderer: React.FC<PortfolioTemplateRendererProps> = ({ p
     return template.defaultStructure?.layout?.defaultColors || null;
   };
 
-  // Get the appropriate layout
+  // Get the appropriate layout based on portfolio's activeLayout setting
   const getLayout = () => {
     // Use portfolio's layout if set
     if (portfolio.activeLayout && template.layouts) {
-      const layout = template.layouts.find(l => l.id === portfolio.activeLayout);
+      const layout = template.layouts.find(
+        (l) => l.id === portfolio.activeLayout
+      );
       if (layout) return layout;
     }
 
@@ -118,9 +151,19 @@ const PortfolioTemplateRenderer: React.FC<PortfolioTemplateRendererProps> = ({ p
 
   // Get section order based on template and selected layout
   const getSectionOrder = () => {
-    const layout = getLayout();
+    // First check if portfolio has a specific section order set
+    if (portfolio.sectionOrder && portfolio.sectionOrder.length > 0) {
+      console.log(
+        "Using portfolio's own section order:",
+        portfolio.sectionOrder
+      );
+      return portfolio.sectionOrder;
+    }
 
+    // Otherwise use the layout's section order
+    const layout = getLayout();
     if (layout?.structure?.sections) {
+      console.log("Using layout's section order:", layout.structure.sections);
       return layout.structure.sections;
     }
 
@@ -129,51 +172,68 @@ const PortfolioTemplateRenderer: React.FC<PortfolioTemplateRendererProps> = ({ p
 
     // Fallback to a set of common sections if nothing is defined
     if (!defaultSections || defaultSections.length === 0) {
-      return ['header', 'about', 'projects', 'skills', 'experience', 'education', 'contact'];
+      const fallbackSections = [
+        "header",
+        "about",
+        "projects",
+        "skills",
+        "experience",
+        "education",
+        "contact",
+      ];
+      console.log("Using fallback section order:", fallbackSections);
+      return fallbackSections;
     }
 
+    console.log("Using template's default section order:", defaultSections);
     return defaultSections;
   };
 
-  // Get the appropriate section variants based on template category
+  // Get the appropriate section variants based on template category and portfolio settings
   const getSectionVariants = () => {
-    const variants: Record<string, string> = {};
+    // Start with portfolio's custom section variants if available
+    const variants: Record<string, string> = portfolio.sectionVariants
+      ? { ...portfolio.sectionVariants }
+      : {};
+
+    // Only set default variants for sections that don't have custom variants set
 
     // Set default variants based on template category
     switch (template.category) {
-      case 'designer':
-        variants.about = 'with-image';
-        variants.projects = 'grid';
-        variants.header = 'split';
+      case "designer":
+        if (!variants.about) variants.about = "with-image";
+        if (!variants.projects) variants.projects = "grid";
+        if (!variants.header) variants.header = "split";
         break;
 
-      case 'photographer':
-        variants.about = 'minimal';
-        variants.header = 'hero';
-        variants.gallery = 'masonry';
+      case "photographer":
+        if (!variants.about) variants.about = "minimal";
+        if (!variants.header) variants.header = "hero";
+        if (!variants.gallery) variants.gallery = "masonry";
         break;
 
-      case 'developer':
+      case "developer":
       default:
-        variants.about = 'with-highlights';
-        variants.projects = 'grid';
-        variants.skills = 'categories';
-        variants.header = 'centered';
+        if (!variants.about) variants.about = "with-highlights";
+        if (!variants.projects) variants.projects = "grid";
+        if (!variants.skills) variants.skills = "categories";
+        if (!variants.header) variants.header = "centered";
         break;
     }
 
-    // Override with any custom variants set in the portfolio
-    if (portfolio.sectionVariants) {
-      return { ...variants, ...portfolio.sectionVariants };
-    }
-
+    console.log("Applied section variants:", variants);
     return variants;
   };
 
-  // Set proper animation based on template
+  // Set proper animation based on template and portfolio settings
   const getAnimation = () => {
-    // Disable animations only if explicitly set to false
-    return portfolio.animations !== false;
+    // If animations are explicitly set in the portfolio, use that setting
+    if (typeof portfolio.animationsEnabled === "boolean") {
+      return portfolio.animationsEnabled;
+    }
+
+    // Otherwise default to true
+    return true;
   };
 
   // Process the portfolio to ensure all required sections have content

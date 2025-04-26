@@ -88,6 +88,14 @@ export function NavBar() {
     },
   ];
 
+  // Check if the current path matches /portfolio/[something]
+  const isPortfolioPage = /^\/portfolio\/[^/]+$/.test(pathname);
+
+  if (isPortfolioPage) {
+    return null; // Don't render NavBar
+  }
+
+
   return (
     <header
       className={`sticky top-0 z-50 w-full transition-all duration-300 ${
