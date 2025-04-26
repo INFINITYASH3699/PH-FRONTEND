@@ -8,6 +8,8 @@ import EducationSection from './EducationSection';
 import GallerySection from './GallerySection';
 import TestimonialsSection from './TestimonialsSection';
 import ServicesSection from './ServicesSection';
+import NavbarSection from './NavbarSection';
+import FooterSection from './FooterSection';
 
 // Import all section components
 // We've implemented almost all components: HeaderSection, AboutSection, ProjectsSection,
@@ -53,5 +55,7 @@ export {
   TestimonialsSection,
   ServicesSection,
   WorkSection,
-  ClientsSection
+  ClientsSection,
+  NavbarSection,
+  FooterSection
 };

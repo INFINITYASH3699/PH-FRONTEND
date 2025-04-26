@@ -10,6 +10,8 @@ import TestimonialsSection from './TestimonialsSection';
 import ServicesSection from './ServicesSection';
 import WorkSection from './WorkSection';
 import ClientsSection from './ClientsSection';
+import NavbarSection from './NavbarSection';
+import FooterSection from './FooterSection';
 
 // Export all components
 export {
@@ -24,5 +26,7 @@ export {
   TestimonialsSection,
   ServicesSection,
   WorkSection,
-  ClientsSection
+  ClientsSection,
+  NavbarSection,
+  FooterSection
 };
