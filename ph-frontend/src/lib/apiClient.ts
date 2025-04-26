@@ -517,7 +517,6 @@ export async function getServerUser(): Promise<User | null> {
 
 // Main API client implementation
 const api = {
-  // Add these two functions to the api object
   serverRequest,
   getServerUser,
 
@@ -704,9 +703,16 @@ const api = {
 
       const data = await handleResponse(response);
       if (data.token && data.user) {
+        console.log("Login successful - setting auth data in localStorage and cookie");
         setAuthData(data.token, data.user);
+
+        // Set a longer cookie expiration (30 days)
+        const expiryDate = new Date();
+        expiryDate.setDate(expiryDate.getDate() + 30);
+        document.cookie = `${TOKEN_KEY}=${data.token}; path=/; expires=${expiryDate.toUTCString()}; SameSite=Lax`;
+      } else {
+        console.warn("Login response missing token or user:", data);
       }
-      console.log("Login successful with backend");
       return data;
     } catch (error) {
       console.error("Login error:", error);

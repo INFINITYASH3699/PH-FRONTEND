@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { CardContent, CardFooter } from "@/components/ui/card";
 import apiClient from "@/lib/apiClient";
+import { useAuth } from "@/components/providers/AuthContext";
 
 // Define form schema with zod
 const formSchema = z.object({
@@ -31,6 +32,7 @@ const formSchema = z.object({
 
 export default function SignInForm() {
   const router = useRouter();
+  const { login, checkAuth } = useAuth();
   const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
 
@@ -74,49 +76,23 @@ export default function SignInForm() {
       // Call the login API
       console.log("Attempting to login with:", values.email);
 
-      // Ensure apiClient.auth.login exists
-      if (
-        apiClient &&
-        apiClient.auth &&
-        typeof apiClient.auth.login === "function"
-      ) {
-        const response = await apiClient.auth.login(
-          values.email,
-          values.password
-        );
-        if (response && response.user) {
-          toast.success("Logged in successfully");
+      // Use the AuthContext login function
+      await login(values.email, values.password);
 
-          // Redirect to the specified path or dashboard
-          console.log(`Redirecting to: ${redirectTo}`);
+      // Re-check authentication state to ensure user is logged in
+      await checkAuth();
 
-          if (redirectTo && redirectTo.startsWith("/templates/use/")) {
-            // For template editor paths, reload the page to ensure fresh template data
-            window.location.href = redirectTo;
-          } else {
-            // For other paths, use the router
-            router.push(redirectTo);
-          }
-        } else {
-          toast.error("Invalid login credentials");
-        }
-      } else if (typeof apiClient.login === "function") {
-        // fallback for apiClient.login
-        await apiClient.login(values.email, values.password);
-        toast.success("Logged in successfully");
+      toast.success("Logged in successfully");
 
-        // Redirect to the specified path or dashboard
-        console.log(`Redirecting to: ${redirectTo}`);
+      // Redirect to the specified path or dashboard
+      console.log(`Redirecting to: ${redirectTo}`);
 
-        if (redirectTo && redirectTo.startsWith("/templates/use/")) {
-          // For template editor paths, reload the page to ensure fresh template data
-          window.location.href = redirectTo;
-        } else {
-          // For other paths, use the router
-          router.push(redirectTo);
-        }
+      if (redirectTo && redirectTo.startsWith("/templates/use/")) {
+        // For template editor paths, reload the page to ensure fresh template data
+        window.location.href = redirectTo;
       } else {
-        toast.error("Login function not found on apiClient");
+        // For other paths, use the router with replace to avoid back navigation issues
+        router.push(redirectTo);
       }
     } catch (error) {
       console.error("Login error:", error);

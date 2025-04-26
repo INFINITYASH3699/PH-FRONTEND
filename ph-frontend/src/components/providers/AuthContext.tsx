@@ -120,6 +120,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       const currentUser = await apiClient.getCurrentUser();
       setUser(currentUser);
+
+      // Store user data in localStorage as a backup
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('ph_user_data', JSON.stringify(currentUser));
+      }
+
       setIsLoading(false);
       return true;
     } catch (error) {
@@ -154,11 +160,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       if (response && response.user) {
+        // Explicitly set the user state
         setUser(response.user);
+        console.log("AuthContext: User set after login:", response.user);
+        return response;
+      } else {
+        throw new Error('Login succeeded but user data is missing');
       }
-      // Navigation is handled in the SignInForm component
     } catch (error) {
       console.error("Login error:", error);
+      // Ensure user is null on login failure
+      setUser(null);
       throw error;
     }
   };
@@ -180,6 +192,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (response && response.user) {
         setUser(response.user);
+        // Store user data in localStorage as a backup
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('ph_user_data', JSON.stringify(response.user));
+        }
         console.log("Registration successful, user set in context");
       }
     } catch (error) {
@@ -201,6 +217,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     // Clear the user state
     setUser(null);
+
+    // Remove user data from localStorage
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('ph_user_data');
+    }
 
     // For a clean logout, redirect directly to the signin page with a special flag
     // that forces cookie clearing
@@ -240,6 +261,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       setUser(updatedUser);
+
+      // Store updated user data in localStorage as a backup
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('ph_user_data', JSON.stringify(updatedUser));
+      }
+
       return updatedUser;
     } catch (error) {
       console.error("Profile update error:", error);
@@ -267,6 +294,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           profilePicture: profilePictureUrl
         };
         setUser(updatedUser);
+
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('ph_user_data', JSON.stringify(updatedUser));
+        }
       }
 
       return profilePictureUrl;

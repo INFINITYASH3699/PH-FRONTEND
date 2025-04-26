@@ -28,17 +28,16 @@ import {
   Settings,
   UserCircle,
   GalleryHorizontal,
-  Star,
   PieChart,
   Sparkles,
   BadgeCheck,
 } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
-import { useAuth } from "@/components/providers/AuthContext"; // <-- IMPORT YOURS
+import { useAuth } from "@/components/providers/AuthContext";
 
 export function NavBar() {
   // Use custom auth
-  const { user, logout, isAuthenticated } = useAuth();
+  const { user, logout, isAuthenticated, checkAuth } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
@@ -53,6 +52,15 @@ export function NavBar() {
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  // Check auth status when component mounts or path changes
+  useEffect(() => {
+    const verifyAuth = async () => {
+      await checkAuth();
+    };
+    verifyAuth();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
 
   // Custom logout handler
   const handleSignOut = async () => {
@@ -94,7 +102,6 @@ export function NavBar() {
   if (isPortfolioPage) {
     return null; // Don't render NavBar
   }
-
 
   return (
     <header
@@ -272,7 +279,7 @@ export function NavBar() {
           )}
         </div>
 
-        {/* Mobile Navigation (also refactored) */}
+        {/* Mobile Navigation */}
         <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
           <SheetTrigger asChild className="md:hidden">
             <Button variant="ghost" size="icon">
