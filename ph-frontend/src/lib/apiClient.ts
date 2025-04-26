@@ -212,6 +212,18 @@ const handleResponse = async (response: Response) => {
       text,
     });
 
+    // Special handling for specific image upload errors
+    if (response.url.includes('upload-image') && response.status === 500) {
+      console.warn("Image upload error detected. Implementing fallback strategy...");
+
+      // If in development mode or user is testing, provide a more helpful message
+      if (process.env.NODE_ENV === "development" || response.url.includes('temp/upload-image')) {
+        message = "Image upload failed. This might be due to Cloudinary configuration issues. Check the server logs for more details.";
+      } else {
+        message = "Unable to upload image. Please try a smaller image or different file format.";
+      }
+    }
+
     // Handle the case where the error is about an already used template
     if (
       typeof message === "string" &&
@@ -220,8 +232,15 @@ const handleResponse = async (response: Response) => {
       console.warn(
         "User attempted to create a portfolio with a template they already have"
       );
-      message =
-        "You already have a portfolio with this template. Please use the Edit button to modify your existing portfolio.";
+
+      // Add more details if available in the response
+      if (data && data.portfolioId) {
+        message =
+          `You already have a portfolio with this template. You can edit your existing portfolio "${data.portfolioTitle}" instead.`;
+      } else {
+        message =
+          "You already have a portfolio with this template. Please use the Edit button to modify your existing portfolio.";
+      }
     }
 
     // Create an error object with additional properties to help with debugging

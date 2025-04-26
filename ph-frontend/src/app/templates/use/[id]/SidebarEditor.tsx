@@ -980,7 +980,13 @@ export default function SidebarEditor({
           </div>
         </div>
 
-        <ScrollArea className="flex-1 p-4 overflow-auto">
+        <ScrollArea
+          className="flex-1 p-4 overflow-auto"
+          // Add a key to prevent rerender when typing in input fields
+          key={activeSection}
+          // Add type="always" to maintain scroll position and ensure scrollbars are always visible
+          type="always"
+        >
           {renderSectionEditor(activeSection)}
 
           <div className="h-24" />

@@ -45,9 +45,17 @@ export default function ContactEditor({
     field: keyof ContactInfo,
     value: string | boolean
   ) => {
-    const updatedContactInfo = { ...contactInfo, [field]: value };
-    setContactInfo(updatedContactInfo);
-    onChange(updatedContactInfo);
+    // Batch state updates to reduce layout shifts
+    const updatedContactInfo = {
+      ...contactInfo,
+      [field]: value,
+    };
+
+    // Use requestAnimationFrame to ensure UI updates properly
+    window.requestAnimationFrame(() => {
+      setContactInfo(updatedContactInfo);
+      onChange(updatedContactInfo);
+    });
   };
 
   // Handle social links updates
@@ -67,8 +75,7 @@ export default function ContactEditor({
       <div className="flex flex-col space-y-2">
         <h3 className="text-lg font-medium">Contact Information</h3>
         <p className="text-muted-foreground">
-          Add your contact details and preferences for how visitors can reach
-          you.
+          Add your contact details and preferences for how visitors can reach you.
         </p>
       </div>
 
@@ -85,37 +92,46 @@ export default function ContactEditor({
               placeholder="your@email.com"
               value={contactInfo.email || ""}
               onChange={(e) => handleInputChange("email", e.target.value)}
+              // Add these properties to prevent layout shifts
+              className="focus:z-10 relative"
+              onFocus={(e) =>
+                e.currentTarget.scrollIntoView({ behavior: "smooth", block: "nearest" })
+              }
             />
             <p className="text-xs text-muted-foreground">
-              This email will be displayed on your portfolio and used for the
-              contact form.
+              This email will be displayed on your portfolio and used for the contact form.
             </p>
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium">
-              Phone Number (Optional)
-            </label>
+            <label className="text-sm font-medium">Phone Number (Optional)</label>
             <Input
               type="tel"
               placeholder="+1 (555) 123-4567"
               value={contactInfo.phone || ""}
               onChange={(e) => handleInputChange("phone", e.target.value)}
+              // Add these properties to prevent layout shifts
+              className="focus:z-10 relative"
+              onFocus={(e) =>
+                e.currentTarget.scrollIntoView({ behavior: "smooth", block: "nearest" })
+              }
             />
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium">
-              Location/Address (Optional)
-            </label>
+            <label className="text-sm font-medium">Location/Address (Optional)</label>
             <Input
               placeholder="City, Country"
               value={contactInfo.address || ""}
               onChange={(e) => handleInputChange("address", e.target.value)}
+              // Add these properties to prevent layout shifts
+              className="focus:z-10 relative"
+              onFocus={(e) =>
+                e.currentTarget.scrollIntoView({ behavior: "smooth", block: "nearest" })
+              }
             />
             <p className="text-xs text-muted-foreground">
-              For privacy reasons, we recommend only including your city and
-              country.
+              For privacy reasons, we recommend only including your city and country.
             </p>
           </div>
 
@@ -132,8 +148,7 @@ export default function ContactEditor({
             </Label>
           </div>
           <p className="text-xs text-muted-foreground">
-            When enabled, visitors can contact you through a form without seeing
-            your email address.
+            When enabled, visitors can contact you through a form without seeing your email address.
           </p>
         </CardContent>
       </Card>

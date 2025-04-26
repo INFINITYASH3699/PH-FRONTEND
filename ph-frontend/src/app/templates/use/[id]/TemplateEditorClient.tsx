@@ -75,16 +75,12 @@ export default function TemplateEditorClient({
 
     // Check authentication status
     const checkAuthentication = async () => {
-      // Check both client-side and server-side auth
       const token = apiClient.getToken?.();
       const currentUser = apiClient.getUser?.();
 
-      // If we have a server-side user (from getServerUser) or client-side auth token/user
       if ((user && user.id) || (token && currentUser && currentUser._id)) {
-        // User is authenticated
         setIsAuthenticated(true);
       } else {
-        // If no authentication is found, try to refresh from API
         try {
           const response = await apiClient.user.getProfile();
           if (response && response.user && response.user._id) {
@@ -118,7 +114,6 @@ export default function TemplateEditorClient({
       }
 
       const initializePortfolio = async () => {
-        // Check if we have a portfolioId parameter (editing existing portfolio)
         if (portfolioIdParam) {
           try {
             const token = apiClient.getToken?.();
@@ -129,9 +124,7 @@ export default function TemplateEditorClient({
             }>(`/portfolios/${portfolioIdParam}`, "GET");
 
             if (response && response.success && response.portfolio) {
-              // Get current user subscription information
               const currentUser = apiClient.getUser?.();
-              // Improved premium plan detection
               const isPremiumUser =
                 currentUser?.subscriptionPlan?.type === "premium" ||
                 currentUser?.subscriptionPlan?.type === "professional" ||
@@ -140,7 +133,6 @@ export default function TemplateEditorClient({
                     currentUser.subscriptionPlan.type
                   ));
 
-              // Update portfolio with current subscription status
               const updatedPortfolio = {
                 ...response.portfolio,
                 userType: isPremiumUser ? "premium" : "free",
@@ -149,25 +141,20 @@ export default function TemplateEditorClient({
               setPortfolio(updatedPortfolio);
               setSavedPortfolioId(response.portfolio._id);
 
-              // Ensure the section order is loaded from the portfolio or set from template
               const portfolioSectionOrder =
                 response.portfolio.sectionOrder || [];
               if (portfolioSectionOrder.length > 0) {
                 setSectionOrder(portfolioSectionOrder);
-                // Set the first section as active
                 setActiveSection(portfolioSectionOrder[0]);
               } else {
-                // If portfolio doesn't have section order, set it from template
                 const templateSections =
                   template.layouts?.[0]?.structure?.sections ||
                   template.defaultStructure?.layout?.sections ||
                   [];
                 setSectionOrder(templateSections);
-                // Set the first section as active
                 setActiveSection(templateSections[0]);
               }
 
-              // Load enhanced customization state from portfolio if present
               if (response.portfolio.sectionVariants) {
                 setSelectedSectionVariants(response.portfolio.sectionVariants);
               }
@@ -192,20 +179,16 @@ export default function TemplateEditorClient({
           }
         }
 
-        // If we don't have a portfolioId or failed to fetch it, create a new one
         const currentUser = apiClient.getUser?.();
         const generateSubdomain = () => {
-          // Always default to the username for both free and premium users
           const username =
             user?.username ||
             currentUser?.username ||
             user?.name?.toLowerCase().replace(/\s+/g, "") ||
             "";
-          // Use username if available, fallback to timestamp-based ID only if necessary
           return username || `user-${Date.now().toString().slice(-4)}`;
         };
 
-        // Determine default section order from template
         let defaultSectionOrder: string[] = [];
         if (template.layouts && template.layouts.length > 0) {
           const mainLayout = template.layouts[0];
@@ -214,7 +197,6 @@ export default function TemplateEditorClient({
           defaultSectionOrder = template.defaultStructure.layout.sections;
         }
 
-        // Prepare initial content based on section definitions
         const initialContent: Record<string, any> = {
           header: {
             title: user?.name || "Your Name",
@@ -278,8 +260,6 @@ export default function TemplateEditorClient({
           );
         }
 
-        // Get current user subscription information
-        // (currentUser already defined above)
         const isPremiumUser =
           currentUser?.subscriptionPlan?.type === "premium" ||
           currentUser?.subscriptionPlan?.type === "professional" ||
@@ -288,7 +268,6 @@ export default function TemplateEditorClient({
               currentUser.subscriptionPlan.type
             ));
 
-        // Create initial portfolio data
         const initialPortfolioData = {
           _id: "new-portfolio",
           title: "My New Portfolio",
@@ -362,7 +341,6 @@ export default function TemplateEditorClient({
       }));
     }
 
-    // Load enhanced customization state from portfolio if present
     if (portfolio.sectionVariants) {
       setSelectedSectionVariants(portfolio.sectionVariants);
     }
@@ -522,7 +500,6 @@ export default function TemplateEditorClient({
       const userId = currentUser?._id || user?.id;
 
       if (!userId) {
-        // Force a refresh of the authentication status
         try {
           const response = await apiClient.user.getProfile();
           if (response && response.user && response.user._id) {
@@ -540,7 +517,6 @@ export default function TemplateEditorClient({
                 user?.username ||
                 `user-${Date.now().toString().slice(-8)}`,
               isPublished: false,
-              // Make sure to include all customization options
               activeLayout: portfolio.activeLayout || template.layouts?.[0]?.id || "default",
               activeColorScheme: portfolio.activeColorScheme || template.themeOptions?.colorSchemes?.[0]?.id || "default",
               activeFontPairing: portfolio.activeFontPairing || template.themeOptions?.fontPairings?.[0]?.id || "default",
@@ -550,10 +526,18 @@ export default function TemplateEditorClient({
               stylePreset: selectedStylePreset,
             };
 
-            // Continue with the save
             if (process.env.NODE_ENV === "development") {
               await new Promise((resolve) => setTimeout(resolve, 800));
             }
+
+            // Add better logging before saving
+            console.log(`Attempting to save draft portfolio with template ID: ${template._id}`, {
+              templateName: template.name,
+              portfolioId: portfolioToSave._id,
+              hasContent: !!portfolioToSave.content && Object.keys(portfolioToSave.content).length > 0,
+              hasTitle: !!portfolioToSave.title,
+              hasSubdomain: !!portfolioToSave.subdomain
+            });
 
             const saveResponse =
               await apiClient.portfolios.saveDraft(portfolioToSave);
@@ -588,7 +572,6 @@ export default function TemplateEditorClient({
           user?.username ||
           `user-${Date.now().toString().slice(-8)}`,
         isPublished: false,
-        // Make sure to include all customization options
         activeLayout: portfolio.activeLayout || template.layouts?.[0]?.id || "default",
         activeColorScheme: portfolio.activeColorScheme || template.themeOptions?.colorSchemes?.[0]?.id || "default",
         activeFontPairing: portfolio.activeFontPairing || template.themeOptions?.fontPairings?.[0]?.id || "default",
@@ -601,6 +584,15 @@ export default function TemplateEditorClient({
       if (process.env.NODE_ENV === "development") {
         await new Promise((resolve) => setTimeout(resolve, 800));
       }
+
+      // Add better logging before saving
+      console.log(`Attempting to save draft portfolio with template ID: ${template._id}`, {
+        templateName: template.name,
+        portfolioId: portfolioToSave._id,
+        hasContent: !!portfolioToSave.content && Object.keys(portfolioToSave.content).length > 0,
+        hasTitle: !!portfolioToSave.title,
+        hasSubdomain: !!portfolioToSave.subdomain
+      });
 
       const response = await apiClient.portfolios.saveDraft(portfolioToSave);
 
@@ -627,47 +619,25 @@ export default function TemplateEditorClient({
           id: portfolio?._id,
           title: portfolio?.title,
           hasContent: portfolio?.content ? Object.keys(portfolio?.content).length > 0 : false,
-          hasSections: sectionOrder.length
+          hasSections: sectionOrder.length,
+          subdomain: portfolio?.subdomain
         }
       });
 
-      let errorMessage = "Failed to save portfolio. Please try again.";
+      // Display more helpful error message to the user based on error type
+      let errorMessage = "Failed to save portfolio";
 
-      if (
-        err.message?.includes("already have a portfolio with this template")
-      ) {
-        errorMessage =
-          "You already have a portfolio with this template. Please use the Edit button on the templates page to modify your existing portfolio.";
-        setTimeout(() => {
-          router.push("/templates");
-        }, 3000);
-      } else if (err.message?.includes("subdomain is already taken")) {
-        errorMessage =
-          "This subdomain is already taken. Please choose a different subdomain in the SEO section.";
-      } else if (
-        err.message?.includes("User ID is missing") ||
-        err.message?.includes("user information")
-      ) {
-        errorMessage =
-          "Your user information could not be found. Please try logging out and logging back in.";
-
-        // Clear auth data and redirect to login after a delay
-        setTimeout(() => {
-          if (typeof apiClient.logout === "function") {
-            apiClient.logout();
-          }
-          router.push(
-            "/auth/signin?redirectTo=" +
-              encodeURIComponent(`/templates/use/${id}`)
-          );
-        }, 3000);
-      } else if (err.message) {
-        // Add actual error message to the toast for easier debugging
-        errorMessage = `Failed to save portfolio: ${err.message}`;
+      if (err.message?.includes("already have a portfolio with this template")) {
+        errorMessage = err.message;
+      } else if (err.status === 400) {
+        // Bad request - likely validation error
+        errorMessage = err.response?.data?.message || "Portfolio validation failed. Please check all required fields.";
+      } else if (err.status === 500) {
+        // Server error
+        errorMessage = "Server error during portfolio creation. Please try again or contact support.";
       }
 
       toast.error(errorMessage);
-    } finally {
       setIsSaving(false);
     }
   };
@@ -679,7 +649,6 @@ export default function TemplateEditorClient({
         "You must be logged in to publish your portfolio. Please log out and log back in."
       );
 
-      // Redirect to login after a short delay
       setTimeout(() => {
         router.push(
           "/auth/signin?redirectTo=" +
@@ -695,7 +664,6 @@ export default function TemplateEditorClient({
       if (!savedPortfolioId) {
         await handleSaveDraft();
 
-        // If we still don't have a saved portfolio ID after trying to save, exit
         if (!savedPortfolioId) {
           throw new Error("Failed to save portfolio before publishing");
         }
@@ -705,7 +673,6 @@ export default function TemplateEditorClient({
       const userId = currentUser?._id || user?.id;
 
       if (!userId) {
-        // Try to refresh the user information
         try {
           const response = await apiClient.user.getProfile();
           if (!response || !response.user || !response.user._id) {
@@ -716,35 +683,26 @@ export default function TemplateEditorClient({
         }
       }
 
-      // Improve premium plan detection logic to handle various data structures
       const isPremiumUser =
         currentUser?.subscriptionPlan?.type === "premium" ||
         currentUser?.subscriptionPlan?.type === "professional" ||
-        // Check the response structure directly from the API
         (currentUser?.subscriptionPlan &&
           ["premium", "professional"].includes(
             currentUser.subscriptionPlan.type
           ));
 
-      // Get the username for subdomain assignment
       const username = currentUser?.username || user?.username || "";
 
-      // Subdomain handling logic:
-      // 1. For free users: Always use username as subdomain (forced)
-      // 2. For premium users: Allow custom subdomain if provided, otherwise use username
       let subdomain = "";
 
       if (!isPremiumUser) {
-        // Free user: force subdomain to username
         subdomain = username;
         if (!subdomain) {
           subdomain = `user-${Date.now().toString().slice(-8)}`;
         }
       } else {
-        // Premium user: Use custom subdomain if provided, otherwise use username
         subdomain = portfolio.subdomain;
 
-        // If subdomain is missing or falls back to default pattern, use username
         if (
           !subdomain ||
           subdomain.includes("user-") ||
@@ -756,7 +714,6 @@ export default function TemplateEditorClient({
             subdomain = `user-${Date.now().toString().slice(-8)}`;
           }
         }
-        // Otherwise keep the custom subdomain (portfolio.subdomain)
       }
 
       const portfolioToPublish = {
@@ -766,10 +723,9 @@ export default function TemplateEditorClient({
         title: portfolio.title || "My Portfolio",
         subtitle: portfolio.subtitle || "",
         subdomain: subdomain,
-        subdomainLocked: !isPremiumUser, // Lock subdomain for free users
+        subdomainLocked: !isPremiumUser,
         userType: isPremiumUser ? "premium" : "free",
         isPublished: true,
-        // Make sure to include all customization options
         activeLayout: portfolio.activeLayout || template.layouts?.[0]?.id || "default",
         activeColorScheme: portfolio.activeColorScheme || template.themeOptions?.colorSchemes?.[0]?.id || "default",
         activeFontPairing: portfolio.activeFontPairing || template.themeOptions?.fontPairings?.[0]?.id || "default",
@@ -789,7 +745,6 @@ export default function TemplateEditorClient({
           subdomain: portfolioToPublish.subdomain,
           isPremiumUser: isPremiumUser,
           username: currentUser?.username,
-          // Log customization options to verify they're being sent
           activeLayout: portfolioToPublish.activeLayout,
           sections: portfolioToPublish.sectionOrder?.length,
           stylePreset: portfolioToPublish.stylePreset,
@@ -805,7 +760,6 @@ export default function TemplateEditorClient({
           ...prev,
           _id: response.portfolio._id,
           isPublished: true,
-          // Copy back the saved customization values to ensure consistency
           activeLayout: response.portfolio.activeLayout || prev.activeLayout,
           activeColorScheme: response.portfolio.activeColorScheme || prev.activeColorScheme,
           activeFontPairing: response.portfolio.activeFontPairing || prev.activeFontPairing,
@@ -825,7 +779,6 @@ export default function TemplateEditorClient({
         throw new Error("Failed to publish portfolio");
       }
     } catch (err: any) {
-      // Enhanced error logging to capture more details
       console.error("Publish error details:", {
         error: err.message,
         stack: err.stack,
@@ -849,7 +802,6 @@ export default function TemplateEditorClient({
         errorMessage =
           "Your user information could not be found. Please try logging out and logging back in.";
 
-        // Clear auth data and redirect to login after a delay
         setTimeout(() => {
           if (typeof apiClient.logout === "function") {
             apiClient.logout();
@@ -860,7 +812,6 @@ export default function TemplateEditorClient({
           );
         }, 3000);
       } else if (err.message) {
-        // Add actual error message to the toast for easier debugging
         errorMessage = `Failed to publish portfolio: ${err.message}`;
       }
 
@@ -1058,10 +1009,7 @@ export default function TemplateEditorClient({
           updatedFields.push("projects");
         }
 
-        // Fix for contact information and social links
-        // Create or update the contact section properly
         if (profileData.email || profileData.profile?.socialLinks) {
-          // Start by getting existing contact section or creating a new one
           const existingContact = updatedPortfolio.content?.contact || {
             title: "Contact Me",
             subtitle: "Get in touch",
@@ -1071,27 +1019,22 @@ export default function TemplateEditorClient({
             variant: "simple",
           };
 
-          // Update email if available
           if (profileData.email) {
             existingContact.email = profileData.email;
             updatedFields.push("email");
           }
 
-          // Update location if available in profile
           if (profileData.profile?.location) {
             existingContact.location = profileData.profile.location;
-            existingContact.address = profileData.profile.location; // Support both fields
+            existingContact.address = profileData.profile.location;
             updatedFields.push("location");
           }
 
-          // Update social links if available
           if (profileData.profile?.socialLinks) {
-            // Ensure social links are in the right format
             existingContact.socialLinks = profileData.profile.socialLinks;
             updatedFields.push("socialLinks");
           }
 
-          // Save the updated contact section
           updatedPortfolio.content = {
             ...updatedPortfolio.content,
             contact: existingContact,
@@ -1114,7 +1057,6 @@ export default function TemplateEditorClient({
           profileData.fullName?.toLowerCase().replace(/\s+/g, "") ||
           "";
 
-        // Improved premium plan detection
         const isPremiumUser =
           profileData.subscriptionPlan?.type === "premium" ||
           profileData.subscriptionPlan?.type === "professional" ||
@@ -1217,7 +1159,6 @@ export default function TemplateEditorClient({
     );
   }
 
-  // Update the error condition to only show the error message if not authenticated AND not loading
   if (!isAuthenticated && !loading) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4">
@@ -1348,7 +1289,6 @@ export default function TemplateEditorClient({
           previewLoading={isPreviewing}
           publishLoading={isPublishing}
           showPreview={showPreview}
-          // Enhanced customization props
           selectedSectionVariants={selectedSectionVariants}
           onSectionVariantUpdate={handleSectionVariantUpdate}
           animationsEnabled={animationsEnabled}
@@ -1392,7 +1332,6 @@ export default function TemplateEditorClient({
                     editable={false}
                     customColors={portfolio.customColors}
                     sectionOrder={sectionOrder}
-                    // Pass enhanced customization props
                     animation={animationsEnabled}
                     stylePreset={selectedStylePreset}
                     sectionVariants={selectedSectionVariants}

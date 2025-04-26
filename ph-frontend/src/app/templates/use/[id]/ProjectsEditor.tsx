@@ -210,9 +210,31 @@ export default function ProjectsEditor({ data, onChange, isLoading = false }: Pr
       // Log upload details
       console.log(`Uploading image: ${file.name}, size: ${(file.size / 1024).toFixed(2)}KB, type: ${file.type}`);
 
-      const result = await apiClient.uploadImage(file, 'project');
+      // Implement a retry mechanism for more resilience
+      let attempts = 0;
+      const maxAttempts = 2;
+      let result;
 
-      if (result.success && result.image?.url) {
+      while (attempts < maxAttempts) {
+        try {
+          // Add a small delay between retries
+          if (attempts > 0) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            console.log(`Retry attempt ${attempts} for uploading ${file.name}`);
+          }
+
+          result = await apiClient.uploadImage(file, 'project');
+          break; // If successful, exit the loop
+        } catch (retryError) {
+          attempts++;
+          if (attempts >= maxAttempts) {
+            throw retryError; // Rethrow if we've exhausted retries
+          }
+          console.warn(`Upload attempt ${attempts} failed, retrying...`, retryError);
+        }
+      }
+
+      if (result?.success && result.image?.url) {
         setCurrentProject({
           ...currentProject,
           imageUrl: result.image.url,
@@ -220,15 +242,26 @@ export default function ProjectsEditor({ data, onChange, isLoading = false }: Pr
         toast.success('Project image uploaded successfully');
       } else {
         console.error('Upload failed:', result);
-        toast.error(result.message || 'Failed to upload image');
+        toast.error(result?.message || 'Failed to upload image');
       }
     } catch (error: any) {
       console.error('Error uploading image:', error);
-      // Provide more specific error message if available
-      const errorMessage =
-        error?.response?.data?.message ||
-        error?.message ||
-        'An unexpected error occurred during upload';
+
+      // Enhanced error reporting
+      let errorMessage = 'An unexpected error occurred during upload';
+
+      // Check for specific error types
+      if (error?.response?.data) {
+        errorMessage = error.response.data.message || error.response.data.error || errorMessage;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      // Provide helpful advice along with the error
+      if (errorMessage.includes('Cloudinary') || errorMessage.includes('image upload')) {
+        errorMessage += ". Try using a smaller image or different file format (JPG or PNG).";
+      }
+
       toast.error(errorMessage);
     } finally {
       setUploadLoading(false);
