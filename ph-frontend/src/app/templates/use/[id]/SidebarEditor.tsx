@@ -39,6 +39,11 @@ import {
   Layers
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+// Add NavbarEditor to the imports
+import NavbarEditor from './NavbarEditor';
+// Add FooterEditor to the imports
+import FooterEditor from './FooterEditor';
 
 interface SidebarEditorProps {
   template: any;
@@ -63,13 +68,16 @@ interface SidebarEditorProps {
   publishLoading: boolean;
   showPreview?: boolean;
 
-  // New props for enhanced customization
   selectedSectionVariants: Record<string, string>;
   onSectionVariantUpdate: (sectionId: string, variantId: string) => void;
   animationsEnabled: boolean;
   onAnimationsToggle: (enabled: boolean) => void;
   selectedStylePreset: string;
   onStylePresetUpdate: (presetId: string) => void;
+
+  viewportMode: "desktop" | "tablet" | "mobile";
+  setViewportMode: (mode: "desktop" | "tablet" | "mobile") => void;
+  advancedMode?: boolean;
 }
 
 export default function SidebarEditor({
@@ -95,13 +103,16 @@ export default function SidebarEditor({
   publishLoading,
   showPreview = false,
 
-  // New props for enhanced customization
   selectedSectionVariants,
   onSectionVariantUpdate,
   animationsEnabled,
   onAnimationsToggle,
   selectedStylePreset,
-  onStylePresetUpdate
+  onStylePresetUpdate,
+
+  viewportMode,
+  setViewportMode,
+  advancedMode = false
 }: SidebarEditorProps) {
   const [isClient, setIsClient] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -130,33 +141,16 @@ export default function SidebarEditor({
     return () => window.removeEventListener('resize', checkIfMobile);
   }, []);
 
-  const getAllAvailableSections = () => {
-    const sections = new Set<string>();
-
-    if (template?.sectionDefinitions) {
-      Object.keys(template.sectionDefinitions).forEach(section => sections.add(section));
-    }
-
-    template?.layouts?.forEach((layout: any) => {
-      if (layout.structure?.sections) {
-        layout.structure.sections.forEach((section: string) => sections.add(section));
-      }
-    });
-
-    if (template?.defaultStructure?.layout?.sections) {
-      template.defaultStructure.layout.sections.forEach((section: string) => sections.add(section));
-    }
-
-    const requiredSections = template?.defaultStructure?.config?.requiredSections || ['header', 'about'];
-    requiredSections.forEach(section => sections.add(section));
-
-    return Array.from(sections);
-  };
-
   const getSectionTitle = (sectionId: string) => {
     if (sectionId === 'header') return 'Header & Profile';
     if (sectionId === 'socialLinks') return 'Social Media';
     if (sectionId === 'seo') return 'SEO & Metadata';
+    if (sectionId === 'navbar') return 'Navigation Bar';
+    if (sectionId === 'footer') return 'Footer';
+    if (advancedMode && sectionId === 'customCss') return 'Custom CSS';
+    if (advancedMode && sectionId === 'effects') return 'Animations & Effects';
+    if (advancedMode && sectionId === 'accessibility') return 'Accessibility';
+    if (advancedMode && sectionId === 'performance') return 'Performance';
 
     const defaultTitle = sectionId.charAt(0).toUpperCase() + sectionId.slice(1);
     const templateTitle = template?.sectionDefinitions?.[sectionId]?.defaultData?.title;
@@ -186,9 +180,52 @@ export default function SidebarEditor({
         return 'Links to your social media profiles';
       case 'seo':
         return 'SEO settings for your portfolio';
+      case 'navbar':
+        return 'Navigation bar at the top of your portfolio';
+      case 'footer':
+        return 'Footer section at the bottom of your portfolio';
+      case 'customCss':
+        return 'Add custom CSS to your portfolio';
+      case 'effects':
+        return 'Configure animations and visual effects';
+      case 'accessibility':
+        return 'Improve accessibility features';
+      case 'performance':
+        return 'Optimize loading and rendering';
       default:
         return `Configure your ${getSectionTitle(sectionId)} section`;
     }
+  };
+
+  const getAllAvailableSections = () => {
+    const sections = new Set<string>();
+
+    if (template?.sectionDefinitions) {
+      Object.keys(template.sectionDefinitions).forEach(section => sections.add(section));
+    }
+
+    template?.layouts?.forEach((layout: any) => {
+      if (layout.structure?.sections) {
+        layout.structure.sections.forEach((section: string) => sections.add(section));
+      }
+    });
+
+    if (template?.defaultStructure?.layout?.sections) {
+      template.defaultStructure.layout.sections.forEach((section: string) => sections.add(section));
+    }
+
+    const requiredSections = template?.defaultStructure?.config?.requiredSections || ['header', 'about'];
+    requiredSections.forEach(section => sections.add(section));
+
+    ['navbar', 'footer'].forEach(section => sections.add(section));
+
+    if (advancedMode) {
+      ['customCss', 'effects', 'accessibility', 'performance'].forEach(section =>
+        sections.add(section)
+      );
+    }
+
+    return Array.from(sections);
   };
 
   const getContentForSection = (sectionId: string) => {
@@ -213,7 +250,6 @@ export default function SidebarEditor({
     onSectionReorder(items);
   };
 
-  // --- New: Section Variant Selector ---
   const renderSectionVariantSelector = (sectionType: string) => {
     const sectionVariants = template?.sectionVariants?.[sectionType] || [];
 
@@ -250,7 +286,6 @@ export default function SidebarEditor({
     );
   };
 
-  // --- New: Style Preset Selector ---
   const renderStylePresetSelector = () => {
     const stylePresets = template?.stylePresets || {};
 
@@ -290,7 +325,6 @@ export default function SidebarEditor({
     );
   };
 
-  // --- New: Animation Options ---
   const renderAnimationOptions = () => {
     const animations = template?.animations || {};
 
@@ -336,7 +370,6 @@ export default function SidebarEditor({
     );
   };
 
-  // --- Updated: renderConfigPanel with new tabs ---
   const renderConfigPanel = () => {
     switch (configTab) {
       case 'sections':
@@ -499,14 +532,16 @@ export default function SidebarEditor({
     }
   };
 
-  // --- Updated: renderSectionEditor with section variant selector ---
   const renderSectionEditor = (section: string) => {
     if (!section) return null;
 
-    // Section variant selector (if available and not for special sections)
     const showVariantSelector =
       section !== 'seo' &&
       section !== 'socialLinks' &&
+      section !== 'customCss' &&
+      section !== 'effects' &&
+      section !== 'accessibility' &&
+      section !== 'performance' &&
       template?.sectionVariants?.[section]?.length > 0;
 
     const variantSelector =
@@ -650,6 +685,171 @@ export default function SidebarEditor({
           />
         );
       }
+      case 'customCss':
+        return (
+          <CustomCSSEditor
+            css={portfolioState?.content?.customCss || ''}
+            onChange={(css) => onUpdateCustomCss(css)}
+          />
+        );
+      case 'effects':
+        return (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between p-3 border rounded-md">
+              <div>
+                <h3 className="text-sm font-medium">Enable Animations</h3>
+                <p className="text-xs text-muted-foreground">
+                  Add smooth animations to sections
+                </p>
+              </div>
+              <Switch
+                checked={animationsEnabled}
+                onCheckedChange={onAnimationsToggle}
+              />
+            </div>
+
+            <div className="p-3 border rounded-md">
+              <h3 className="text-sm font-medium mb-2">Style Preset</h3>
+              <div className="grid grid-cols-1 gap-2">
+                {Object.entries(template?.stylePresets || {}).map(([id, preset]: [string, any]) => (
+                  <button
+                    key={id}
+                    onClick={() => onStylePresetUpdate(id)}
+                    className={`p-3 rounded-md text-left transition-colors ${
+                      selectedStylePreset === id
+                        ? 'bg-primary/10 border border-primary text-primary'
+                        : 'bg-muted/30 hover:bg-muted/50 border'
+                    }`}
+                  >
+                    <div className="font-medium">{preset.name}</div>
+                    <div className="text-xs text-muted-foreground">{preset.description}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      case 'accessibility':
+        return (
+          <div className="space-y-4 p-3 border rounded-md">
+            <h3 className="text-sm font-medium">Accessibility Settings</h3>
+            <p className="text-xs text-muted-foreground mb-4">
+              Improve accessibility of your portfolio with these settings.
+            </p>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="high-contrast">High Contrast Mode</Label>
+                <Switch
+                  id="high-contrast"
+                  checked={portfolioState?.content?.accessibility?.highContrast || false}
+                  onCheckedChange={(checked) => {
+                    onUpdateSection('accessibility', {
+                      ...portfolioState?.content?.accessibility,
+                      highContrast: checked
+                    });
+                  }}
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Label htmlFor="larger-text">Larger Text</Label>
+                <Switch
+                  id="larger-text"
+                  checked={portfolioState?.content?.accessibility?.largerText || false}
+                  onCheckedChange={(checked) => {
+                    onUpdateSection('accessibility', {
+                      ...portfolioState?.content?.accessibility,
+                      largerText: checked
+                    });
+                  }}
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Label htmlFor="screen-reader">Screen Reader Support</Label>
+                <Switch
+                  id="screen-reader"
+                  checked={portfolioState?.content?.accessibility?.screenReader || false}
+                  onCheckedChange={(checked) => {
+                    onUpdateSection('accessibility', {
+                      ...portfolioState?.content?.accessibility,
+                      screenReader: checked
+                    });
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        );
+      case 'performance':
+        return (
+          <div className="space-y-4 p-3 border rounded-md">
+            <h3 className="text-sm font-medium">Performance Settings</h3>
+            <p className="text-xs text-muted-foreground mb-4">
+              Optimize the performance of your portfolio.
+            </p>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="lazy-loading">Enable Lazy Loading</Label>
+                <Switch
+                  id="lazy-loading"
+                  checked={portfolioState?.content?.performance?.lazyLoading || false}
+                  onCheckedChange={(checked) => {
+                    onUpdateSection('performance', {
+                      ...portfolioState?.content?.performance,
+                      lazyLoading: checked
+                    });
+                  }}
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Label htmlFor="image-optimization">Image Optimization</Label>
+                <Switch
+                  id="image-optimization"
+                  checked={portfolioState?.content?.performance?.imageOptimization || false}
+                  onCheckedChange={(checked) => {
+                    onUpdateSection('performance', {
+                      ...portfolioState?.content?.performance,
+                      imageOptimization: checked
+                    });
+                  }}
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Label htmlFor="prefetch">Prefetch Links</Label>
+                <Switch
+                  id="prefetch"
+                  checked={portfolioState?.content?.performance?.prefetch || false}
+                  onCheckedChange={(checked) => {
+                    onUpdateSection('performance', {
+                      ...portfolioState?.content?.performance,
+                      prefetch: checked
+                    });
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        );
+      case 'navbar':
+        // Use NavbarEditor instead of textarea
+        return (
+          <NavbarEditor
+            data={getContentForSection('navbar')}
+            onChange={(data) => onUpdateSection('navbar', data)}
+          />
+        );
+      case 'footer':
+        return (
+          <FooterEditor
+            data={getContentForSection('footer')}
+            onChange={(data) => onUpdateSection('footer', data)}
+          />
+        );
       default:
         return (
           <div>
@@ -691,7 +891,6 @@ export default function SidebarEditor({
     return <div className="flex items-center justify-center h-screen">Loading editor...</div>;
   }
 
-  // Sidebar toggle button (visible on mobile)
   const SidebarToggle = () => (
     <Button
       variant="secondary"
@@ -703,7 +902,6 @@ export default function SidebarEditor({
     </Button>
   );
 
-  // --- Updated: Sidebar with new configTab buttons ---
   const Sidebar = () => (
     <div
       className={`h-full border-r bg-gray-50 dark:bg-gray-900 transition-all duration-300 ${
@@ -764,7 +962,6 @@ export default function SidebarEditor({
               </li>
             ))}
 
-            {/* Special sections that are always available */}
             {searchTerm === '' && (
               <>
                 <li className="mt-4 px-3">
@@ -784,12 +981,49 @@ export default function SidebarEditor({
                     {activeSection === section && <ChevronRight className="h-4 w-4 ml-1" />}
                   </li>
                 ))}
+                {advancedMode && (
+                  <>
+                    <li className="mt-4 px-3">
+                      <span className="text-xs font-medium text-muted-foreground">ADVANCED</span>
+                    </li>
+                    {['customCss', 'effects', 'accessibility', 'performance'].map((section) => (
+                      <li
+                        key={section}
+                        onClick={() => handleSectionClick(section)}
+                        className={`px-3 py-2 mx-2 my-1 rounded-md cursor-pointer flex items-center transition-colors ${
+                          activeSection === section
+                            ? 'bg-primary text-primary-foreground'
+                            : 'hover:bg-gray-100 dark:hover:bg-gray-800'
+                        }`}
+                      >
+                        <span className="truncate flex-1">{getSectionTitle(section)}</span>
+                        {activeSection === section && <ChevronRight className="h-4 w-4 ml-1" />}
+                      </li>
+                    ))}
+                  </>
+                )}
+                <li className="mt-4 px-3">
+                  <span className="text-xs font-medium text-muted-foreground">SITE</span>
+                </li>
+                {['navbar', 'footer'].map((section) => (
+                  <li
+                    key={section}
+                    onClick={() => handleSectionClick(section)}
+                    className={`px-3 py-2 mx-2 my-1 rounded-md cursor-pointer flex items-center transition-colors ${
+                      activeSection === section
+                        ? 'bg-primary text-primary-foreground'
+                        : 'hover:bg-gray-100 dark:hover:bg-gray-800'
+                    }`}
+                  >
+                    <span className="truncate flex-1">{getSectionTitle(section)}</span>
+                    {activeSection === section && <ChevronRight className="h-4 w-4 ml-1" />}
+                  </li>
+                ))}
               </>
             )}
           </ul>
         </ScrollArea>
 
-        {/* --- Updated: Sidebar Footer with new configTab buttons --- */}
         <div className="p-3 border-t mt-auto bg-white dark:bg-gray-800">
           <div className="grid grid-cols-6 gap-1">
             <Button
@@ -852,7 +1086,6 @@ export default function SidebarEditor({
     </div>
   );
 
-  // Config panel (for section management, theme, layout, css, variants, etc.)
   const ConfigPanel = () => (
     <div className="fixed inset-0 z-50 bg-background flex flex-col">
       <div className="border-b p-4 flex items-center justify-between">
@@ -929,7 +1162,6 @@ export default function SidebarEditor({
     </div>
   );
 
-  // Main content panel (right side)
   const ContentPanel = () => {
     if (!activeSection) {
       return (
@@ -982,9 +1214,7 @@ export default function SidebarEditor({
 
         <ScrollArea
           className="flex-1 p-4 overflow-auto"
-          // Add a key to prevent rerender when typing in input fields
           key={activeSection}
-          // Add type="always" to maintain scroll position and ensure scrollbars are always visible
           type="always"
         >
           {renderSectionEditor(activeSection)}

@@ -19,6 +19,8 @@ import {
   ArrowLeft,
   Save,
   Share,
+  Sparkles,
+  Zap,
 } from "lucide-react";
 
 interface TemplateEditorClientProps {
@@ -68,6 +70,9 @@ export default function TemplateEditorClient({
   const [animationsEnabled, setAnimationsEnabled] = useState<boolean>(true);
   const [selectedStylePreset, setSelectedStylePreset] =
     useState<string>("modern");
+
+  // New state for advanced mode
+  const [advancedMode, setAdvancedMode] = useState<boolean>(false);
 
   // Set isClient to true when component mounts and check authentication
   useEffect(() => {
@@ -1225,6 +1230,17 @@ export default function TemplateEditorClient({
               />
             )}
             <Button
+              variant={advancedMode ? "default" : "outline"}
+              size="sm"
+              onClick={() => setAdvancedMode(!advancedMode)}
+              className="flex items-center gap-1 mr-1"
+            >
+              <Zap className="h-4 w-4" />
+              <span className="hidden md:inline">
+                {advancedMode ? "Advanced Mode" : "Advanced Mode"}
+              </span>
+            </Button>
+            <Button
               variant="outline"
               size="sm"
               onClick={handlePreview}
@@ -1297,6 +1313,7 @@ export default function TemplateEditorClient({
           onStylePresetUpdate={handleStylePresetUpdate}
           viewportMode={viewportMode}
           setViewportMode={setViewportMode}
+          advancedMode={advancedMode}
         />
 
         {/* Content Preview */}

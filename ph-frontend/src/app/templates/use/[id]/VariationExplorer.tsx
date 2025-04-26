@@ -1,13 +1,41 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
-import { Paintbrush, Sparkles, Layout, Layers, Check } from "lucide-react";
+import {
+  Paintbrush,
+  Sparkles,
+  Layout,
+  Layers,
+  Check,
+  EyeIcon,
+  RefreshCcw,
+  Split,
+  Maximize,
+  Minimize,
+  XIcon,
+  Copy,
+  ArrowLeftRight,
+} from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import apiClient from "@/lib/apiClient";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface VariationExplorerProps {
   templateId: string;
@@ -21,6 +49,9 @@ interface VariationExplorerProps {
   onAnimationsToggle?: (enabled: boolean) => void;
   onUpdateLayout?: (layoutId: string) => void;
   activeLayoutId?: string;
+  // New props
+  portfolioData?: any;
+  onCompareChange?: (isComparing: boolean) => void;
 }
 
 export default function VariationExplorer({
@@ -35,12 +66,67 @@ export default function VariationExplorer({
   onAnimationsToggle = () => {},
   onUpdateLayout = () => {},
   activeLayoutId = "default",
+  portfolioData,
+  onCompareChange = () => {},
 }: VariationExplorerProps) {
   const [selectedTab, setSelectedTab] = useState<string>(
     activeSection ? "section" : "layout"
   );
   const [template, setTemplate] = useState<any>(propTemplate || null);
   const [loading, setLoading] = useState<boolean>(!propTemplate);
+
+  // New state variables for enhanced functionality
+  const [isExpanded, setIsExpanded] = useState<boolean>(false);
+  const [isComparing, setIsComparing] = useState<boolean>(false);
+  const [compareData, setCompareData] = useState<any>({
+    before: null,
+    after: null,
+  });
+  const [showPreview, setShowPreview] = useState<boolean>(false);
+
+  // Toggle comparison mode
+  const toggleCompareMode = () => {
+    const newState = !isComparing;
+    setIsComparing(newState);
+    onCompareChange(newState);
+
+    if (newState) {
+      // Save current state when enabling compare mode
+      setCompareData({
+        before: {
+          sectionVariants: { ...selectedSectionVariants },
+          stylePreset: selectedStylePreset,
+          animations: animationsEnabled,
+          layoutId: activeLayoutId,
+        },
+        after: null,
+      });
+    } else {
+      // Reset compare data when disabling compare mode
+      setCompareData({ before: null, after: null });
+      setShowPreview(false);
+    }
+  };
+
+  // Save current state as "after" for comparison
+  const saveComparisonState = () => {
+    setCompareData((prev: any) => ({
+      ...prev,
+      after: {
+        sectionVariants: { ...selectedSectionVariants },
+        stylePreset: selectedStylePreset,
+        animations: animationsEnabled,
+        layoutId: activeLayoutId,
+      },
+    }));
+
+    setShowPreview(true);
+  };
+
+  // Toggle expanded mode
+  const toggleExpanded = () => {
+    setIsExpanded((prev) => !prev);
+  };
 
   // Fetch template data if not provided as a prop
   useEffect(() => {
@@ -91,9 +177,126 @@ export default function VariationExplorer({
   const animations = template.animations || {};
   const layouts = template.layouts || [];
 
+  // Helper to get human-readable difference between before/after for compare
+  const getCompareDiff = (before: any, after: any) => {
+    if (!before || !after) return [];
+    const diffs: Array<{ label: string; before: any; after: any }> = [];
+
+    // Section variants
+    if (before.sectionVariants && after.sectionVariants) {
+      Object.keys({ ...before.sectionVariants, ...after.sectionVariants }).forEach((section) => {
+        if (before.sectionVariants[section] !== after.sectionVariants[section]) {
+          diffs.push({
+            label: `Section "${section}" variant`,
+            before: before.sectionVariants[section] || "None",
+            after: after.sectionVariants[section] || "None",
+          });
+        }
+      });
+    }
+    // Style preset
+    if (before.stylePreset !== after.stylePreset) {
+      diffs.push({
+        label: "Style Preset",
+        before: stylePresets[before.stylePreset]?.name || before.stylePreset,
+        after: stylePresets[after.stylePreset]?.name || after.stylePreset,
+      });
+    }
+    // Animations
+    if (before.animations !== after.animations) {
+      diffs.push({
+        label: "Animations Enabled",
+        before: before.animations ? "On" : "Off",
+        after: after.animations ? "On" : "Off",
+      });
+    }
+    // Layout
+    if (before.layoutId !== after.layoutId) {
+      diffs.push({
+        label: "Layout",
+        before:
+          layouts.find((l: any) => l.id === before.layoutId)?.name ||
+          before.layoutId,
+        after:
+          layouts.find((l: any) => l.id === after.layoutId)?.name ||
+          after.layoutId,
+      });
+    }
+    return diffs;
+  };
+
   return (
-    <div className="p-4 bg-white rounded-lg border shadow-sm">
-      <h2 className="text-lg font-semibold mb-4">Style & Layout Variations</h2>
+    <div
+      className={`p-4 bg-white rounded-lg border shadow-sm relative transition-all ${
+        isExpanded ? "fixed inset-0 z-50 bg-white w-full h-full overflow-auto" : ""
+      }`}
+    >
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-lg font-semibold">Style & Layout Variations</h2>
+        <div className="flex gap-2">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8"
+                  onClick={toggleExpanded}
+                  aria-label={isExpanded ? "Minimize" : "Expand"}
+                >
+                  {isExpanded ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {isExpanded ? "Minimize panel" : "Expand panel"}
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon"
+                  variant={isComparing ? "default" : "outline"}
+                  className={`h-8 w-8 ${isComparing ? "bg-primary text-white" : ""}`}
+                  onClick={toggleCompareMode}
+                  aria-label="Compare"
+                >
+                  <ArrowLeftRight className="w-5 h-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {isComparing ? "Exit compare mode" : "Start compare mode"}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+      </div>
+
+      {isComparing && (
+        <div className="mb-4 p-2 rounded-md border border-primary/40 bg-primary/5 flex items-center gap-2">
+          <ArrowLeftRight className="w-4 h-4 text-primary" />
+          <span className="text-sm font-medium text-primary">
+            Compare Mode Enabled
+          </span>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={saveComparisonState}
+            className="ml-2"
+            disabled={!!compareData.after}
+          >
+            {compareData.after ? "Saved" : "Save current as 'After'"}
+          </Button>
+          {compareData.after && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setShowPreview(true)}
+            >
+              View Comparison
+            </Button>
+          )}
+        </div>
+      )}
 
       <Tabs
         value={selectedTab}
@@ -329,10 +532,10 @@ export default function VariationExplorer({
                                   animation.type === "fade"
                                     ? "animate-pulse"
                                     : animation.type === "slide"
-                                      ? "animate-bounce"
-                                      : animation.type === "zoom"
-                                        ? "animate-ping"
-                                        : ""
+                                    ? "animate-bounce"
+                                    : animation.type === "zoom"
+                                    ? "animate-ping"
+                                    : ""
                                 }`}
                               >
                                 <span className="text-xs">
@@ -364,6 +567,62 @@ export default function VariationExplorer({
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Comparison Modal */}
+      <Dialog open={showPreview} onOpenChange={setShowPreview}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Compare Before & After</DialogTitle>
+          </DialogHeader>
+          <div className="mb-2">
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary">Before</Badge>
+              <span className="text-xs text-muted-foreground">Initial settings when compare mode was enabled</span>
+            </div>
+            <div className="flex items-center gap-2 mt-1">
+              <Badge variant="secondary">After</Badge>
+              <span className="text-xs text-muted-foreground">Your current settings</span>
+            </div>
+          </div>
+          <ScrollArea className="max-h-64">
+            <div className="space-y-3">
+              {compareData.before && compareData.after ? (
+                getCompareDiff(compareData.before, compareData.after).length > 0 ? (
+                  getCompareDiff(compareData.before, compareData.after).map((diff, idx) => (
+                    <div key={idx} className="flex flex-col gap-1 border-b pb-2">
+                      <div className="text-sm font-medium">{diff.label}</div>
+                      <div className="flex gap-2 items-center">
+                        <span className="text-xs px-2 py-1 bg-gray-100 rounded">
+                          {diff.before}
+                        </span>
+                        <ArrowLeftRight className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-xs px-2 py-1 bg-primary/10 rounded">
+                          {diff.after}
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center text-muted-foreground text-sm">
+                    No changes detected between before and after.
+                  </div>
+                )
+              ) : (
+                <div className="text-center text-muted-foreground text-sm">
+                  Please save an "after" state to compare.
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+          <Button
+            onClick={() => setShowPreview(false)}
+            className="w-full mt-4"
+            variant="outline"
+          >
+            Close
+          </Button>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
