@@ -121,51 +121,6 @@ const TemplateRenderer: React.FC<TemplateRendererProps> = ({
     sectionsToRender = ["navbar", "footer"];
   }
 
-  // For debugging - log the template and portfolio data
-  useEffect(() => {
-    if (isClient && template && portfolio) {
-      console.log("Template data:", {
-        id: template._id,
-        name: template.name,
-        sections: template.defaultStructure?.layout?.sections,
-        sectionDefinitions: template.sectionDefinitions,
-        layouts: template.layouts,
-        animations: template.animations,
-        sectionVariants: template.sectionVariants,
-        stylePresets: template.stylePresets,
-      });
-
-      console.log("Portfolio data:", {
-        id: portfolio._id,
-        title: portfolio.title,
-        templateId: portfolio.templateId?._id,
-        sectionOrder,
-        activeLayout: portfolio.activeLayout,
-        content: portfolio.content
-          ? Object.keys(portfolio.content)
-          : "No content",
-      });
-
-      // Detailed debug of sections to render
-      console.log("Sections to render:", {
-        defaultSections: template.defaultStructure?.layout?.sections || [],
-        providedSectionOrder: sectionOrder,
-        finalSectionsToRender: sectionsToRender,
-        availableComponents: Object.keys(SECTION_COMPONENTS),
-      });
-
-      // Debug each section's content
-      if (portfolio.content) {
-        console.log("Section content details:");
-        Object.keys(portfolio.content).forEach((section) => {
-          console.log(`- ${section}:`, portfolio.content[section]);
-        });
-      } else {
-        console.log("No content data in portfolio!");
-      }
-    }
-  }, [isClient, template, portfolio, sectionOrder, sectionsToRender]);
-
   // Set isClient to true on component mount
   useEffect(() => {
     setIsClient(true);
@@ -268,32 +223,18 @@ const TemplateRenderer: React.FC<TemplateRendererProps> = ({
 
   // Helper to get section content from portfolio data or template defaults
   const getSectionContent = (sectionType: string) => {
-    // Detailed debugging to identify issues
-    console.log(`Getting content for section ${sectionType}`);
-    console.log(`Portfolio content structure:`, {
-      hasContent: !!portfolio.content,
-      contentKeys: portfolio.content ? Object.keys(portfolio.content) : [],
-      portfolioId: portfolio._id || "unknown",
-    });
-
     // First try to get from portfolio content
     if (portfolio.content && typeof portfolio.content === "object") {
       // Check if the section exists directly in the content object
       if (sectionType in portfolio.content) {
         const sectionContent = portfolio.content[sectionType];
 
-        // Log what we found
-        console.log(`Found direct content for section ${sectionType}:`, {
-          hasContent: !!sectionContent,
-          contentType: typeof sectionContent,
-          isEmpty: sectionContent && typeof sectionContent === 'object'
-            ? Object.keys(sectionContent).length === 0
-            : sectionContent === "",
-        });
-
         // Accept any valid content, even empty objects, but not null/undefined
         if (sectionContent !== null && sectionContent !== undefined) {
-          if (typeof sectionContent === "object" || typeof sectionContent === "string") {
+          if (
+            typeof sectionContent === "object" ||
+            typeof sectionContent === "string"
+          ) {
             return sectionContent;
           }
         }
@@ -301,18 +242,20 @@ const TemplateRenderer: React.FC<TemplateRendererProps> = ({
     }
 
     // If not found or invalid, try to get from template section definitions
-    if (template.sectionDefinitions && sectionType in template.sectionDefinitions) {
-      const templateDefault = template.sectionDefinitions[sectionType].defaultData;
+    if (
+      template.sectionDefinitions &&
+      sectionType in template.sectionDefinitions
+    ) {
+      const templateDefault =
+        template.sectionDefinitions[sectionType].defaultData;
 
       if (templateDefault) {
-        console.log(`Using template default for section ${sectionType}:`, templateDefault);
         return templateDefault;
       }
     }
 
     // Fall back to a generic default based on section type
     const fallbackContent = getFallbackContent(sectionType);
-    console.log(`Using fallback content for section ${sectionType}:`, fallbackContent);
     return fallbackContent;
   };
 
@@ -469,28 +412,17 @@ const TemplateRenderer: React.FC<TemplateRendererProps> = ({
       );
 
       if (selectedVariant && selectedVariant.configuration) {
-        console.log(
-          `Applying variant "${sectionVariants[sectionType]}" to ${sectionType} section`
-        );
         // Merge the variant configuration with the existing content
         enhancedContent = {
           ...enhancedContent,
           ...selectedVariant.configuration,
         };
       } else {
-        console.log(
-          `Requested variant "${sectionVariants[sectionType]}" not found for ${sectionType} section`
-        );
       }
     } else {
       // If no specific variant is selected, but there are variants available,
       // apply the first one as default for consistency
       if (allVariants.length > 0 && allVariants[0].configuration) {
-        console.log(`Applying default variant to ${sectionType} section`);
-        enhancedContent = {
-          ...enhancedContent,
-          ...allVariants[0].configuration,
-        };
       } else {
         // Just add a default variant name if none is specified
         if (sectionType === "header" && !enhancedContent.variant) {
@@ -538,16 +470,6 @@ const TemplateRenderer: React.FC<TemplateRendererProps> = ({
     try {
       // Get base content for the section
       const sectionContent = getSectionContent(sectionType);
-
-      console.log(
-        `Section ${sectionType} content details:`,
-        {
-          contentType: typeof sectionContent,
-          hasContent: !!sectionContent,
-          isEmpty: typeof sectionContent === 'object' ? Object.keys(sectionContent).length === 0 : false,
-          contentKeys: typeof sectionContent === 'object' ? Object.keys(sectionContent) : [],
-        }
-      );
 
       // Apply any selected variant configuration
       const variantContent = getSectionVariant(sectionType, sectionContent);
@@ -607,8 +529,8 @@ const TemplateRenderer: React.FC<TemplateRendererProps> = ({
               Error rendering {sectionType} section
             </h3>
             <p className="text-sm text-red-600 mt-2">
-              There was a problem displaying this section. Please check
-              the console for more details.
+              There was a problem displaying this section. Please check the
+              console for more details.
             </p>
             {process.env.NODE_ENV === "development" && (
               <pre className="mt-4 p-2 bg-white border text-xs overflow-auto">
@@ -630,9 +552,6 @@ const TemplateRenderer: React.FC<TemplateRendererProps> = ({
       template?.layouts?.find((l: any) => l.id === activeLayoutId) ||
       template?.layouts?.[0];
 
-    console.log("Using activeLayoutId:", activeLayoutId);
-    console.log("Selected layout:", activeLayout?.name || "Default Layout");
-
     const gridClass =
       activeLayout?.structure?.gridSystem === "sidebar-main"
         ? "grid grid-cols-1 md:grid-cols-[300px_1fr] gap-8"
@@ -645,9 +564,6 @@ const TemplateRenderer: React.FC<TemplateRendererProps> = ({
               : activeLayout?.structure?.gridSystem === "tabs"
                 ? "tabs-layout" // Custom class for tabbed layout
                 : "flex flex-col gap-8"; // Default
-
-    // Debug which sections will be rendered
-    console.log("Rendering sections:", sectionsToRender);
 
     // Make sure we have at least the required sections
     if (sectionsToRender.length === 0) {
@@ -677,8 +593,7 @@ const TemplateRenderer: React.FC<TemplateRendererProps> = ({
     );
 
     // Special handling for full-screen sections
-    const isFullScreen =
-      activeLayout?.structure?.gridSystem === "full-screen";
+    const isFullScreen = activeLayout?.structure?.gridSystem === "full-screen";
 
     return (
       <div className="flex flex-col min-h-screen" style={templateStyle}>

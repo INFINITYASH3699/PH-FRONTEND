@@ -34,7 +34,6 @@ async function getServerUserWithAuth() {
     const authToken = cookieStore.get("ph_auth_token")?.value;
 
     if (!authToken) {
-      console.log("No auth token found in cookies");
       return null;
     }
 
@@ -49,10 +48,6 @@ async function getServerUserWithAuth() {
     }>("/auth/me", "GET", undefined, headers);
 
     if (response.success && response.user) {
-      console.log(
-        "Successfully fetched authenticated user:",
-        response.user._id
-      );
       return response.user;
     }
 
@@ -100,10 +95,6 @@ export default async function TemplateEditorPage({
   // Fallback to development mock user if needed
   const user = authenticatedUser || (await apiClient.getServerUser());
 
-  console.log(
-    "Server-side auth status:",
-    user ? "Authenticated" : "Not authenticated"
-  );
 
   // Enhanced data for template rendering with more robust defaults
   const enhancedTemplate = {

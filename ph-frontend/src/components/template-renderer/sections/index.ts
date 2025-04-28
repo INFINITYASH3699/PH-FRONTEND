@@ -11,11 +11,6 @@ import ServicesSection from './ServicesSection';
 import NavbarSection from './NavbarSection';
 import FooterSection from './FooterSection';
 
-// Import all section components
-// We've implemented almost all components: HeaderSection, AboutSection, ProjectsSection,
-// SkillsSection, ExperienceSection, ContactSection, EducationSection, GallerySection,
-// TestimonialsSection, and ServicesSection
-// Only a couple components remain as placeholders
 
 // Placeholder component factory function
 const createPlaceholderSection = (sectionName: string) => {

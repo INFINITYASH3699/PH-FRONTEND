@@ -43,7 +43,6 @@ export default function SignInForm() {
   // Clear invalid tokens when directed by middleware
   useEffect(() => {
     if (clearToken === "true") {
-      console.log("Clearing invalid auth token");
       if (typeof apiClient.logout === "function") {
         apiClient.logout();
       } else if (
@@ -71,9 +70,6 @@ export default function SignInForm() {
     setIsLoading(true);
 
     try {
-      // Call the login API
-      console.log("Attempting to login with:", values.email);
-
       let loginSuccess = false;
       let response;
 
@@ -84,10 +80,7 @@ export default function SignInForm() {
         typeof apiClient.auth.login === "function"
       ) {
         try {
-          response = await apiClient.auth.login(
-            values.email,
-            values.password
-          );
+          response = await apiClient.auth.login(values.email, values.password);
           if (response && response.user) {
             loginSuccess = true;
           }
@@ -107,9 +100,6 @@ export default function SignInForm() {
       if (loginSuccess && response) {
         // Display success message
         toast.success("Logged in successfully");
-
-        // Log what's happening
-        console.log(`Redirecting to: ${redirectTo}`);
 
         // Use a short timeout to ensure state is updated before redirect
         setTimeout(() => {

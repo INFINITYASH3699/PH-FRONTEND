@@ -207,9 +207,6 @@ export default function ProjectsEditor({ data, onChange, isLoading = false }: Pr
         return;
       }
 
-      // Log upload details
-      console.log(`Uploading image: ${file.name}, size: ${(file.size / 1024).toFixed(2)}KB, type: ${file.type}`);
-
       // Implement a retry mechanism for more resilience
       let attempts = 0;
       const maxAttempts = 2;
@@ -220,7 +217,6 @@ export default function ProjectsEditor({ data, onChange, isLoading = false }: Pr
           // Add a small delay between retries
           if (attempts > 0) {
             await new Promise(resolve => setTimeout(resolve, 1000));
-            console.log(`Retry attempt ${attempts} for uploading ${file.name}`);
           }
 
           result = await apiClient.uploadImage(file, 'project');

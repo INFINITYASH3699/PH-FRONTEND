@@ -51,9 +51,6 @@ export async function GET(
       cache: 'no-store', // Disable caching to ensure fresh data
     });
 
-    // Log response status for debugging
-    console.log(`Portfolio preview API response status: ${portfolioResponse.status}`);
-
     if (!portfolioResponse.ok) {
       // Get the response text for better error logging
       const responseText = await portfolioResponse.text();

@@ -33,9 +33,6 @@ export const createPortfolio = async (
       sectionOrder
     } = req.body;
 
-    console.log(
-      `Creating portfolio: title=${title}, subdomain=${subdomain}, templateId=${templateId}, userId=${req.user.id}`
-    );
 
     // Validate required fields
     if (!title || !subdomain) {
@@ -94,29 +91,7 @@ export const createPortfolio = async (
           message: "Template not found",
         });
       }
-      console.log(
-        `Template found: ${template.name}, proceeding with portfolio creation`
-      );
 
-      // Check if user already has a portfolio with this template
-      // Modify the query to only check non-deleted portfolios
-      const existingTemplatePortfolio = await Portfolio.findOne({
-        userId: req.user.id,
-        templateId: templateId,
-      });
-
-      if (existingTemplatePortfolio) {
-        // Return more information about the existing portfolio so frontend can handle it better
-        return res.status(400).json({
-          success: false,
-          message: "You already have a portfolio with this template",
-          portfolioId: existingTemplatePortfolio._id,
-          portfolioTitle: existingTemplatePortfolio.title || "Existing Portfolio"
-        });
-      }
-
-      // Make sure to validate any nested structures in the content object
-      // This is important for handling sectionVariants across different templates
       if (content) {
         // If template exists but structure is missing needed elements, initialize them
         if (!template.sectionDefinitions) {
@@ -162,9 +137,6 @@ export const createPortfolio = async (
             { $set: { isPublished: false } }
           );
 
-          console.log(
-            `Automatically unpublished portfolio ${existingPublishedPortfolio._id} for user ${req.user.id} as they are publishing a new portfolio`
-          );
         }
       } else if (hasMultiplePortfoliosFeature) {
         // For premium users with multiple portfolios feature
@@ -180,9 +152,7 @@ export const createPortfolio = async (
           // set the portfolioOrder to be one higher than the highest existing order
           portfolioOrder =
             (existingPublishedPortfolios[0]?.portfolioOrder || 0) + 1;
-          console.log(
-            `Setting portfolioOrder to ${portfolioOrder} for the new portfolio`
-          );
+
         }
       } else {
         // For paid plans without multiple portfolios feature, unpublish other portfolios with the same subdomain
@@ -197,12 +167,6 @@ export const createPortfolio = async (
       }
     }
 
-    // Create a completely new portfolio document
-    console.log(
-      `Creating new portfolio for user ${req.user.id} with template ${
-        templateId || "none"
-      } and portfolioOrder ${portfolioOrder}`
-    );
     const newPortfolio = new Portfolio({
       title,
       subtitle,
@@ -223,9 +187,7 @@ export const createPortfolio = async (
 
     // Save the new portfolio
     const savedPortfolio = await newPortfolio.save();
-    console.log(
-      `Portfolio created successfully with ID: ${savedPortfolio._id}`
-    );
+
 
     return res.status(201).json({
       success: true,
@@ -444,9 +406,6 @@ export const updatePortfolio = async (
             { $set: { isPublished: false } }
           );
 
-          console.log(
-            `Automatically unpublished portfolio ${existingPublishedPortfolio._id} for user ${req.user.id} as they are publishing a new portfolio`
-          );
         }
       } else if (hasMultiplePortfoliosFeature) {
         // For premium users with multiple portfolios feature
@@ -462,18 +421,13 @@ export const updatePortfolio = async (
           // Set the portfolioOrder to be one higher than the highest existing order
           portfolio.portfolioOrder =
             (existingPublishedPortfolios[0]?.portfolioOrder || 0) + 1;
-          console.log(
-            `Setting portfolioOrder to ${portfolio.portfolioOrder} for the portfolio being published`
-          );
+     
         } else {
           // If no other published portfolios with this subdomain, set to 0
           portfolio.portfolioOrder = 0;
         }
       } else {
-        // For paid plans without multiple portfolios feature, unpublish other portfolios with the same subdomain
-        console.log(
-          `User ${req.user.id} is publishing portfolio ${portfolio._id} with subdomain ${portfolio.subdomain}. Unpublishing other portfolios with the same subdomain.`
-        );
+
 
         await Portfolio.updateMany(
           {
@@ -508,9 +462,7 @@ export const updatePortfolio = async (
           { _id: publishedPortfolios[i]._id },
           { $set: { portfolioOrder: i } }
         );
-        console.log(
-          `Reordered portfolio ${publishedPortfolios[i]._id} to order ${i}`
-        );
+
       }
     }
 
@@ -719,10 +671,6 @@ export const getPortfolioBySubdomain = async (
       ? parseInt(req.query.order as string)
       : undefined;
 
-    console.log(
-      `Getting portfolio by subdomain: "${subdomain}", order: ${portfolioOrder || 0}`
-    );
-    console.log(`Request query params:`, req.query);
 
     let portfolio: any = null;
 
@@ -735,7 +683,6 @@ export const getPortfolioBySubdomain = async (
         .populate("templateId", "name category defaultStructure layouts themeOptions animations sectionVariants stylePresets")
         .lean();
       if (portfolio) {
-        console.log(`Found portfolio by customDomain: ${customDomain}`);
       }
     }
 
@@ -754,10 +701,6 @@ export const getPortfolioBySubdomain = async (
         }
       }
 
-      // Log the search parameters for debugging
-      console.log(
-        `Searching for portfolio with baseSubdomain: "${baseSubdomain}", orderFromSubdomain: ${orderFromSubdomain}, portfolioOrder: ${portfolioOrder}`
-      );
 
       // Prefer order in URL, then ?order= param, then 0
       let targetOrder = 0;
@@ -776,10 +719,7 @@ export const getPortfolioBySubdomain = async (
         .populate("templateId", "name category defaultStructure layouts themeOptions animations sectionVariants stylePresets")
         .lean();
 
-      // Log the search results for debugging
-      console.log(
-        `Search for "${baseSubdomain}" with order ${targetOrder}: ${portfolio ? "Found" : "Not found"}`
-      );
+
 
       // If not found and no specific order was requested, get the default (order 0) or any published portfolio
       if (!portfolio) {
@@ -792,9 +732,6 @@ export const getPortfolioBySubdomain = async (
           .populate("templateId", "name category defaultStructure layouts themeOptions animations sectionVariants stylePresets")
           .lean();
 
-        console.log(
-          `Search for "${baseSubdomain}" with order 0: ${portfolio ? "Found" : "Not found"}`
-        );
 
         // If still not found, find any published portfolio with this subdomain
         if (!portfolio) {
@@ -804,10 +741,6 @@ export const getPortfolioBySubdomain = async (
             isPublished: true,
           }).sort({ portfolioOrder: 1 }); // Sort by order
 
-          // Log the number of published portfolios found
-          console.log(
-            `Found ${allPortfolios.length} published portfolios with subdomain "${baseSubdomain}"`
-          );
 
           if (allPortfolios.length > 0) {
             // Get the first one in the list (lowest portfolioOrder)
@@ -817,25 +750,13 @@ export const getPortfolioBySubdomain = async (
               .populate("templateId", "name category defaultStructure layouts themeOptions animations sectionVariants stylePresets")
               .lean();
 
-            console.log(
-              `Selected portfolio with id: ${portfolio._id}, order: ${portfolio.portfolioOrder}`
-            );
           } else {
-            console.log(
-              `No published portfolios found with subdomain: "${baseSubdomain}"`
-            );
+
           }
         }
       }
     }
 
-    if (!portfolio) {
-      console.log(`No published portfolio found for subdomain: "${subdomain}"`);
-      return res.status(404).json({
-        success: false,
-        message: "Portfolio not found or not published",
-      });
-    }
 
     // Ensure template data is properly populated
     if (portfolio.templateId && typeof portfolio.templateId === "string") {
@@ -846,7 +767,6 @@ export const getPortfolioBySubdomain = async (
       );
       if (template) {
         portfolio.templateId = template;
-        console.log(`Template data populated manually: ${template._id}`);
       } else {
         console.warn(`Template with ID ${portfolio.templateId} not found`);
       }
@@ -860,18 +780,8 @@ export const getPortfolioBySubdomain = async (
       { $set: { viewCount: portfolio.viewCount } }
     );
 
-    // Log the customization options for debugging
-    console.log(`Portfolio customization options:`, {
-      activeLayout: portfolio.activeLayout || 'default',
-      activeColorScheme: portfolio.activeColorScheme || 'default',
-      activeFontPairing: portfolio.activeFontPairing || 'default',
-      stylePreset: portfolio.stylePreset || 'modern',
-      animationsEnabled: portfolio.animationsEnabled,
-      hasSectionVariants: portfolio.sectionVariants ? Object.keys(portfolio.sectionVariants).length > 0 : false,
-      hasSectionOrder: portfolio.sectionOrder ? portfolio.sectionOrder.length > 0 : false,
-    });
 
-    console.log(`Successfully returning portfolio with ID: ${portfolio._id}`);
+
     return res.status(200).json({
       success: true,
       portfolio,
@@ -903,17 +813,6 @@ export const uploadPortfolioImage = async (
       });
     }
 
-    // Log file details
-    console.log('Image upload request:', {
-      fileDetails: {
-        originalname: req.file.originalname,
-        mimetype: req.file.mimetype,
-        size: req.file.size,
-        path: req.file.path
-      },
-      portfolioId: req.params.id,
-      imageType: req.body.imageType
-    });
 
     // Get portfolio ID and image type from params
     const { id } = req.params;
@@ -927,7 +826,6 @@ export const uploadPortfolioImage = async (
       validImageType = 'project';
     }
 
-    console.log(`Original imageType: ${imageType}, mapped to: ${validImageType}`);
 
     if (!validImageType || ![
       "header", "gallery", "project", "thumbnail", "work", "temp"
@@ -978,7 +876,6 @@ export const uploadPortfolioImage = async (
       existingPublicId = portfolio.headerImage.publicId;
     }
 
-    console.log(`Uploading image to Cloudinary folder: ${folder}, imageType: ${imageType}, validImageType: ${validImageType}`);
 
     // Upload to Cloudinary
     const cloudinaryResult: CloudinaryUploadResult = await uploadToCloudinary(
@@ -1015,7 +912,6 @@ export const uploadPortfolioImage = async (
           url: cloudinaryResult.url,
           publicId: cloudinaryResult.publicId,
         };
-        console.log(`Header image updated for portfolio ${id}: ${cloudinaryResult.publicId}`);
       } else if (validImageType === "gallery" && cloudinaryResult.success) {
         // Initialize gallery array if it doesn't exist
         if (!portfolio.galleryImages) {
@@ -1027,7 +923,6 @@ export const uploadPortfolioImage = async (
           url: cloudinaryResult.url,
           publicId: cloudinaryResult.publicId,
         });
-        console.log(`Gallery image added for portfolio ${id}: ${cloudinaryResult.publicId}`);
       }
 
       // Save portfolio if we modified it
@@ -1055,7 +950,6 @@ export const uploadPortfolioImage = async (
     try {
       if (req.file && req.file.path) {
         fs.unlinkSync(req.file.path);
-        console.log(`Cleaned up temporary file: ${req.file.path}`);
       }
     } catch (unlinkError) {
       console.warn(`Failed to delete temporary file: ${req.file?.path || 'unknown'}`, unlinkError);

@@ -49,19 +49,6 @@ export default function DashboardPage() {
   const isPremiumUser = user?.subscriptionPlan?.type === 'premium' || user?.subscriptionPlan?.type === 'professional';
   const hasMultiplePortfoliosFeature = isPremiumUser && user?.subscriptionPlan?.features?.multiplePortfolios;
 
-  // Log auth status for debugging
-  useEffect(() => {
-    console.log('Dashboard auth status:', {
-      isAuthenticated,
-      authLoading,
-      user: user ? {
-        id: user.id,
-        email: user.email,
-        username: user.username,
-        subscriptionPlan: user.subscriptionPlan
-      } : null
-    });
-  }, [isAuthenticated, authLoading, user]);
 
   // Check if user is authenticated using Auth context
   useEffect(() => {
@@ -73,7 +60,6 @@ export default function DashboardPage() {
       setAuthStatus('unauthenticated');
       // Remove the window.location redirect - let the middleware handle it instead
       if (!authLoading) {
-        console.log('Not authenticated - middleware will handle the redirect');
       }
     }
   }, [isAuthenticated, authLoading, user]);
@@ -83,7 +69,6 @@ export default function DashboardPage() {
     const fetchPortfolios = async () => {
       try {
         setLoading(true);
-        console.log("Fetching user portfolios...");
 
         // Make the API request
         const response = await apiClient.request<{
@@ -92,16 +77,6 @@ export default function DashboardPage() {
         }>("/portfolios", "GET");
 
         if (response.success) {
-          console.log(`Fetched ${response.portfolios.length} portfolios:`,
-            response.portfolios.map(p => ({
-              id: p._id,
-              title: p.title,
-              template: typeof p.templateId === 'object' ? p.templateId.name : p.templateId,
-              subdomain: p.subdomain,
-              isPublished: p.isPublished,
-              portfolioOrder: p.portfolioOrder
-            }))
-          );
           setPortfolios(response.portfolios);
         } else {
           console.error("Failed to fetch portfolios:", response);
@@ -503,7 +478,6 @@ function PortfolioCard({
         text: `Check out my portfolio: ${portfolio.title}`,
         url: url,
       }).catch((error) => {
-        console.log('Error sharing:', error);
         copyToClipboard(url);
       });
     } else {

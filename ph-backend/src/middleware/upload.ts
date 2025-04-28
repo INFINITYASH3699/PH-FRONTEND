@@ -6,7 +6,6 @@ import { Request, Response, NextFunction } from 'express';
 // Ensure uploads directory exists
 const uploadDir = 'uploads/';
 if (!fs.existsSync(uploadDir)) {
-  console.log('Creating uploads directory...');
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 

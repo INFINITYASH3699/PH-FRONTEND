@@ -43,12 +43,6 @@ export async function middleware(request: NextRequest) {
     .map((c) => c.name)
     .join(", ");
 
-  // Log the authentication state for debugging
-  console.log(`Middleware: Path=${pathname}, Auth=${isAuthenticated},
-    TokenExists=${hasToken}, TokenLength=${hasToken ? authToken.value.length : 0},
-    ValidStructure=${hasValidTokenStructure}, Cookie=${AUTH_COOKIE_NAME},
-    AllCookies=[${allCookieNames}]`);
-
   // Check if the path requires authentication
   const isProtectedPath = PROTECTED_PATHS.some(
     (path) => pathname === path || pathname.startsWith(`${path}/`)
@@ -72,20 +66,12 @@ export async function middleware(request: NextRequest) {
       if (match) {
         const baseUsername = match[1];
         const order = parseInt(match[2]);
-
-        // Log the subdomain access
-        console.log(
-          `Middleware: Accessing portfolio with sequential subdomain: ${baseUsername} order ${order}`
-        );
       }
     }
   }
 
   // If it's a protected path and user is not authenticated, redirect to sign in
   if (isProtectedPath && !isAuthenticated) {
-    console.log(
-      `Middleware: Redirecting unauthenticated user from ${pathname} to /auth/signin`
-    );
     const signInUrl = new URL("/auth/signin", request.url);
 
     // Use redirectTo parameter to allow more complex paths to be preserved
@@ -106,15 +92,8 @@ export async function middleware(request: NextRequest) {
     const redirectTo = url.searchParams.get("redirectTo");
 
     if (redirectTo && redirectTo.startsWith("/")) {
-      console.log(
-        `Middleware: Redirecting authenticated user from ${pathname} to ${redirectTo}`
-      );
       return NextResponse.redirect(new URL(redirectTo, request.url));
     }
-
-    console.log(
-      `Middleware: Redirecting authenticated user from ${pathname} to /dashboard`
-    );
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 

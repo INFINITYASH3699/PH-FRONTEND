@@ -103,7 +103,6 @@ export default function PortfolioPreviewPage() {
 
         if (response.success && response.portfolio) {
           setPortfolio(response.portfolio);
-          console.log("Portfolio data loaded:", response.portfolio);
         } else {
           // If no portfolio is found, show 404
           notFound();

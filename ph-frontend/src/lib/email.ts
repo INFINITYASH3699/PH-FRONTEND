@@ -6,11 +6,6 @@ interface EmailPayload {
 
 // Create a simplified logger for email operations
 const logEmail = (to: string, subject: string, html: string) => {
-  console.log('\n--- EMAIL MOCK [Edge Runtime] ---');
-  console.log('To:', to);
-  console.log('Subject:', subject);
-  console.log('Content:', html.replace(/<[^>]*>/g, ' ').substring(0, 100) + '...');
-  console.log('-----------------------------\n');
 };
 
 // Simple mock implementation for Edge runtime

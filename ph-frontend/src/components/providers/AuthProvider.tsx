@@ -10,12 +10,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (typeof window !== 'undefined') {
       const storedUser = localStorage.getItem('ph_user_data');
       const storedToken = localStorage.getItem('ph_auth_token');
-
-      if (storedUser && storedToken) {
-        console.log('Found existing user data in localStorage, authentication will be initialized');
-      } else {
-        console.log('No existing user data found in localStorage');
-      }
     }
   }, []);
 

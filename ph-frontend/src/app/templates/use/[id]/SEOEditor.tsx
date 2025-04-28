@@ -39,7 +39,8 @@ export default function SEOEditor({
     }
   };
 
-  // Determine if subdomain is editable based on user type and lock status
+  // Determine if subdomain is editable based on user type
+  // Premium users should always be able to edit subdomain
   const isSubdomainEditable = userType === 'premium' || !isSubdomainLocked;
 
   return (

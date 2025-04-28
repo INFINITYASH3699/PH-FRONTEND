@@ -9,9 +9,6 @@ const API_BASE_URL =
 const TOKEN_KEY = "ph_auth_token";
 const USER_KEY = "ph_user_data";
 
-// Add debugging to help diagnose connection issues
-console.log(`API Client initialized with base URL: ${API_BASE_URL}`);
-
 // Check if we're in development mode
 const isDev = process.env.NODE_ENV === "development";
 
@@ -210,9 +207,6 @@ const handleResponse = async (response: Response) => {
               _id: `temp-${Date.now().toString(36)}`,
               createdAt: new Date().toISOString(),
             };
-            console.log(
-              `[Empty Response Handler] Created mock portfolio response for ${urlPath}`
-            );
           }
 
           return mockResponse;
@@ -402,12 +396,14 @@ export const setAuthData = (token: string, user: any): void => {
   // If the API returns 'id' instead of '_id', create _id property
   if (!normalizedUser._id && normalizedUser.id) {
     normalizedUser._id = normalizedUser.id;
-    console.log("Normalized user data: added _id from id property");
   }
 
   // Validate the user object
   if (!normalizedUser || !normalizedUser._id) {
-    console.error("Attempted to set invalid user data (missing _id)", normalizedUser);
+    console.error(
+      "Attempted to set invalid user data (missing _id)",
+      normalizedUser
+    );
     return;
   }
 
@@ -420,10 +416,6 @@ export const setAuthData = (token: string, user: any): void => {
   const expiryDate = new Date();
   expiryDate.setDate(expiryDate.getDate() + 30);
   document.cookie = `${TOKEN_KEY}=${token}; path=/; expires=${expiryDate.toUTCString()}; SameSite=Lax`;
-
-  console.log(
-    `Auth: Token set in localStorage and cookie for user ${normalizedUser._id}`
-  );
 };
 
 export const clearAuthData = (): void => {
@@ -435,8 +427,6 @@ export const clearAuthData = (): void => {
 
   // Clear cookie by setting expiry in the past
   document.cookie = `${TOKEN_KEY}=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT; SameSite=Lax`;
-
-  console.log(`Auth: Token cleared from localStorage and cookie`);
 };
 
 export const isAuthenticated = (): boolean => {
@@ -466,8 +456,6 @@ export async function serverRequest<T = any>(
     if (method !== "GET" && data) {
       options.body = JSON.stringify(data);
     }
-
-    console.log(`Server sending ${method} request to ${url}`);
 
     const response = await fetch(url, options);
 
@@ -507,7 +495,6 @@ export async function getServerUser(): Promise<User | null> {
 
     // For development only
     if (isDev) {
-      console.log("Returning mock user for development");
       // Return a more complete mock user with _id
       const mockUser = {
         ...MOCK_DATA.users[0],
@@ -547,11 +534,7 @@ const api = {
       const token = getToken();
       if (token) {
         headers["Authorization"] = `Bearer ${token}`;
-        console.log(
-          `Setting Authorization header for API request to ${endpoint}`
-        );
       } else {
-        console.log(`No token found for API request to ${endpoint}`);
       }
 
       const options: RequestInit = {
@@ -565,22 +548,8 @@ const api = {
         options.body = JSON.stringify(data);
       }
 
-      console.log(`Sending ${method} request to ${url}`, {
-        hasToken: !!token,
-        headerKeys: Object.keys(headers),
-        method,
-        withCredentials: options.credentials === "include",
-      });
-
       const response = await fetch(url, options);
       const result = await handleResponse(response);
-
-      // Add debug log for successful response
-      console.log(`API response from ${endpoint}:`, {
-        status: response.status,
-        success: response.ok,
-        hasData: !!result,
-      });
 
       return result;
     } catch (error) {
@@ -635,15 +604,11 @@ const api = {
     }
 
     try {
-      console.log(`Fetching templates from ${API_BASE_URL}${endpoint}...`);
       const response = await fetch(`${API_BASE_URL}${endpoint}`, {
         credentials: "include",
       });
 
       const data = await handleResponse(response);
-      console.log(
-        `Successfully fetched ${data.templates?.length || 0} templates from backend`
-      );
       return data.templates || [];
     } catch (error) {
       console.error("Template API error:", error);
@@ -671,12 +636,8 @@ const api = {
 
   getTemplateById: async (id: string) => {
     try {
-      console.log(
-        `Fetching template ${id} from ${API_BASE_URL}/templates/${id}`
-      );
       const response = await fetch(`${API_BASE_URL}/templates/${id}`);
       const data = await handleResponse(response);
-      console.log(`Successfully fetched template ${id} from backend`);
       return data.template;
     } catch (error) {
       console.error("Template fetch error:", error);
@@ -700,9 +661,6 @@ const api = {
 
   login: async (email: string, password: string) => {
     try {
-      console.log(
-        `Attempting login with email ${email} to ${API_BASE_URL}/auth/login`
-      );
       const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -712,7 +670,6 @@ const api = {
 
       const data = await handleResponse(response);
       if (data.token && data.user) {
-        console.log("Login successful - setting auth data in localStorage and cookie");
         setAuthData(data.token, data.user);
 
         // Set a longer cookie expiration (30 days)
@@ -748,7 +705,6 @@ const api = {
 
   getCurrentUser: async () => {
     try {
-      console.log(`Fetching current user from ${API_BASE_URL}/auth/me`);
       const response = await fetch(`${API_BASE_URL}/auth/me`, {
         headers: {
           Authorization: `Bearer ${getToken()}`,
@@ -757,7 +713,6 @@ const api = {
       });
 
       const data = await handleResponse(response);
-      console.log("Successfully fetched current user from backend");
       return data.user;
     } catch (error) {
       console.error("User fetch error:", error);
@@ -998,9 +953,6 @@ const api = {
 
     getById: async (id: string) => {
       try {
-        console.log(
-          `Fetching portfolio with ID: ${id} from ${API_BASE_URL}/portfolios/${id}`
-        );
         const token = getToken();
         const headers: HeadersInit = {
           "Content-Type": "application/json",
@@ -1016,7 +968,6 @@ const api = {
         });
 
         const data = await handleResponse(response);
-        console.log("Successfully fetched portfolio data:", data);
         return data;
       } catch (error) {
         console.error("Portfolio fetch error:", error);
@@ -1091,19 +1042,6 @@ const api = {
         if (token) {
           headers["Authorization"] = `Bearer ${token}`;
         }
-
-        console.log(
-          `Saving portfolio draft: ${isUpdate ? "UPDATE" : "CREATE"} to ${endpoint}`,
-          {
-            hasToken: !!token,
-            portfolioId: cleanedData._id || "none",
-            templateId: cleanedData.templateId || "none",
-            templateCategory: cleanedData.category || "unknown",
-            contentKeys: Object.keys(cleanedData.content || {}),
-            sectionCount: cleanedData.sectionOrder?.length || 0,
-            contentSize: JSON.stringify(cleanedData).length,
-          }
-        );
 
         // Add retries for intermittent network issues
         let retries = 0;
@@ -1184,10 +1122,6 @@ const api = {
           const templateCategory = portfolioData.category || "developer";
           const isCreativeStudio = templateName.includes("Creative Studio");
 
-          console.log(
-            `Creating fallback response for template: ${templateName} (${templateId})`
-          );
-
           // Generate a more appropriate mock portfolio based on template type
           const mockPortfolio = {
             ...portfolioData,
@@ -1204,45 +1138,482 @@ const api = {
             // Ensure required sections exist with proper structure
             content: {
               ...(portfolioData.content || {}),
-              // Add special handling for Creative Studio template
-              ...(isCreativeStudio
-                ? {
-                    header: portfolioData.content?.header || {
-                      title: portfolioData.title || "My Portfolio",
-                      subtitle: "Creative Professional",
+              // Enhanced special handling for different templates
+              ...(() => {
+                // Map of templates with their required sections and default content
+                const specialTemplates = {
+                  "Modern Developer": {
+                    requiredSections: [
+                      "header",
+                      "about",
+                      "projects",
+                      "skills",
+                      "experience",
+                      "education",
+                      "contact",
+                    ],
+                    defaultContent: {
+                      header: {
+                        title: portfolioData.title || "My Portfolio",
+                        subtitle: "Software Developer",
+                      },
+                      about: {
+                        title: "About Me",
+                        bio: "Professional developer with experience in building web applications.",
+                        variant: "with-highlights",
+                        highlights: [
+                          {
+                            title: "My Expertise",
+                            description:
+                              "Full-stack development with modern technologies.",
+                          },
+                          {
+                            title: "Experience",
+                            description:
+                              "Several years of industry experience.",
+                          },
+                          {
+                            title: "Education",
+                            description: "Computer Science background.",
+                          },
+                        ],
+                      },
+                      projects: {
+                        title: "Projects",
+                        items: [
+                          {
+                            title: "Sample Project",
+                            description: "Description of your project",
+                            tags: ["React", "Node.js"],
+                          },
+                        ],
+                      },
+                      skills: {
+                        title: "Skills",
+                        categories: [
+                          {
+                            name: "Frontend",
+                            skills: [
+                              {
+                                name: "React",
+                                proficiency: 80,
+                              },
+                            ],
+                          },
+                        ],
+                      },
+                      experience: {
+                        title: "Experience",
+                        items: [
+                          {
+                            title: "Software Developer",
+                            company: "Company Name",
+                            startDate: "2020-01-01",
+                            current: true,
+                            description: "Working on various web projects.",
+                          },
+                        ],
+                      },
+                      education: {
+                        title: "Education",
+                        items: [
+                          {
+                            degree: "Computer Science",
+                            institution: "University Name",
+                            startDate: "2016-01-01",
+                            endDate: "2020-01-01",
+                            description:
+                              "Studied computer science and software engineering.",
+                          },
+                        ],
+                      },
+                      contact: {
+                        title: "Contact",
+                        email: "",
+                        phone: "",
+                      },
                     },
-                    about: portfolioData.content?.about || {
-                      title: "About Me",
-                      bio: "Creative professional with expertise in design and visual arts.",
+                  },
+                  "Creative Studio": {
+                    requiredSections: [
+                      "header",
+                      "about",
+                      "work",
+                      "clients",
+                      "testimonials",
+                      "gallery",
+                      "contact",
+                    ],
+                    defaultContent: {
+                      header: {
+                        title: portfolioData.title || "My Portfolio",
+                        subtitle: "Creative Professional",
+                      },
+                      about: {
+                        title: "About Me",
+                        bio: "Creative professional with expertise in design and visual arts.",
+                        variant: "with-image",
+                      },
+                      work: {
+                        title: "My Work",
+                        items: [
+                          {
+                            title: "Sample Project",
+                            description: "Description of your creative work",
+                            imageUrl: "",
+                          },
+                        ],
+                      },
+                      clients: {
+                        title: "Clients",
+                        items: [
+                          {
+                            name: "Sample Client",
+                            logo: "",
+                          },
+                        ],
+                      },
+                      testimonials: {
+                        title: "Testimonials",
+                        items: [
+                          {
+                            name: "John Doe",
+                            position: "CEO",
+                            company: "Company Name",
+                            testimonial: "Sample testimonial text",
+                          },
+                        ],
+                      },
+                      gallery: {
+                        title: "Gallery",
+                        items: [],
+                      },
+                      contact: {
+                        title: "Contact",
+                        email: "",
+                        phone: "",
+                      },
                     },
-                    work: portfolioData.content?.work || {
-                      title: "My Work",
-                      items: [],
+                  },
+                  "Photo Gallery": {
+                    requiredSections: [
+                      "header",
+                      "about",
+                      "gallery",
+                      "categories",
+                      "services",
+                      "pricing",
+                      "contact",
+                    ],
+                    defaultContent: {
+                      header: {
+                        title:
+                          portfolioData.title || "My Photography Portfolio",
+                        subtitle: "Photographer & Visual Artist",
+                      },
+                      about: {
+                        title: "About Me",
+                        bio: "Professional photographer with a passion for capturing unique moments.",
+                        variant: "with-image",
+                      },
+                      gallery: {
+                        title: "Gallery",
+                        items: [
+                          {
+                            title: "Sample Photo",
+                            description: "Description of your photo",
+                            imageUrl: "",
+                            category: "Sample",
+                          },
+                        ],
+                      },
+                      categories: {
+                        title: "Categories",
+                        items: [
+                          {
+                            name: "Portraits",
+                            description: "Portrait photography",
+                          },
+                          {
+                            name: "Landscapes",
+                            description: "Landscape photography",
+                          },
+                        ],
+                      },
+                      services: {
+                        title: "Services",
+                        items: [
+                          {
+                            title: "Wedding Photography",
+                            description:
+                              "Complete wedding photography services",
+                            price: "Contact for pricing",
+                          },
+                          {
+                            title: "Portrait Sessions",
+                            description: "Professional portrait photography",
+                            price: "Contact for pricing",
+                          },
+                        ],
+                      },
+                      pricing: {
+                        title: "Pricing",
+                        packages: [
+                          {
+                            name: "Basic",
+                            price: "$200",
+                            features: ["2 hour session", "20 digital images"],
+                          },
+                          {
+                            name: "Standard",
+                            price: "$400",
+                            features: ["4 hour session", "50 digital images"],
+                          },
+                        ],
+                      },
+                      contact: {
+                        title: "Contact",
+                        email: "",
+                        phone: "",
+                      },
                     },
-                    clients: portfolioData.content?.clients || {
-                      title: "Clients",
-                      items: [],
+                  },
+                  "Code Craft": {
+                    requiredSections: [
+                      "header",
+                      "about",
+                      "projects",
+                      "technologies",
+                      "experience",
+                      "education",
+                      "testimonials",
+                      "contact",
+                    ],
+                    defaultContent: {
+                      header: {
+                        title: portfolioData.title || "My Developer Portfolio",
+                        subtitle: "Software Engineer",
+                      },
+                      about: {
+                        title: "About Me",
+                        bio: "Passionate software engineer with a focus on building elegant and efficient solutions.",
+                        variant: "with-highlights",
+                        highlights: [
+                          {
+                            title: "Specialization",
+                            description: "Full stack development",
+                          },
+                          {
+                            title: "Experience",
+                            description: "5+ years of professional coding",
+                          },
+                        ],
+                      },
+                      projects: {
+                        title: "Projects",
+                        items: [
+                          {
+                            title: "Sample Project",
+                            description:
+                              "A brief description of a coding project",
+                            tags: ["React", "Node.js", "MongoDB"],
+                          },
+                        ],
+                      },
+                      technologies: {
+                        title: "Technologies",
+                        categories: [
+                          {
+                            name: "Frontend",
+                            items: ["React", "Vue", "Angular"],
+                          },
+                          {
+                            name: "Backend",
+                            items: ["Node.js", "Python", "Java"],
+                          },
+                          {
+                            name: "Database",
+                            items: ["MongoDB", "PostgreSQL"],
+                          },
+                        ],
+                      },
+                      experience: {
+                        title: "Experience",
+                        items: [
+                          {
+                            title: "Senior Developer",
+                            company: "Tech Company",
+                            startDate: "2020-01-01",
+                            current: true,
+                            description:
+                              "Leading development of web applications",
+                          },
+                        ],
+                      },
+                      education: {
+                        title: "Education",
+                        items: [
+                          {
+                            degree: "Computer Science",
+                            institution: "Tech University",
+                            startDate: "2015-01-01",
+                            endDate: "2019-01-01",
+                            description: "Specialized in software engineering",
+                          },
+                        ],
+                      },
+                      testimonials: {
+                        title: "Testimonials",
+                        items: [
+                          {
+                            name: "Jane Smith",
+                            position: "CTO",
+                            company: "Tech Company",
+                            testimonial:
+                              "Excellent developer, delivered projects on time",
+                          },
+                        ],
+                      },
+                      contact: {
+                        title: "Contact",
+                        email: "",
+                        phone: "",
+                      },
                     },
-                    testimonials: portfolioData.content?.testimonials || {
-                      title: "Testimonials",
-                      items: [],
+                  },
+                  "Design Lab": {
+                    requiredSections: [
+                      "header",
+                      "about",
+                      "portfolio",
+                      "process",
+                      "skills",
+                      "clients",
+                      "contact",
+                    ],
+                    defaultContent: {
+                      header: {
+                        title: portfolioData.title || "My Design Portfolio",
+                        subtitle: "UX/UI Designer",
+                      },
+                      about: {
+                        title: "About Me",
+                        bio: "Creative designer with expertise in user interface and experience design.",
+                        variant: "with-image",
+                      },
+                      portfolio: {
+                        title: "Portfolio",
+                        items: [
+                          {
+                            title: "Sample Design",
+                            description: "Description of your design work",
+                            imageUrl: "",
+                            category: "UI Design",
+                          },
+                        ],
+                      },
+                      process: {
+                        title: "My Process",
+                        steps: [
+                          {
+                            title: "Research",
+                            description: "Understanding user needs",
+                          },
+                          {
+                            title: "Ideation",
+                            description: "Brainstorming solutions",
+                          },
+                          {
+                            title: "Design",
+                            description: "Creating visual solutions",
+                          },
+                          {
+                            title: "Testing",
+                            description: "Validating with users",
+                          },
+                        ],
+                      },
+                      skills: {
+                        title: "Skills",
+                        categories: [
+                          {
+                            name: "Design",
+                            skills: [
+                              { name: "UI/UX Design", proficiency: 90 },
+                              { name: "Figma", proficiency: 85 },
+                            ],
+                          },
+                        ],
+                      },
+                      clients: {
+                        title: "Clients",
+                        items: [
+                          {
+                            name: "Sample Client",
+                            logo: "",
+                            testimonial: "Great design work!",
+                          },
+                        ],
+                      },
+                      contact: {
+                        title: "Contact",
+                        email: "",
+                        phone: "",
+                      },
                     },
-                  }
-                : {}),
+                  },
+                };
+
+                // Determine which template is being used
+                const currentTemplateName = templateName || "";
+                const isSpecialTemplate =
+                  Object.keys(specialTemplates).includes(currentTemplateName);
+
+                if (isSpecialTemplate) {
+                  const template = specialTemplates[currentTemplateName];
+                  const result = {};
+
+                  // Add all required sections with default content if not provided
+                  template.requiredSections.forEach((section) => {
+                    result[section] =
+                      portfolioData.content?.[section] ||
+                      template.defaultContent[section];
+                  });
+
+                  return result;
+                } else if (isCreativeStudio) {
+                  // Fallback to Creative Studio template if the templateName doesn't match
+                  return specialTemplates["Creative Studio"].defaultContent;
+                }
+
+                return {};
+              })(),
             },
-            // Add missing sections to section order if needed
-            sectionOrder: isCreativeStudio
-              ? Array.from(
+            // Add missing sections to section order based on template
+            sectionOrder: (() => {
+              // Use the currentTemplateName to get required sections from special templates map
+              const templateName = templateName || "";
+              const specialTemplate = Object.keys(specialTemplates).includes(
+                templateName
+              )
+                ? specialTemplates[templateName]
+                : isCreativeStudio
+                  ? specialTemplates["Creative Studio"]
+                  : null;
+
+              // If we have special template handling, use its required sections
+              if (specialTemplate) {
+                return Array.from(
                   new Set([
                     ...(portfolioData.sectionOrder || []),
-                    "header",
-                    "about",
-                    "work",
-                    "clients",
-                    "testimonials",
+                    ...specialTemplate.requiredSections,
                   ])
-                )
-              : portfolioData.sectionOrder || [],
+                );
+              }
+
+              // Otherwise, return the original section order or empty array
+              return portfolioData.sectionOrder || [];
+            })(),
           };
 
           // Add a warning for production, but still provide fallback
@@ -1251,9 +1622,6 @@ const api = {
               `[PRODUCTION FALLBACK] Created fallback portfolio for template: ${templateName}. This should be fixed in backend.`
             );
           } else {
-            console.log(
-              `[DEV MODE] Created mock portfolio for template: ${templateName}, category: ${templateCategory}`
-            );
           }
 
           return { success: true, portfolio: mockPortfolio };
@@ -1285,16 +1653,6 @@ const api = {
         if (token) {
           headers["Authorization"] = `Bearer ${token}`;
         }
-
-        console.log(
-          `Publishing portfolio: ${isUpdate ? "UPDATE" : "CREATE"} to ${endpoint}`,
-          {
-            hasToken: !!token,
-            portfolioId: portfolioData._id || "none",
-            templateId: portfolioData.templateId || "none",
-            contentSize: JSON.stringify(portfolioData).length,
-          }
-        );
 
         const response = await fetch(endpoint, {
           method,
@@ -1410,10 +1768,6 @@ const api = {
   // Image upload functionality
   uploadImage: async (file: File, type: string = "portfolio") => {
     try {
-      console.log(
-        `Uploading image of type: ${type}, filename: ${file.name}, size: ${(file.size / 1024).toFixed(2)}KB`
-      );
-
       const formData = new FormData();
       formData.append("image", file);
       // Add imageType to the formData instead of query parameter
@@ -1505,8 +1859,6 @@ const api = {
             mockUrl = `https://picsum.photos/seed/${mockImageId}/400/400`;
         }
 
-        console.log(`Using mock image URL for ${mockType}: ${mockUrl}`);
-
         return {
           success: true,
           message: "Image uploaded successfully (development mode)",
@@ -1531,7 +1883,6 @@ export async function fetchTemplates(category?: string) {
   }
 
   try {
-    console.log(`Server fetching templates from ${url.toString()}`);
     const response = await fetch(url.toString(), {
       cache: "no-store",
       headers: {
@@ -1553,9 +1904,6 @@ export async function fetchTemplates(category?: string) {
 
 export async function fetchTemplateById(id: string) {
   try {
-    console.log(
-      `Server fetching template ${id} from ${API_BASE_URL}/templates/${id}`
-    );
     const response = await fetch(`${API_BASE_URL}/templates/${id}`, {
       cache: "no-store",
       headers: {

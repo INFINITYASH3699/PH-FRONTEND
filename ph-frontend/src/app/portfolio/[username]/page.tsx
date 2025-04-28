@@ -46,10 +46,6 @@ export default function PublishedPortfolioPage() {
           portfolioOrder: portfolioOrder,
         });
 
-        console.log(
-          `Fetching portfolio: username=${username}, baseUsername=${baseUsername}, portfolioOrder=${portfolioOrder || 0}`
-        );
-
         // Call the API to get portfolio by subdomain
         // If portfolioOrder is defined, pass it as a query parameter
         let endpoint = `/portfolios/subdomain/${baseUsername}`;
@@ -58,24 +54,15 @@ export default function PublishedPortfolioPage() {
         }
 
         const response = await apiClient.request(endpoint);
-        console.log(`API Response:`, response);
 
         if (response.success && response.portfolio) {
           // Make sure portfolio has some basic structure
           const processedPortfolio = {
             ...response.portfolio,
-            content: response.portfolio.content || {}
+            content: response.portfolio.content || {},
           };
 
           setPortfolio(processedPortfolio);
-          console.log(`Portfolio found:`, {
-            id: processedPortfolio._id,
-            title: processedPortfolio.title,
-            templateId: processedPortfolio.templateId?._id,
-            isPublished: processedPortfolio.isPublished,
-            order: processedPortfolio.portfolioOrder,
-            content: processedPortfolio.content ? Object.keys(processedPortfolio.content) : 'No content'
-          });
 
           // Extract the template ID
           let templateId = null;
@@ -94,8 +81,6 @@ export default function PublishedPortfolioPage() {
             }
           }
 
-          console.log("Extracted templateId:", templateId);
-
           if (templateId) {
             try {
               const templateResponse = await apiClient.request(
@@ -106,28 +91,46 @@ export default function PublishedPortfolioPage() {
                 // Ensure the template has the necessary properties
                 const processedTemplate = {
                   ...templateResponse.template,
-                  defaultStructure: templateResponse.template.defaultStructure || {
+                  defaultStructure: templateResponse.template
+                    .defaultStructure || {
                     layout: {
-                      sections: ['header', 'about', 'projects', 'skills', 'experience', 'education', 'contact'],
-                      defaultColors: ['#6366f1', '#8b5cf6', '#ffffff', '#111827']
-                    }
+                      sections: [
+                        "header",
+                        "about",
+                        "projects",
+                        "skills",
+                        "experience",
+                        "education",
+                        "contact",
+                      ],
+                      defaultColors: [
+                        "#6366f1",
+                        "#8b5cf6",
+                        "#ffffff",
+                        "#111827",
+                      ],
+                    },
                   },
-                  layouts: templateResponse.template.layouts || [{
-                    id: 'default',
-                    name: 'Standard Layout',
-                    structure: {
-                      sections: ['header', 'about', 'projects', 'skills', 'experience', 'education', 'contact']
-                    }
-                  }]
+                  layouts: templateResponse.template.layouts || [
+                    {
+                      id: "default",
+                      name: "Standard Layout",
+                      structure: {
+                        sections: [
+                          "header",
+                          "about",
+                          "projects",
+                          "skills",
+                          "experience",
+                          "education",
+                          "contact",
+                        ],
+                      },
+                    },
+                  ],
                 };
 
                 setTemplate(processedTemplate);
-                console.log(`Template loaded:`, {
-                  id: processedTemplate._id,
-                  name: processedTemplate.name,
-                  sections: processedTemplate.defaultStructure?.layout?.sections || [],
-                  layouts: processedTemplate.layouts?.length || 0
-                });
               } else {
                 console.error("Template response error:", templateResponse);
               }
@@ -149,7 +152,6 @@ export default function PublishedPortfolioPage() {
         console.error("Error fetching portfolio:", error);
         // For development fallback to sample data
         if (process.env.NODE_ENV === "development") {
-          console.log("Using fallback data for development");
           notFound();
         } else {
           notFound();

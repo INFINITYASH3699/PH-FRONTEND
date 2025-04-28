@@ -191,10 +191,6 @@ export const updateUserProfile = async (
   res: Response
 ): Promise<Response> => {
   try {
-    console.log(
-      "Profile update request received:",
-      JSON.stringify(req.body, null, 2)
-    );
 
     const userId = req.user.id;
 
@@ -258,10 +254,6 @@ export const updateUserProfile = async (
     // Combine all updates
     const finalUpdate = { ...updateFields, ...profileUpdate };
 
-    console.log(
-      "Updating user with fields:",
-      Object.keys(finalUpdate).join(", ")
-    );
 
     // Directly update the document in the database using MongoDB's update operators
     const result = await User.findByIdAndUpdate(
@@ -280,11 +272,6 @@ export const updateUserProfile = async (
         message: "User not found",
       });
     }
-
-    console.log(
-      "User profile updated successfully with fields:",
-      Object.keys(finalUpdate).join(", ")
-    );
 
     return res.status(200).json({
       success: true,

@@ -360,8 +360,6 @@ export default function TemplateEditorClient({
   const handleSectionUpdate = (sectionId: string, data: any) => {
     if (!portfolio) return;
 
-    console.log(`Updating section ${sectionId} with data:`, data);
-
     setPortfolio((prev: any) => {
       // Make sure we have a content object
       const currentContent = prev.content || {};
@@ -374,11 +372,6 @@ export default function TemplateEditorClient({
           [sectionId]: data,
         },
       };
-
-      console.log(`Section ${sectionId} updated in portfolio state:`, {
-        updatedContent: updatedPortfolio.content[sectionId],
-        allContentKeys: Object.keys(updatedPortfolio.content),
-      });
 
       return updatedPortfolio;
     });
@@ -559,20 +552,6 @@ export default function TemplateEditorClient({
               await new Promise((resolve) => setTimeout(resolve, 800));
             }
 
-            // Add better logging before saving
-            console.log(
-              `Attempting to save draft portfolio with template ID: ${template._id}`,
-              {
-                templateName: template.name,
-                portfolioId: portfolioToSave._id,
-                hasContent:
-                  !!portfolioToSave.content &&
-                  Object.keys(portfolioToSave.content).length > 0,
-                hasTitle: !!portfolioToSave.title,
-                hasSubdomain: !!portfolioToSave.subdomain,
-              }
-            );
-
             const saveResponse =
               await apiClient.portfolios.saveDraft(portfolioToSave);
 
@@ -626,74 +605,430 @@ export default function TemplateEditorClient({
         await new Promise((resolve) => setTimeout(resolve, 800));
       }
 
-      // Add better logging before saving
-      console.log(
-        `Attempting to save draft portfolio with template ID: ${template._id}`,
-        {
-          templateName: template.name,
-          templateCategory: template.category || "unknown",
-          portfolioId: portfolioToSave._id,
-          hasContent:
-            !!portfolioToSave.content &&
-            Object.keys(portfolioToSave.content).length > 0,
-          contentSections: portfolioToSave.content
-            ? Object.keys(portfolioToSave.content)
-            : [],
-          hasTitle: !!portfolioToSave.title,
-          hasSubdomain: !!portfolioToSave.subdomain,
-          sectionOrder: portfolioToSave.sectionOrder,
-        }
-      );
+      // Add enhanced template handling for specific templates
+      const templateName = template.name || "";
 
-      // Add special handling for Creative Studio template
-      if (template.name === "Creative Studio") {
-        // Ensure the portfolio has all required fields for this template
+      // Map of templates with special requirements and their required sections
+      const specialTemplates = {
+        "Modern Developer": {
+          requiredSections: [
+            "header",
+            "about",
+            "projects",
+            "skills",
+            "experience",
+            "education",
+            "contact",
+          ],
+          defaultContent: {
+            header: {
+              title: portfolioToSave.title || "My Portfolio",
+              subtitle: portfolioToSave.subtitle || "Software Developer",
+            },
+            about: {
+              title: "About Me",
+              bio: "Professional developer with experience in building web applications.",
+              variant: "with-highlights",
+              highlights: [
+                {
+                  title: "My Expertise",
+                  description:
+                    "Full-stack development with modern technologies.",
+                },
+                {
+                  title: "Experience",
+                  description: "Several years of industry experience.",
+                },
+                {
+                  title: "Education",
+                  description: "Computer Science background.",
+                },
+              ],
+            },
+            projects: {
+              title: "Projects",
+              items: [
+                {
+                  title: "Sample Project",
+                  description: "Description of your project",
+                  tags: ["React", "Node.js"],
+                },
+              ],
+            },
+            skills: {
+              title: "Skills",
+              categories: [
+                {
+                  name: "Frontend",
+                  skills: [
+                    {
+                      name: "React",
+                      proficiency: 80,
+                    },
+                  ],
+                },
+              ],
+            },
+            experience: {
+              title: "Experience",
+              items: [
+                {
+                  title: "Software Developer",
+                  company: "Company Name",
+                  startDate: "2020-01-01",
+                  current: true,
+                  description: "Working on various web projects.",
+                },
+              ],
+            },
+            education: {
+              title: "Education",
+              items: [
+                {
+                  degree: "Computer Science",
+                  institution: "University Name",
+                  startDate: "2016-01-01",
+                  endDate: "2020-01-01",
+                  description:
+                    "Studied computer science and software engineering.",
+                },
+              ],
+            },
+            contact: {
+              title: "Contact",
+              email: "",
+              phone: "",
+            },
+          },
+        },
+        "Creative Studio": {
+          requiredSections: [
+            "header",
+            "about",
+            "work",
+            "clients",
+            "testimonials",
+            "gallery",
+            "contact",
+          ],
+          defaultContent: {
+            header: {
+              title: portfolioToSave.title || "My Portfolio",
+              subtitle: portfolioToSave.subtitle || "Creative Professional",
+            },
+            about: {
+              title: "About Me",
+              bio: "Creative professional with expertise in design and visual arts.",
+              variant: "with-image",
+            },
+            work: {
+              title: "My Work",
+              items: [
+                {
+                  title: "Sample Project",
+                  description: "Description of your creative work",
+                  imageUrl: "",
+                },
+              ],
+            },
+            clients: {
+              title: "Clients",
+              items: [
+                {
+                  name: "Sample Client",
+                  logo: "",
+                },
+              ],
+            },
+            testimonials: {
+              title: "Testimonials",
+              items: [
+                {
+                  name: "John Doe",
+                  position: "CEO",
+                  company: "Company Name",
+                  testimonial: "Sample testimonial text",
+                },
+              ],
+            },
+            gallery: {
+              title: "Gallery",
+              items: [],
+            },
+            contact: {
+              title: "Contact",
+              email: "",
+              phone: "",
+            },
+          },
+        },
+        "Photo Gallery": {
+          requiredSections: [
+            "header",
+            "about",
+            "gallery",
+            "categories",
+            "services",
+            "pricing",
+            "contact",
+          ],
+          defaultContent: {
+            header: {
+              title: portfolioToSave.title || "My Photography Portfolio",
+              subtitle:
+                portfolioToSave.subtitle || "Photographer & Visual Artist",
+            },
+            about: {
+              title: "About Me",
+              bio: "Professional photographer with a passion for capturing unique moments.",
+              variant: "with-image",
+            },
+            gallery: {
+              title: "Gallery",
+              items: [
+                {
+                  title: "Sample Photo",
+                  description: "Description of your photo",
+                  imageUrl: "",
+                  category: "Sample",
+                },
+              ],
+            },
+            categories: {
+              title: "Categories",
+              items: [
+                { name: "Portraits", description: "Portrait photography" },
+                { name: "Landscapes", description: "Landscape photography" },
+              ],
+            },
+            services: {
+              title: "Services",
+              items: [
+                {
+                  title: "Wedding Photography",
+                  description: "Complete wedding photography services",
+                  price: "Contact for pricing",
+                },
+                {
+                  title: "Portrait Sessions",
+                  description: "Professional portrait photography",
+                  price: "Contact for pricing",
+                },
+              ],
+            },
+            pricing: {
+              title: "Pricing",
+              packages: [
+                {
+                  name: "Basic",
+                  price: "$200",
+                  features: ["2 hour session", "20 digital images"],
+                },
+                {
+                  name: "Standard",
+                  price: "$400",
+                  features: ["4 hour session", "50 digital images"],
+                },
+              ],
+            },
+            contact: {
+              title: "Contact",
+              email: "",
+              phone: "",
+            },
+          },
+        },
+        "Code Craft": {
+          requiredSections: [
+            "header",
+            "about",
+            "projects",
+            "technologies",
+            "experience",
+            "education",
+            "testimonials",
+            "contact",
+          ],
+          defaultContent: {
+            header: {
+              title: portfolioToSave.title || "My Developer Portfolio",
+              subtitle: portfolioToSave.subtitle || "Software Engineer",
+            },
+            about: {
+              title: "About Me",
+              bio: "Passionate software engineer with a focus on building elegant and efficient solutions.",
+              variant: "with-highlights",
+              highlights: [
+                {
+                  title: "Specialization",
+                  description: "Full stack development",
+                },
+                {
+                  title: "Experience",
+                  description: "5+ years of professional coding",
+                },
+              ],
+            },
+            projects: {
+              title: "Projects",
+              items: [
+                {
+                  title: "Sample Project",
+                  description: "A brief description of a coding project",
+                  tags: ["React", "Node.js", "MongoDB"],
+                },
+              ],
+            },
+            technologies: {
+              title: "Technologies",
+              categories: [
+                { name: "Frontend", items: ["React", "Vue", "Angular"] },
+                { name: "Backend", items: ["Node.js", "Python", "Java"] },
+                { name: "Database", items: ["MongoDB", "PostgreSQL"] },
+              ],
+            },
+            experience: {
+              title: "Experience",
+              items: [
+                {
+                  title: "Senior Developer",
+                  company: "Tech Company",
+                  startDate: "2020-01-01",
+                  current: true,
+                  description: "Leading development of web applications",
+                },
+              ],
+            },
+            education: {
+              title: "Education",
+              items: [
+                {
+                  degree: "Computer Science",
+                  institution: "Tech University",
+                  startDate: "2015-01-01",
+                  endDate: "2019-01-01",
+                  description: "Specialized in software engineering",
+                },
+              ],
+            },
+            testimonials: {
+              title: "Testimonials",
+              items: [
+                {
+                  name: "Jane Smith",
+                  position: "CTO",
+                  company: "Tech Company",
+                  testimonial:
+                    "Excellent developer, delivered projects on time",
+                },
+              ],
+            },
+            contact: {
+              title: "Contact",
+              email: "",
+              phone: "",
+            },
+          },
+        },
+        "Design Lab": {
+          requiredSections: [
+            "header",
+            "about",
+            "portfolio",
+            "process",
+            "skills",
+            "clients",
+            "contact",
+          ],
+          defaultContent: {
+            header: {
+              title: portfolioToSave.title || "My Design Portfolio",
+              subtitle: portfolioToSave.subtitle || "UX/UI Designer",
+            },
+            about: {
+              title: "About Me",
+              bio: "Creative designer with expertise in user interface and experience design.",
+              variant: "with-image",
+            },
+            portfolio: {
+              title: "Portfolio",
+              items: [
+                {
+                  title: "Sample Design",
+                  description: "Description of your design work",
+                  imageUrl: "",
+                  category: "UI Design",
+                },
+              ],
+            },
+            process: {
+              title: "My Process",
+              steps: [
+                { title: "Research", description: "Understanding user needs" },
+                { title: "Ideation", description: "Brainstorming solutions" },
+                { title: "Design", description: "Creating visual solutions" },
+                { title: "Testing", description: "Validating with users" },
+              ],
+            },
+            skills: {
+              title: "Skills",
+              categories: [
+                {
+                  name: "Design",
+                  skills: [
+                    { name: "UI/UX Design", proficiency: 90 },
+                    { name: "Figma", proficiency: 85 },
+                  ],
+                },
+              ],
+            },
+            clients: {
+              title: "Clients",
+              items: [
+                {
+                  name: "Sample Client",
+                  logo: "",
+                  testimonial: "Great design work!",
+                },
+              ],
+            },
+            contact: {
+              title: "Contact",
+              email: "",
+              phone: "",
+            },
+          },
+        },
+      };
+
+      // Check if this is a template that needs special handling
+      const specialTemplate = specialTemplates[templateName];
+
+      if (specialTemplate) {
+        // Ensure portfolio has all required content sections
         portfolioToSave.content = {
           ...portfolioToSave.content,
-          // Add stub content for required sections to prevent server errors
-          header: portfolioToSave.content?.header || {
-            title: portfolioToSave.title || "My Portfolio",
-            subtitle: portfolioToSave.subtitle || "Creative Professional",
-          },
-          about: portfolioToSave.content?.about || {
-            title: "About Me",
-            bio: "Creative professional with expertise in design and visual arts.",
-          },
-          // Make sure required sections for Creative Studio are included
-          work: portfolioToSave.content?.work || {
-            title: "My Work",
-            items: [],
-          },
-          clients: portfolioToSave.content?.clients || {
-            title: "Clients",
-            items: [],
-          },
-          testimonials: portfolioToSave.content?.testimonials || {
-            title: "Testimonials",
-            items: [],
-          },
         };
 
+        // Ensure each required section exists with at least minimal content
+        specialTemplate.requiredSections.forEach((section) => {
+          if (!portfolioToSave.content[section]) {
+            portfolioToSave.content[section] = specialTemplate.defaultContent[
+              section
+            ] || {
+              title: section.charAt(0).toUpperCase() + section.slice(1),
+            };
+          }
+        });
+
         // Make sure all necessary sections are in the section order
-        const requiredSections = [
-          "header",
-          "about",
-          "work",
-          "clients",
-          "testimonials",
-        ];
         portfolioToSave.sectionOrder = Array.from(
           new Set([
             ...portfolioToSave.sectionOrder,
-            ...requiredSections.filter(
+            ...specialTemplate.requiredSections.filter(
               (section) => !portfolioToSave.sectionOrder.includes(section)
             ),
           ])
-        );
-
-        console.log(
-          "Applied special handling for Creative Studio template with sections:",
-          portfolioToSave.sectionOrder
         );
       }
 
@@ -900,19 +1235,6 @@ export default function TemplateEditorClient({
       if (process.env.NODE_ENV === "development") {
         await new Promise((resolve) => setTimeout(resolve, 1200));
       }
-
-      console.log(
-        "Publishing portfolio with data:",
-        JSON.stringify({
-          subdomain: portfolioToPublish.subdomain,
-          isPremiumUser: isPremiumUser,
-          username: currentUser?.username,
-          activeLayout: portfolioToPublish.activeLayout,
-          sections: portfolioToPublish.sectionOrder?.length,
-          stylePreset: portfolioToPublish.stylePreset,
-          animationsEnabled: portfolioToPublish.animationsEnabled,
-        })
-      );
 
       const response = await apiClient.portfolios.publish(portfolioToPublish);
 

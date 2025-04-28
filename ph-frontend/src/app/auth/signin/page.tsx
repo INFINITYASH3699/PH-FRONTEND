@@ -16,7 +16,6 @@ export default function SignInPage() {
 
       // Clear cookies
       document.cookie = `${TOKEN_KEY}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0`;
-      console.log("Signin page: Cleared any existing authentication data");
     } catch (error) {
       console.error("Error clearing auth data on signin page:", error);
     }

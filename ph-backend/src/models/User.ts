@@ -313,8 +313,6 @@ UserSchema.pre('save', async function(next) {
   if (this.isModified("profile") || this.isModified("profile.skills") ||
       this.isModified("profile.education") || this.isModified("profile.experience") ||
       this.isModified("profile.projects")) {
-    console.log(`User ${this._id} pre-save: Updating profile fields`,
-      Object.keys(this.profile || {}).join(', '));
   }
 
   next();
@@ -331,17 +329,13 @@ UserSchema.post('save', function(doc) {
       profile[key] !== undefined &&
       profile[key] !== null);
 
-    console.log(`User ${doc._id} saved with profile fields: ${profileFields.join(', ')}`);
-
     // Log array lengths with proper type safety
     const arrayFields = ['skills', 'education', 'experience', 'projects'];
     arrayFields.forEach(field => {
       if (profile[field] && Array.isArray(profile[field])) {
-        console.log(`Field ${field} has ${profile[field].length} items`);
       }
     });
   } else {
-    console.log(`User ${doc._id} saved without profile data`);
   }
 });
 

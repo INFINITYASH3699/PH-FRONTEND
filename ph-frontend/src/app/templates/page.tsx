@@ -16,7 +16,6 @@ async function fetchTemplates(category?: string) {
   }
 
   try {
-    console.log(`Server fetching templates from ${API_BASE_URL}${endpoint}`);
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       cache: 'no-store', // Disable caching for fresh data
       headers: {

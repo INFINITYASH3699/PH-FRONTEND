@@ -13,15 +13,12 @@ export interface IPortfolio extends Document {
   userId: mongoose.Types.ObjectId;
   templateId?: mongoose.Types.ObjectId;
   content: Record<string, any>;
-  // Store images with their Cloudinary public IDs
   headerImage?: ImageObject;
   galleryImages?: ImageObject[];
   isPublished: boolean;
   viewCount: number;
   customDomain?: string;
-  // Add portfolioOrder field for sequential numbering of multiple published portfolios
   portfolioOrder?: number;
-  // Add fields for customization options
   activeLayout?: string;
   activeColorScheme?: string;
   activeFontPairing?: string;
@@ -158,13 +155,11 @@ PortfolioSchema.index({ customDomain: 1 }, { sparse: true, unique: true });
 
 // Add a pre-save hook for debugging
 PortfolioSchema.pre('save', function(next) {
-  console.log(`Saving portfolio: ${this._id}, title: ${this.title}, template: ${this.templateId || 'none'}, user: ${this.userId}, order: ${this.portfolioOrder}`);
   next();
 });
 
 // Add a post-save hook for debugging
 PortfolioSchema.post('save', function(doc) {
-  console.log(`Portfolio saved successfully: ${doc._id}, title: ${doc.title}, order: ${doc.portfolioOrder}`);
 });
 
 const Portfolio = mongoose.model<IPortfolio>('Portfolio', PortfolioSchema);

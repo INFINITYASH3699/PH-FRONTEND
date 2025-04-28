@@ -92,8 +92,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       try {
         const isAuthed = await checkAuth();
         if (isMounted) {
-          // Only update state if component is still mounted
-          console.log("Auth initialization completed, authenticated:", isAuthed);
         }
       } catch (error) {
         console.error("Auth initialization error:", error);
@@ -126,7 +124,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         normalizedUser._id = normalizedUser.id;
         // Optionally delete the id property if not needed
         // delete normalizedUser.id;
-        console.log("AuthContext: Normalized user data - added _id from id property");
       }
 
       setUser(normalizedUser);
@@ -174,10 +171,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const normalizedUser = { ...response.user };
         if (!normalizedUser._id && normalizedUser.id) {
           normalizedUser._id = normalizedUser.id;
-          console.log("AuthContext: Normalized user data - added _id from id property");
         }
 
-        console.log("AuthContext: User set after login:", normalizedUser);
         setUser(normalizedUser);
 
         // Store user data in localStorage as a backup
@@ -214,14 +209,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const normalizedUser = { ...response.user };
         if (!normalizedUser._id && normalizedUser.id) {
           normalizedUser._id = normalizedUser.id;
-          console.log("AuthContext: Normalized user data - added _id from id property");
         }
         setUser(normalizedUser);
         // Store user data in localStorage as a backup
         if (typeof window !== 'undefined') {
           localStorage.setItem('ph_user_data', JSON.stringify(normalizedUser));
         }
-        console.log("Registration successful, user set in context");
       }
     } catch (error) {
       console.error("Registration error:", error);
@@ -231,7 +224,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   // Logout function
   const logout = (): void => {
-    console.log("AuthContext: Starting logout process");
 
     // First clear the auth data from the API client
     if (apiClient.auth && typeof apiClient.auth.logout === 'function') {
@@ -250,7 +242,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     // For a clean logout, redirect directly to the signin page with a special flag
     // that forces cookie clearing
-    console.log("AuthContext: Redirecting to signin page after logout");
     window.location.href = "/auth/signin";
   };
 
@@ -288,7 +279,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // Normalize user data - handle case where API returns 'id' instead of '_id'
       if (updatedUser && !updatedUser._id && updatedUser.id) {
         updatedUser._id = updatedUser.id;
-        console.log("AuthContext: Normalized user data - added _id from id property (updateProfile)");
       }
 
       setUser(updatedUser);

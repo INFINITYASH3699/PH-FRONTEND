@@ -16,7 +16,6 @@ export default function SignUpPage() {
 
       // Clear cookies
       document.cookie = `${TOKEN_KEY}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0`;
-      console.log("Signup page: Cleared any existing authentication data");
     } catch (error) {
       console.error("Error clearing auth data on signup page:", error);
     }

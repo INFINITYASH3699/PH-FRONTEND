@@ -139,12 +139,6 @@ export default function SidebarEditor({
   // Keep portfolioState in sync with incoming prop, but also allow local updates
   useEffect(() => {
     setPortfolioState(portfolio);
-    console.log("Portfolio updated in SidebarEditor:", {
-      hasPortfolio: !!portfolio,
-      hasContent: portfolio?.content ? Object.keys(portfolio.content).length > 0 : false,
-      contentFields: portfolio?.content ? Object.keys(portfolio.content) : [],
-      sections: sectionOrder,
-    });
   }, [portfolio, sectionOrder]);
 
   useEffect(() => {
@@ -263,13 +257,6 @@ export default function SidebarEditor({
 
   // Always get the latest content for a section from portfolioState
   const getContentForSection = (sectionId: string) => {
-    // Debug log to see what we have
-    console.log(`Getting content for section ${sectionId}:`, {
-      hasPortfolio: !!portfolioState,
-      hasContent: portfolioState?.content ? true : false,
-      contentFields: portfolioState?.content ? Object.keys(portfolioState.content) : [],
-      hasThisSection: portfolioState?.content ? sectionId in portfolioState.content : false,
-    });
 
     // Safely return content or empty object
     return (portfolioState?.content && portfolioState.content[sectionId]) || {};
@@ -785,10 +772,9 @@ export default function SidebarEditor({
         );
       case "seo": {
         const userType = portfolioState?.userType || "free";
-        const isSubdomainLocked =
-          userType === "premium"
-            ? false
-            : portfolioState?.subdomainLocked === true;
+        // Determine if the subdomain is locked based on user type
+        // Premium users should always be able to edit subdomain
+        const isSubdomainLocked = userType !== "premium";
 
         return (
           <SEOEditor
